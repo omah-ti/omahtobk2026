@@ -1,128 +1,10 @@
 services:
-    # Traefik service
-    traefik:
-        image: traefik:v2.9
-        ports:
-            - "80:80"
-            - "443:443"
-            - "8888:8888"  # Dashboard
-        volumes:
-            - /var/run/docker.sock:/var/run/docker.sock:ro
-            - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
-            - ./traefik/dynamic:/etc/traefik/dynamic:ro
-            - ./certs:/certs:ro
-            - ./traefik/logs:/var/log/traefik
-        networks:
-            - omahtryout-network
-        command:
-            - "--metrics.prometheus=true"
-            - "--metrics.prometheus.entrypoint=metrics"
-        labels:
-            - "traefik.enable=true"
-            - "traefik.http.routers.dashboard.rule=Host(`proxy.omahto.localhost`)"
-            - "traefik.http.routers.dashboard.service=api@internal"
-            - "traefik.http.routers.dashboard.entrypoints=websecure"
-            - "traefik.http.routers.dashboard.tls=true"
-        depends_on:
-            - loki
-            - prometheus
-            - grafana
-            - promtail
-            - auth-service-api
-            - soal-service-api
-            - tryout-service-api
-            - minat-bakat-service-api
-
-    # LOKI SERVICE
-    loki:
-        image: grafana/loki:2.9.0
-        ports:
-            - "3100:3100"
-        volumes:
-            - ./loki/loki-config.yaml:/etc/loki/local-config.yaml
-            - ./loki:/loki
-        command: -config.file=/etc/loki/local-config.yaml
-        networks:
-            - omahtryout-network
-        labels:
-            - "traefik.enable=true"
-            - "traefik.http.routers.loki.rule=Host(`loki.omahto.localhost`)"
-            - "traefik.http.routers.loki.entrypoints=websecure"
-            - "traefik.http.routers.loki.tls=true"
-            - "traefik.http.services.loki.loadbalancer.server.port=3100"
-
-    promtail:
-        image: grafana/promtail:2.9.0
-        volumes:
-            - /var/lib/docker/containers:/var/lib/docker/containers:ro
-            - /var/run/docker.sock:/var/run/docker.sock:ro
-            - ./promtail/config.yaml:/etc/promtail/promtail.yaml
-        command: -config.file=/etc/promtail/promtail.yaml
-        networks:
-            - omahtryout-network
-        
-    # prometheus
-    prometheus:
-        image: prom/prometheus:v2.43.0
-        ports:
-            - "9090:9090"
-        volumes:
-            - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
-            - ./prometheus:/prometheus
-        networks:
-            - omahtryout-network
-        labels:
-            - "traefik.enable=true"
-            - "traefik.http.routers.prometheus.rule=Host(`prometheus.omahto.localhost`)"
-            - "traefik.http.routers.prometheus.entrypoints=websecure"
-            - "traefik.http.routers.prometheus.tls=true"
-            - "traefik.http.services.prometheus.loadbalancer.server.port=9090"
-        command:
-            - '--config.file=/etc/prometheus/prometheus.yml'
-
-    grafana: 
-        image: grafana/grafana:10.2.2
-        environment:
-            - GF_SECURITY_ADMIN_PASSWORD=admin
-            - GF_AUTH_ANONYMOUS_ENABLED=true
-            - GF_AUTH_ANONYMOUS_ORG_ROLE=Editor
-            - GF_AUTH_ANONYMOUS_ORG_ID=1
-        labels:
-            - "traefik.enable=true"
-            - "traefik.http.routers.grafana.rule=Host(`grafana.omahto.localhost`)"
-            - "traefik.http.routers.grafana.entrypoints=websecure"
-            - "traefik.http.routers.grafana.tls=true"
-            - "traefik.http.services.grafana.loadbalancer.server.port=3000"
-        networks:
-            - omahtryout-network
-        volumes:
-            - grafana-storage:/var/lib/grafana
-    
-    # FRONTEND
-    # web:
-    #     build:
-    #         context: ./web
-    #         dockerfile: Dockerfile.prod
-    #     volumes:
-    #         - ./web:/app
-    #         - /app/node_modules
-    #         - /app/.next
-    #     environment:
-    #         - ./web/.env
-    #         - WATCHPACK_POLLING=true
-    #     networks:
-    #         - omahtryout-network
-    #     labels:
-    #         - "traefik.enable=true"
-    #         - "traefik.http.routers.web.rule=Host(`omahto.localhost`)"
-    #         - "traefik.http.routers.web.entrypoints=websecure"
-    #         - "traefik.http.routers.web.tls=true"
-    #         - "traefik.http.services.web.loadbalancer.server.port=${FRONTEND_PORT}"
-
     # auth service
     # Database for the auth service
     auth-service-db:
         image: postgres:17.2-alpine
+        ports:
+            - "5433:5432"
         env_file:
             - auth-service/.env
         volumes:
@@ -146,26 +28,65 @@ services:
             auth-service-db:
                 condition: service_healthy # Ensure DB is ready
         volumes:
-          - ./auth-service/keys:/home/appuser/keys:ro
           - ./auth-service/var/log/auth-service:/var/log/auth-service
         networks:
             - omahtryout-network
         healthcheck:
-            test: ["CMD-SHELL", "wget --spider --quiet http://localhost:8081/ping || exit 1"]
+            test: ["CMD-SHELL", "wget --quiet -O /dev/null http://localhost:8081/ping/ || exit 1"]
             interval: 10s
             timeout: 5s
             retries: 3
-        labels:
-            - "traefik.enable=true"
-            - "traefik.http.routers.auth.rule=Host(`auth.omahto.localhost`)"
-            - "traefik.http.routers.auth.entrypoints=websecure"
-            - "traefik.http.routers.auth.tls=true"
-            - "traefik.http.services.auth.loadbalancer.server.port=${AUTH_SERVICE_PORT}"
+
+    redis:
+        image: redis:7.4-alpine
+        command: ["redis-server", "--appendonly", "yes"]
+        ports:
+            - "6379:6379"
+        volumes:
+            - redis-data:/data
+        networks:
+            - omahtryout-network
+        healthcheck:
+            test: ["CMD", "redis-cli", "ping"]
+            interval: 5s
+            timeout: 3s
+            retries: 10
+
+    api-gateway:
+        build: ./api-gateway
+        depends_on:
+            auth-service-api:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
+            soal-service-api:
+                condition: service_started
+            tryout-service-api:
+                condition: service_started
+            minat-bakat-service-api:
+                condition: service_started
+        environment:
+            PORT: ${API_GATEWAY_PORT}
+            AUTH_SERVICE_URL: http://auth-service-api:8081
+            SOAL_SERVICE_URL: http://soal-service-api:8082
+            TRYOUT_SERVICE_URL: http://tryout-service-api:8083
+            MINAT_BAKAT_SERVICE_URL: http://minat-bakat-service-api:8084
+            CORS_URL: http://localhost:3000,http://127.0.0.1:3000
+            REDIS_HOST: redis
+            REDIS_PORT: 6379
+            REDIS_DB: 0
+            REDIS_POOL_SIZE: 10
+        ports:
+            - "${API_GATEWAY_PORT}:${API_GATEWAY_PORT}"
+        networks:
+            - omahtryout-network
 
     # Soal service
     # Database for the soal service
     soal-service-db:
         image: postgres:17.2-alpine
+        ports:
+            - "5434:5432"
         env_file:
             - soal-service/.env
         volumes:
@@ -194,17 +115,13 @@ services:
             - omahtryout-network
         volumes:
           - ./soal-service/var/log/soal-service:/var/log/soal-service
-        labels:
-            - "traefik.enable=true"
-            - "traefik.http.routers.soal.rule=Host(`soal.omahto.localhost`)"
-            - "traefik.http.routers.soal.entrypoints=websecure"
-            - "traefik.http.routers.soal.tls=true"
-            - "traefik.http.services.soal.loadbalancer.server.port=${SOAL_SERVICE_PORT}"
 
     # Tryout service
     # Database for the tryout service
     tryout-service-db:
         image: postgres:17.2-alpine
+        ports:
+            - "5435:5432"
         env_file:
             - tryout-service/.env
         volumes:
@@ -233,16 +150,12 @@ services:
             - omahtryout-network
         volumes:
           - ./tryout-service/var/log/tryout-service:/var/log/tryout-service
-        labels:
-            - "traefik.enable=true"
-            - "traefik.http.routers.tryout.rule=Host(`tryout.omahto.localhost`)"
-            - "traefik.http.routers.tryout.entrypoints=websecure"
-            - "traefik.http.routers.tryout.tls=true"
-            - "traefik.http.services.tryout.loadbalancer.server.port=${TRYOUT_SERVICE_PORT}"
 
     # Minat bakat service
     minat-bakat-service-db:
         image: postgres:17.2-alpine
+        ports:
+            - "5436:5432"
         env_file:
             - minat-bakat-service/.env
         volumes:
@@ -275,12 +188,6 @@ services:
             - omahtryout-network
         volumes:
           - ./minat-bakat-service/var/log/minat-bakat-service:/var/log/minat-bakat-service
-        labels:
-            - "traefik.enable=true"
-            - "traefik.http.routers.mb.rule=Host(`mb.omahto.localhost`)"
-            - "traefik.http.routers.mb.entrypoints=websecure"
-            - "traefik.http.routers.mb.tls=true"
-            - "traefik.http.services.mb.loadbalancer.server.port=${MINAT_BAKAT_SERVICE_PORT}"
 
 networks:
     omahtryout-network:
@@ -292,6 +199,4 @@ volumes:
     soal-data:
     tryout-data:
     minat-bakat-data:
-    grafana-storage:
-    loki-data:
-    prometheus-data:
+    redis-data:

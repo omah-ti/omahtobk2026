@@ -56,7 +56,6 @@ func (h *PageHandler) GetPembahasanPageHandler(c *gin.Context) {
 		logger.LogErrorCtx(c, err, "Failed to get pembahasan page", map[string]interface{}{
 			"user_id": userID,
 			"paket":   paket,
-			"token":   accessToken,
 		})
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to get pembahasan page", "error": err.Error()})
 		return

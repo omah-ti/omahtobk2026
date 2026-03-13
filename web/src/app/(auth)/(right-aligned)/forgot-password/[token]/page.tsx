@@ -42,7 +42,7 @@ const ResetPasswordPage = () => {
     try {
       setPending(true)
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_AUTH_URL}/user/reset-password`,
+        `${process.env.NEXT_PUBLIC_API_GATEWAY_URL}/api/auth/reset-password`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

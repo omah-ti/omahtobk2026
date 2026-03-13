@@ -22,7 +22,7 @@ const LogOutDialog = ({ children }: { children: React.ReactNode }) => {
   const handleLogout = async () => {
     const toastId = toast.loading('Memproses logout...')
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_AUTH_URL}/auth/logout`, {
+  		const res = await fetch(`${process.env.NEXT_PUBLIC_API_GATEWAY_URL}/api/auth/logout`, {
         method: 'POST',
         credentials: 'include', // Ensure cookies are sent
       })

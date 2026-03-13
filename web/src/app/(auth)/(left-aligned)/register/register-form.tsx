@@ -64,7 +64,7 @@ const RegisterForm = () => {
     try {
       setLoading(true)
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_AUTH_URL}/user/register`,
+        `${process.env.NEXT_PUBLIC_API_GATEWAY_URL}/api/auth/register`,
         {
           method: 'POST',
           headers: {

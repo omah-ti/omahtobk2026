@@ -128,6 +128,17 @@ func TestResetPassword_Error(t *testing.T) {
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
+func TestResetPassword_InvalidOrExpiredToken(t *testing.T) {
+	repo, mock, c := setupMock(t)
+	mock.ExpectExec(`UPDATE users SET password`).
+		WithArgs("p", "t").
+		WillReturnResult(sqlmock.NewResult(0, 0))
+
+	err := repo.ResetPassword(c, "p", "t")
+	require.ErrorIs(t, err, repositories.ErrInvalidOrExpiredResetToken)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
 func TestRequestingPasswordReset_Success(t *testing.T) {
 	repo, mock, c := setupMock(t)
 	email, token := "a@b", "tkn"

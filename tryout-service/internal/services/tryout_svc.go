@@ -11,10 +11,10 @@ import (
 )
 
 type TryoutService interface {
-	StartAttempt(c context.Context, userID int, username, paket, accessToken string) (attempt *models.TryoutAttempt, retErr error)
+	StartAttempt(c context.Context, userID int, username, paket string) (attempt *models.TryoutAttempt, retErr error)
 	SyncWithDatabase(c context.Context, answers []models.AnswerPayload, attemptID int) (answersInDB []models.UserAnswer, timeLimit time.Time, err error)
-	SubmitCurrentSubtest(c context.Context, answers []models.AnswerPayload, attemptID, userID int, tryoutToken string) (updatedSubtest string, retErr error)
-	GetCurrentAttempt(c context.Context, attemptID int) (*models.TryoutAttempt, error)
+	SubmitCurrentSubtest(c context.Context, answers []models.AnswerPayload, attemptID, userID int, accessToken string) (updatedSubtest string, retErr error)
+	GetCurrentAttemptByUserID(c context.Context, userID int) (*models.TryoutAttempt, error)
 }
 
 type tryoutService struct {
@@ -26,7 +26,7 @@ func NewTryoutService(tryoutRepo repositories.TryoutRepo, scoreService ScoreServ
 	return &tryoutService{tryoutRepo: tryoutRepo, scoreService: scoreService}
 }
 
-func (s *tryoutService) StartAttempt(c context.Context, userID int, username, paket, accessToken string) (attempt *models.TryoutAttempt, retErr error) {
+func (s *tryoutService) StartAttempt(c context.Context, userID int, username, paket string) (attempt *models.TryoutAttempt, retErr error) {
 	// sstart a transaction to the db
 	startTime := time.Now()
 	tx, err := s.tryoutRepo.BeginTransaction(c)
@@ -229,7 +229,7 @@ func (s *tryoutService) SyncWithDatabase(c context.Context, answers []models.Ans
 	return answersInDB, timeLimit, nil
 }
 
-func (s *tryoutService) SubmitCurrentSubtest(c context.Context, answers []models.AnswerPayload, attemptID, userID int, tryoutToken string) (updatedSubtest string, retErr error) {
+func (s *tryoutService) SubmitCurrentSubtest(c context.Context, answers []models.AnswerPayload, attemptID, userID int, accessToken string) (updatedSubtest string, retErr error) {
 	// begin a transaction
 	var committed bool
 	tx, err := s.tryoutRepo.BeginTransaction(c)
@@ -354,7 +354,7 @@ func (s *tryoutService) SubmitCurrentSubtest(c context.Context, answers []models
 			return "", retErr
 		}
 		// score the tryout
-		err = s.scoreService.CalculateAndStoreScores(c, tx, attemptID, userID, tryoutToken)
+		err = s.scoreService.CalculateAndStoreScores(c, tx, attemptID, userID, accessToken)
 		if err != nil {
 			logger.LogErrorCtx(c, err, "Failed to calculate and store scores", map[string]interface{}{
 				"attemptID": attemptID,
@@ -404,6 +404,6 @@ func (s *tryoutService) SubmitCurrentSubtest(c context.Context, answers []models
 	return updatedSubtest, nil
 }
 
-func (s *tryoutService) GetCurrentAttempt(c context.Context, attemptID int) (*models.TryoutAttempt, error) {
-	return s.tryoutRepo.GetTryoutAttempt(c, attemptID)
+func (s *tryoutService) GetCurrentAttemptByUserID(c context.Context, userID int) (*models.TryoutAttempt, error) {
+	return s.tryoutRepo.GetOngoingAttemptByUserID(c, userID)
 }

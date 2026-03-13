@@ -45,7 +45,7 @@ const LoginForm = () => {
     setLoading(true)
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_AUTH_URL}/user/login`,
+        `${process.env.NEXT_PUBLIC_API_GATEWAY_URL}/api/auth/login`,
         {
           method: 'POST',
           headers: {

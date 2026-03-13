@@ -13,19 +13,18 @@ import { SUBTESTS } from '@/lib/helpers/subtests'
 import { toast } from 'sonner'
 
 const IntroPage = async () => {
-  const tryoutToken = (await cookies()).get('tryout_token')?.value as string
-  console.log('token: ', tryoutToken)
-  const res = await fetch(`${process.env.TRYOUT_URL}/sync/current`, {
+  const accessToken = (await cookies()).get('access_token')?.value as string
+  const res = await fetch(`${process.env.API_GATEWAY_URL}/api/tryout/sync/current`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
-      Cookie: `tryout_token=${tryoutToken}`,
+      Cookie: `access_token=${accessToken}`,
     },
   })
 
   let timeLimit
   try {
-    const syncData = await syncTryout([], tryoutToken)
+    const syncData = await syncTryout([], accessToken)
     timeLimit = syncData.data.time_limit
   } catch (error) {
     console.error('Error:', error)

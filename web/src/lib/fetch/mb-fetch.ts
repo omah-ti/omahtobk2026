@@ -12,12 +12,16 @@ export const getSoalUrl = (isPublic?: boolean) => {
 export const getMbSoal = async (accessToken?: string, isPublic?: boolean) => {
     try {
         const soalUrl = getSoalUrl(isPublic);
-        const res = await fetch(`${soalUrl}/soal/minat-bakat`, {
+                const headers: Record<string, string> = {
+                    "Content-Type": "application/json",
+                }
+                if (accessToken) {
+                    headers.Cookie = `access_token=${accessToken}`
+                }
+
+                const res = await fetch(`${soalUrl}/minat-bakat`, {
             method: "GET",
-            headers: {
-            "Content-Type": "application/json",
-            "Cookie": `access_token=${accessToken}`
-            },
+                        headers,
             cache: "force-cache",
             next: {revalidate: 3600},
             credentials: "include",
@@ -36,12 +40,16 @@ export const getMbSoal = async (accessToken?: string, isPublic?: boolean) => {
 export const submitMbAnswers = async (answers: any, isPublic?: boolean, accessToken?: string) => {
     try {
         const mbUrl = getMbUrl(isPublic);
-        const res = await fetch(`${mbUrl}/minat-bakat/process`, {
+                const headers: Record<string, string> = {
+                    "Content-Type": "application/json",
+                }
+                if (accessToken) {
+                    headers.Cookie = `access_token=${accessToken}`
+                }
+
+                const res = await fetch(`${mbUrl}/process`, {
             method: "POST",
-            headers: {
-            "Content-Type": "application/json",
-            "Cookie": `access_token=${accessToken}`
-            },
+                        headers,
             credentials: "include",
             body: JSON.stringify(answers),
         });
@@ -59,12 +67,16 @@ export const submitMbAnswers = async (answers: any, isPublic?: boolean, accessTo
 export const getMbAttempt = async (accessToken?: string, isPublic?: boolean) => {
     try {
         const mbUrl = getMbUrl(isPublic);
-        const res = await fetch(`${mbUrl}/minat-bakat/attempt`, {
+                const headers: Record<string, string> = {
+                    "Content-Type": "application/json",
+                }
+                if (accessToken) {
+                    headers.Cookie = `access_token=${accessToken}`
+                }
+
+                const res = await fetch(`${mbUrl}/attempt`, {
             method: "GET",
-            headers: {
-            "Content-Type": "application/json",
-            "Cookie": `access_token=${accessToken}`
-            },
+                        headers,
             credentials: "include",
             cache: "force-cache",
             next: {revalidate: 3600}

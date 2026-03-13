@@ -22,6 +22,8 @@ type AuthService interface {
 	ResetPassword(c context.Context, resetToken, newPassword string) error
 }
 
+var ErrInvalidOrExpiredResetToken = repositories.ErrInvalidOrExpiredResetToken
+
 type authService struct {
 	authRepo     repositories.AuthRepo
 	tokenService RefreshTokenService
@@ -121,7 +123,7 @@ func (s *authService) RequestPasswordReset(c context.Context, email string) erro
 	// call the repo and store the reset token in the database
 	g.Go(func() error {
 		if err := s.authRepo.RequestingPasswordReset(c, email, resetToken, resetTokenExpiredAt); err != nil {
-			logger.LogErrorCtx(c, err, "Failed to request password reset", map[string]interface{}{"email": email, "reset_token": resetToken})
+			logger.LogErrorCtx(c, err, "Failed to request password reset", map[string]interface{}{"email": email})
 			return errors.New("failed to request password reset")
 		}
 		return nil
@@ -146,14 +148,19 @@ func (s *authService) RequestPasswordReset(c context.Context, email string) erro
 func (s *authService) ResetPassword(c context.Context, resetToken, newPassword string) error {
 	newHashedPassword, err := hash.HashPassword(newPassword)
 	if err != nil {
-		logger.LogErrorCtx(c, err, "Failed to hash password", map[string]interface{}{"reset_token": resetToken})
+		logger.LogErrorCtx(c, err, "Failed to hash password")
 		return errors.New("failed to hash password")
 	}
 
 	// call the repo and reset the password using the reset token and the new password
 	err = s.authRepo.ResetPassword(c, newHashedPassword, resetToken)
 	if err != nil {
-		logger.LogErrorCtx(c, err, "Failed to reset password", map[string]interface{}{"reset_token": resetToken})
+		if errors.Is(err, repositories.ErrInvalidOrExpiredResetToken) {
+			logger.LogDebugCtx(c, "Reset password rejected because token is invalid or expired")
+			return ErrInvalidOrExpiredResetToken
+		}
+
+		logger.LogErrorCtx(c, err, "Failed to reset password")
 		return errors.New("failed to reset password")
 	}
 

@@ -40,7 +40,7 @@ const ForgotPasswordForm = () => {
     try {
       setPending(true)
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_AUTH_URL}/user/request-password-reset`,
+        `${process.env.NEXT_PUBLIC_API_GATEWAY_URL}/api/auth/request-password-reset`,
         {
           method: 'POST',
           headers: {

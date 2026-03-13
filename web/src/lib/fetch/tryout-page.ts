@@ -5,7 +5,7 @@ export const getSubtestsScore = async (
   accessToken: string
 ): Promise<SubtestsScoreResponse> => {
   try {
-    const res = await fetch(`${TRYOUT_URL}/tryout/subtests-score`, {
+    const res = await fetch(`${TRYOUT_URL}/subtests-score`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -29,7 +29,7 @@ export const getLeaderboard = async (
   accessToken: string
 ): Promise<LeaderboardResponse> => {
   try {
-    const res = await fetch(`${TRYOUT_URL}/tryout/leaderboard`, {
+    const res = await fetch(`${TRYOUT_URL}/leaderboard`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -51,7 +51,7 @@ export const getLeaderboard = async (
 
 export const getOngoingAttempt = async (accessToken: string) => {
   try {
-    const res = await fetch(`${TRYOUT_URL}/tryout/ongoing-attempts`, {
+    const res = await fetch(`${TRYOUT_URL}/ongoing-attempts`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -75,7 +75,7 @@ export const getOngoingAttempt = async (accessToken: string) => {
 
 export const getFinishedAttempt = async (accessToken: string) => {
   try {
-    const res = await fetch(`${TRYOUT_URL}/tryout/finished-attempt`, {
+    const res = await fetch(`${TRYOUT_URL}/finished-attempt`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -100,7 +100,7 @@ export const getFinishedAttempt = async (accessToken: string) => {
 
 export const getPembahasanPaket1 = async (accessToken: string) => {
   try {
-    const res = await fetch(`${TRYOUT_URL}/tryout/pembahasan?paket=paket1`, {
+    const res = await fetch(`${TRYOUT_URL}/pembahasan?paket=paket1`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',

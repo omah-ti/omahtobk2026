@@ -67,13 +67,27 @@ func FromContext(ctx context.Context) *zerolog.Logger {
 	return &Log
 }
 
+func requestIDFromContext(ctx context.Context) string {
+	if ginCtx, ok := ctx.(*gin.Context); ok {
+		if requestID := ginCtx.GetString("request_id"); requestID != "" {
+			return requestID
+		}
+	}
+
+	if requestID, ok := ctx.Value("request_id").(string); ok && requestID != "" {
+		return requestID
+	}
+
+	return "unknown"
+}
+
 // LogDebugCtx logs debug messages with context and optional fields
 func LogDebugCtx(ctx context.Context, message string, fields ...map[string]interface{}) {
 	pc, file, line, _ := runtime.Caller(1)
 	funcName := runtime.FuncForPC(pc).Name()
 
 	log := FromContext(ctx).Debug().
-		Str("request_id", ctx.Value("request_id").(string)).
+		Str("request_id", requestIDFromContext(ctx)).
 		Str("function", funcName).
 		Str("file", filepath.Base(file)).
 		Int("line", line).
@@ -93,7 +107,7 @@ func LogErrorCtx(ctx context.Context, err error, message string, fields ...map[s
 	funcName := runtime.FuncForPC(pc).Name()
 
 	log := FromContext(ctx).Error().
-		Str("request_id", ctx.Value("request_id").(string)).
+		Str("request_id", requestIDFromContext(ctx)).
 		Str("function", funcName).
 		Str("file", filepath.Base(file)).
 		Int("line", line).

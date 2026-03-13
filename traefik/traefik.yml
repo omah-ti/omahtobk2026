@@ -20,7 +20,7 @@ providers:
 
 api:
   dashboard: true
-  insecure: true
+  insecure: false
 
 # Logs Configuration (Static)
 log:

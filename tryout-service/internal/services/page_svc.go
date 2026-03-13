@@ -97,7 +97,7 @@ func (s *pageService) GetPembahasanPage(c context.Context, userID int, paket, ac
 			}
 
 			// Get answer keys from soal service
-			answerKeys, err := s.scoreService.GetAnswerKeyBasedOnSubtestFromSoalService(c, subtest, accessToken, "access")
+			answerKeys, err := s.scoreService.GetAnswerKeyBasedOnSubtestFromSoalService(c, subtest, accessToken)
 			if err != nil {
 				logger.LogErrorCtx(c, err, "Failed to get answer keys from soal service", map[string]interface{}{"subtest": subtest})
 				return err

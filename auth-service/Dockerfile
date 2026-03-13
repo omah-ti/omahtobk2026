@@ -1,45 +1,30 @@
-# STAGE 1: build stage using golang image to compile the service
+# syntax=docker/dockerfile:1.7
+
 FROM golang:1.24.4-alpine3.21 AS builder
 
-# install git to download go dependencies
-RUN apk add --no-cache git
+ENV CGO_ENABLED=0 \
+    GOOS=linux \
+    GOARCH=amd64 \
+    GOPROXY=https://proxy.golang.org,direct \
+    GONOSUMDB=*
 
-#make a directory in the container to store all our application and navigate into it
-WORKDIR /app/
+WORKDIR /app
 
-
-# copy go.mod and go.sum files to the WORKDIR in the container
 COPY go.mod go.sum ./
+RUN --mount=type=cache,id=gomodcache,target=/go/pkg/mod,sharing=locked \
+    go mod download
 
-# download all dependencies
-RUN go mod download
-
-# copy all files from THIS directory to the WORKDIR in the container
 COPY . .
+RUN --mount=type=cache,id=gomodcache,target=/go/pkg/mod,sharing=locked \
+    --mount=type=cache,id=gobuildcache,target=/root/.cache/go-build,sharing=locked \
+    go build -trimpath -ldflags='-s -w' -o /out/auth-service ./cmd/api/main.go
 
-# compile the service
-RUN go build -o auth-service ./cmd/api/main.go
-
-# STAGE 2: Run stage using Alpine, but as a non-root user
 FROM alpine:3.21
 
-# add certificates 
-RUN apk --no-cache add ca-certificates
+RUN apk add --no-cache ca-certificates wget
 
-# Create a non-root user and group
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+COPY --from=builder /out/auth-service /usr/local/bin/auth-service
 
-# Set the current working directory in the container
-WORKDIR /home/appuser/
+USER nobody
 
-# Copy binary before switching users (avoids permission issues)
-COPY --from=builder /app/auth-service /usr/local/bin/auth-service
-
-# Ensure binary is executable
-RUN chmod +x /usr/local/bin/auth-service
-
-# Switch to the non-root user
-USER appuser
-
-# Run the compiled binary
-CMD ["auth-service"]
+ENTRYPOINT ["auth-service"]

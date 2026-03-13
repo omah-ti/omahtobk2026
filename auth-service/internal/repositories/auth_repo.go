@@ -3,12 +3,15 @@ package repositories
 import (
 	"auth-service/internal/logger"
 	"auth-service/internal/models"
+	"errors"
 	"time"
 
 	"context"
 
 	"github.com/jmoiron/sqlx"
 )
+
+var ErrInvalidOrExpiredResetToken = errors.New("invalid or expired reset token")
 
 // Must implement all methods in the interface
 type AuthRepo interface {
@@ -73,11 +76,22 @@ func (r *authRepo) GetUserByID(c context.Context, userID int) (*models.User, err
 
 func (r *authRepo) ResetPassword(c context.Context, newPassword, resetToken string) error {
 	query := "UPDATE users SET password = $1, reset_token = NULL, reset_token_expired_at = NULL WHERE reset_token = $2 AND reset_token_expired_at > CURRENT_TIMESTAMP"
-	_, err := r.db.Exec(query, newPassword, resetToken)
+	result, err := r.db.Exec(query, newPassword, resetToken)
 	if err != nil {
-		logger.LogErrorCtx(c, err, "Failed to reset password", map[string]interface{}{"reset_token": resetToken})
+		logger.LogErrorCtx(c, err, "Failed to reset password")
 		return err
 	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		logger.LogErrorCtx(c, err, "Failed to resolve reset password result")
+		return err
+	}
+	if rowsAffected == 0 {
+		logger.LogDebugCtx(c, "Reset password rejected because token is invalid or expired")
+		return ErrInvalidOrExpiredResetToken
+	}
+
 	logger.LogDebugCtx(c, "Password reset")
 	return nil
 }
@@ -86,9 +100,9 @@ func (r *authRepo) RequestingPasswordReset(c context.Context, email, resetToken 
 	query := "UPDATE users SET reset_token = $1, reset_token_expired_at = $2 WHERE email = $3"
 	_, err := r.db.Exec(query, resetToken, resetTokenExpiredAt, email)
 	if err != nil {
-		logger.LogErrorCtx(c, err, "Failed to request password reset", map[string]interface{}{"email": email, "reset_token": resetToken})
+		logger.LogErrorCtx(c, err, "Failed to request password reset", map[string]interface{}{"email": email})
 		return err
 	}
-	logger.LogDebugCtx(c, "Password reset requested", map[string]interface{}{"email": email, "reset_token": resetToken})
+	logger.LogDebugCtx(c, "Password reset requested", map[string]interface{}{"email": email})
 	return nil
 }

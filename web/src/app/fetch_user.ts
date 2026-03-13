@@ -66,7 +66,7 @@ export async function fetchUser(): Promise<User> {
 }
 
 export const fetchUserClient = async (accessToken?: string) => {
-  const res = await fetch(`${process.env.AUTH_URL}/auth/validateprofile`, {
+  const res = await fetch(`${process.env.API_GATEWAY_URL}/api/me`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',

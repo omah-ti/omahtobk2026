@@ -1,0 +1,156 @@
+package middleware
+
+import (
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"time"
+
+	"github.com/gofiber/fiber/v2"
+)
+
+type AuthenticatedUser struct {
+	Message     string `json:"message"`
+	UserID      int    `json:"user_id"`
+	Email       string `json:"email"`
+	Username    string `json:"username"`
+	AsalSekolah string `json:"asal_sekolah"`
+}
+
+func SessionAuthMiddleware(authServiceURL string) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		accessToken := c.Cookies("access_token")
+		refreshToken := c.Cookies("refresh_token")
+
+		if accessToken == "" && refreshToken == "" {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+				"error":   "Unauthorized",
+				"message": "Authentication cookie required",
+			})
+		}
+
+		user, setCookies, err := resolveSession(authServiceURL, accessToken, refreshToken)
+		if err != nil {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+				"error":   "Unauthorized",
+				"message": err.Error(),
+			})
+		}
+
+		for _, cookie := range setCookies {
+			c.Append("Set-Cookie", cookie)
+		}
+
+		c.Locals("user_id", user.UserID)
+		c.Locals("user_email", user.Email)
+		c.Locals("user_username", user.Username)
+		c.Locals("user_asal_sekolah", user.AsalSekolah)
+
+		return c.Next()
+	}
+}
+
+func AddInternalHeaders(req *http.Request, c *fiber.Ctx) {
+	req.Header.Set("X-Gateway", "omahto-api-gateway")
+	req.Header.Set("X-Internal-Request", "true")
+
+	if requestID := c.GetRespHeader("X-Request-ID"); requestID != "" {
+		req.Header.Set("X-Request-ID", requestID)
+	}
+	if userID := c.Locals("user_id"); userID != nil {
+		req.Header.Set("X-User-ID", fmt.Sprintf("%v", userID))
+	}
+	if userEmail := c.Locals("user_email"); userEmail != nil {
+		req.Header.Set("X-User-Email", fmt.Sprintf("%v", userEmail))
+	}
+	if username := c.Locals("user_username"); username != nil {
+		req.Header.Set("X-User-Username", fmt.Sprintf("%v", username))
+	}
+	if asalSekolah := c.Locals("user_asal_sekolah"); asalSekolah != nil {
+		req.Header.Set("X-User-Asal-Sekolah", fmt.Sprintf("%v", asalSekolah))
+	}
+}
+
+func resolveSession(authServiceURL, accessToken, refreshToken string) (*AuthenticatedUser, []string, error) {
+	client := &http.Client{Timeout: 10 * time.Second}
+
+	if accessToken != "" {
+		user, err := validateAccessToken(client, authServiceURL, accessToken)
+		if err == nil {
+			return user, nil, nil
+		}
+	}
+
+	if refreshToken == "" {
+		return nil, nil, fmt.Errorf("invalid or expired session")
+	}
+
+	return refreshSession(client, authServiceURL, refreshToken)
+}
+
+func validateAccessToken(client *http.Client, authServiceURL, accessToken string) (*AuthenticatedUser, error) {
+	req, err := http.NewRequest(http.MethodGet, authServiceURL+"/auth/validateprofile", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Cookie", fmt.Sprintf("access_token=%s", accessToken))
+	req.Header.Set("X-Gateway", "omahto-api-gateway")
+	req.Header.Set("X-Internal-Request", "true")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("invalid or expired session")
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var user AuthenticatedUser
+	if err := json.Unmarshal(body, &user); err != nil {
+		return nil, err
+	}
+
+	return &user, nil
+}
+
+func refreshSession(client *http.Client, authServiceURL, refreshToken string) (*AuthenticatedUser, []string, error) {
+	req, err := http.NewRequest(http.MethodGet, authServiceURL+"/user/refresh", nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	req.Header.Set("Cookie", fmt.Sprintf("refresh_token=%s", refreshToken))
+	req.Header.Set("X-Gateway", "omahto-api-gateway")
+	req.Header.Set("X-Internal-Request", "true")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, nil, fmt.Errorf("failed to refresh session")
+	}
+
+	var user AuthenticatedUser
+	if err := json.Unmarshal(body, &user); err != nil {
+		return nil, nil, err
+	}
+
+	return &user, resp.Header.Values("Set-Cookie"), nil
+}

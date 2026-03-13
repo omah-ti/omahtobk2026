@@ -1,8 +1,13 @@
-export const TRYOUT_URL = process.env.TRYOUT_URL as string;
-export const AUTH_URL = process.env.AUTH_URL as string;
-export const MINAT_BAKAT_URL = process.env.MINAT_BAKAT_URL as string;
-export const SOAL_URL = process.env.SOAL_URL as string;
-export const PUBLIC_TRYOUT_URL = process.env.NEXT_PUBLIC_TRYOUT_URL as string;
-export const PUBLIC_AUTH_URL = process.env.NEXT_PUBLIC_AUTH_URL as string;
-export const PUBLIC_MINAT_BAKAT_URL = process.env.NEXT_PUBLIC_MINAT_BAKAT_URL as string;
-export const PUBLIC_SOAL_URL = process.env.NEXT_PUBLIC_SOAL_URL as string;
+export const API_GATEWAY_URL = process.env.API_GATEWAY_URL as string
+export const PUBLIC_API_GATEWAY_URL = process.env
+	.NEXT_PUBLIC_API_GATEWAY_URL as string
+
+export const TRYOUT_URL = `${API_GATEWAY_URL}/api/tryout`
+export const AUTH_URL = `${API_GATEWAY_URL}/api/auth`
+export const MINAT_BAKAT_URL = `${API_GATEWAY_URL}/api/minat-bakat`
+export const SOAL_URL = `${API_GATEWAY_URL}/api/soal`
+
+export const PUBLIC_TRYOUT_URL = `${PUBLIC_API_GATEWAY_URL}/api/tryout`
+export const PUBLIC_AUTH_URL = `${PUBLIC_API_GATEWAY_URL}/api/auth`
+export const PUBLIC_MINAT_BAKAT_URL = `${PUBLIC_API_GATEWAY_URL}/api/minat-bakat`
+export const PUBLIC_SOAL_URL = `${PUBLIC_API_GATEWAY_URL}/api/soal`

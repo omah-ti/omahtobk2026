@@ -6,6 +6,18 @@ import {
 } from '@/lib/types/url'
 import { Jawaban } from '@/lib/types/types'
 
+const cookieHeaders = (accessToken?: string) => {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  }
+
+  if (accessToken) {
+    headers.Cookie = `access_token=${accessToken}`
+  }
+
+  return headers
+}
+
 export const getTryoutUrl = (isPublic?: boolean) => {
   return isPublic ? PUBLIC_TRYOUT_URL : TRYOUT_URL
 }
@@ -15,7 +27,7 @@ export const getSoalUrl = (isPublic?: boolean) => {
 }
 
 export const getCurrentTryout = async (
-  tryoutToken?: string,
+  accessToken?: string,
   isPublic?: boolean
 ) => {
   try {
@@ -23,10 +35,7 @@ export const getCurrentTryout = async (
     const res = await fetch(`${tryoutUrl}/sync/current`, {
       method: 'GET',
       credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-        Cookie: `tryout_token=${tryoutToken}`,
-      },
+      headers: cookieHeaders(accessToken),
     })
     if (!res.ok) {
       return null
@@ -41,19 +50,14 @@ export const getCurrentTryout = async (
 
 export const getSoal = async (
   subtest: string,
-  token?: string,
-  isPublic?: boolean,
-  tokenType?: boolean
+  accessToken?: string,
+  isPublic?: boolean
 ) => {
   try {
     const soalUrl = getSoalUrl(isPublic)
-    const keren = tokenType ? 'tryout_token' : 'access_token'
-    const res = await fetch(`${soalUrl}/soal/paket1?subtest=${subtest}`, {
+    const res = await fetch(`${soalUrl}/paket1?subtest=${subtest}`, {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        Cookie: `${keren}=${token}`,
-      },
+      headers: cookieHeaders(accessToken),
       credentials: 'include',
       cache: 'force-cache',
     })
@@ -70,7 +74,7 @@ export const getSoal = async (
 
 export const syncTryout = async (
   jawaban: Jawaban[],
-  tryoutToken?: string,
+  accessToken?: string,
   isPublic?: boolean
 ) => {
   try {
@@ -80,10 +84,7 @@ export const syncTryout = async (
     }
     const res = await fetch(`${tryoutUrl}/sync`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Cookie: `tryout_token=${tryoutToken}`,
-      },
+      headers: cookieHeaders(accessToken),
       credentials: 'include',
       body: JSON.stringify(payload),
     })
@@ -103,7 +104,7 @@ export const syncTryout = async (
 
 export const progressTryout = async (
   jawaban: Jawaban[],
-  tryoutToken?: string,
+  accessToken?: string,
   isPublic?: boolean
 ) => {
   try {
@@ -113,10 +114,7 @@ export const progressTryout = async (
     }
     const res = await fetch(`${tryoutUrl}/sync/progress`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Cookie: `tryout_token=${tryoutToken}`,
-      },
+      headers: cookieHeaders(accessToken),
       credentials: 'include',
       body: JSON.stringify(payload),
     })
@@ -138,12 +136,9 @@ export const startTryout = async (accessToken?: string, isPublic?: boolean) => {
   try {
     const tryoutUrl = getTryoutUrl(isPublic)
 
-    const res = await fetch(`${tryoutUrl}/tryout/start-attempt/paket1`, {
+    const res = await fetch(`${tryoutUrl}/start-attempt/paket1`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Cookie: `access_token=${accessToken}`,
-      },
+      headers: cookieHeaders(accessToken),
       credentials: 'include',
     })
 

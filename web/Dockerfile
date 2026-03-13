@@ -36,19 +36,12 @@
 FROM node:23-alpine3.21
 
 WORKDIR /app
-RUN npm i -g pnpm
 
-# Copy package files
 COPY package.json pnpm-lock.yaml ./
+RUN corepack enable pnpm && pnpm i --frozen-lockfile
 
-# Install dependencies
-RUN corepack enable && pnpm install --frozen-lockfile
-
-# Copy the rest of the code
 COPY . .
 
-# Expose the development server port
 EXPOSE 3001
 
-# Start the dev server
 CMD ["pnpm", "dev"]

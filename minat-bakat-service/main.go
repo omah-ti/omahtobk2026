@@ -76,7 +76,9 @@ func main() {
 	r.Use(utils.RequestIDMiddleware())
 	r.Use(utils.ReqLoggingMiddleware())
 	r.Use(securityHeadersMiddleware())
-	r.SetTrustedProxies([]string{"0.0.0.0/0"})
+	if err := r.SetTrustedProxies(trustedProxiesFromEnv()); err != nil {
+		logger.Log.Fatal().Err(err).Msg("Invalid TRUSTED_PROXIES configuration")
+	}
 
 	// Prometheus metrics endpoint
 	r.Use(utils.PrometheusMiddleware())
@@ -189,4 +191,26 @@ func requestSizeLimitMiddleware(maxSize int64) gin.HandlerFunc {
 		}
 		c.Next()
 	}
+}
+
+func trustedProxiesFromEnv() []string {
+	raw := strings.TrimSpace(os.Getenv("TRUSTED_PROXIES"))
+	if raw == "" {
+		return nil
+	}
+
+	parts := strings.Split(raw, ",")
+	proxies := make([]string, 0, len(parts))
+	for _, part := range parts {
+		trimmed := strings.TrimSpace(part)
+		if trimmed != "" {
+			proxies = append(proxies, trimmed)
+		}
+	}
+
+	if len(proxies) == 0 {
+		return nil
+	}
+
+	return proxies
 }

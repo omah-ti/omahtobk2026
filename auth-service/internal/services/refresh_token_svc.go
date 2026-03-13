@@ -56,7 +56,7 @@ func (s *refreshTokenService) GenerateAccessRefreshTokenPair(c context.Context, 
 		Revoked:           false,
 	})
 	if err != nil {
-		logger.LogErrorCtx(c, err, "Failed to store refresh token", map[string]interface{}{"user_id": userID, "refresh_token": refreshToken})
+		logger.LogErrorCtx(c, err, "Failed to store refresh token", map[string]interface{}{"user_id": userID})
 		return "", "", err
 	}
 	// return the access token and refresh token for handler or auth service to send to the client
@@ -67,14 +67,14 @@ func (s *refreshTokenService) ValidateRefreshToken(c context.Context, refreshTok
 	// find the refresh token in the database
 	refreshToken, err := s.refreshTokenRepo.FindValidRefreshToken(c, refreshTokenString)
 	if err != nil {
-		logger.LogErrorCtx(c, err, "Failed to find valid refresh token", map[string]interface{}{"refresh_token_value": refreshTokenString})
+		logger.LogErrorCtx(c, err, "Failed to find valid refresh token")
 		return "", "", err
 	}
 
 	// revoke the refresh token so that it can't be used again
 	err = s.refreshTokenRepo.RevokeRefreshToken(c, refreshTokenString)
 	if err != nil {
-		logger.LogErrorCtx(c, err, "Failed to revoke refresh token", map[string]interface{}{"refresh_token_value": refreshTokenString})
+		logger.LogErrorCtx(c, err, "Failed to revoke refresh token")
 		return "", "", err
 	}
 
@@ -94,13 +94,13 @@ func (s *refreshTokenService) BlacklistRefreshToken(c context.Context, refreshTo
 	// make sure the token is valid
 	refreshToken, err := s.refreshTokenRepo.FindValidRefreshToken(c, refreshTokenString)
 	if err != nil {
-		logger.LogErrorCtx(c, err, "Failed to find valid refresh token for blacklisting", map[string]interface{}{"refresh_token_value": refreshTokenString})
+		logger.LogErrorCtx(c, err, "Failed to find valid refresh token for blacklisting")
 		return err
 	}
 
 	// revoke the token
 	if err := s.refreshTokenRepo.RevokeRefreshToken(c, refreshToken.RefreshTokenValue); err != nil {
-		logger.LogErrorCtx(c, err, "Failed to blacklist refresh token", map[string]interface{}{"refresh_token_value": refreshToken.RefreshTokenValue})
+		logger.LogErrorCtx(c, err, "Failed to blacklist refresh token")
 		return err
 	}
 	return nil

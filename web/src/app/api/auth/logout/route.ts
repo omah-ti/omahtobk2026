@@ -12,7 +12,7 @@ export async function POST(_req: NextRequest) {
 
     if (token) {
       try {
-        await fetch(`${process.env.AUTH_URL}/auth/logout`, {
+        await fetch(`${process.env.API_GATEWAY_URL}/api/auth/logout`, {
           method: 'POST',
           credentials: 'include',
           headers: {

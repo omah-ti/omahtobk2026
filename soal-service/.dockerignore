@@ -1,0 +1,17 @@
+Dockerfile
+.dockerignore
+.git
+.gitignore
+README.md
+*.log
+tmp
+temp
+dist
+build
+coverage
+coverage.out
+bin
+vendor
+var/log
+.env
+.env.*

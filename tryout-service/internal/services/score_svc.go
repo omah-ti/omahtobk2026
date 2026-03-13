@@ -13,8 +13,8 @@ import (
 )
 
 type ScoreService interface {
-	CalculateAndStoreScores(c context.Context, tx *sqlx.Tx, attemptID, userID int, tryoutToken string) error
-	GetAnswerKeyBasedOnSubtestFromSoalService(c context.Context, subtest, token, tokenType string) (*models.AnswerKeys, error)
+	CalculateAndStoreScores(c context.Context, tx *sqlx.Tx, attemptID, userID int, accessToken string) error
+	GetAnswerKeyBasedOnSubtestFromSoalService(c context.Context, subtest, accessToken string) (*models.AnswerKeys, error)
 	CalculateScore(userAnswers []models.UserAnswer, answerKeys *models.AnswerKeys) (totalScore float64)
 }
 
@@ -31,7 +31,7 @@ func NewScoreService(scoreRepo repositories.ScoreRepo, soalServiceURL string) Sc
 }
 
 // CalculateAndStoreScores is a function that calculates the score for each subtest and stores it in the database
-func (s *scoreService) CalculateAndStoreScores(c context.Context, tx *sqlx.Tx, attemptID, userID int, tryoutToken string) error {
+func (s *scoreService) CalculateAndStoreScores(c context.Context, tx *sqlx.Tx, attemptID, userID int, accessToken string) error {
 	subtests := []string{"subtest_pu", "subtest_ppu", "subtest_pbm", "subtest_pk", "subtest_lbi", "subtest_lbe", "subtest_pm"}
 
 	// loop through all the subtests and calculate the score for each subtest
@@ -44,7 +44,7 @@ func (s *scoreService) CalculateAndStoreScores(c context.Context, tx *sqlx.Tx, a
 		}
 
 		// get the answer key for this subtest, call the soal service api
-		answerKey, err := s.GetAnswerKeyBasedOnSubtestFromSoalService(c, subtest, tryoutToken, "tryout")
+		answerKey, err := s.GetAnswerKeyBasedOnSubtestFromSoalService(c, subtest, accessToken)
 		if err != nil {
 			logger.LogErrorCtx(c, err, "Failed to get answer key from soal service", map[string]interface{}{"subtest": subtest})
 			return err
@@ -81,7 +81,7 @@ func (s *scoreService) CalculateAndStoreScores(c context.Context, tx *sqlx.Tx, a
 }
 
 // make a function that retrieves the answer key from the soal service and the subtest, also distinguish them from the soal type and shit type shit bro
-func (s *scoreService) GetAnswerKeyBasedOnSubtestFromSoalService(c context.Context, subtest, token, tokenType string) (*models.AnswerKeys, error) {
+func (s *scoreService) GetAnswerKeyBasedOnSubtestFromSoalService(c context.Context, subtest, accessToken string) (*models.AnswerKeys, error) {
 	// NANTI PAKETNYA DYNAMIC YAA JANGAN STATIC, FORGOT BRO PLES
 	url := fmt.Sprintf("%s/soal/answer-key/paket1?subtest=%s", s.soalServiceURL, subtest)
 	// make a new request and add cookie to the header
@@ -90,16 +90,12 @@ func (s *scoreService) GetAnswerKeyBasedOnSubtestFromSoalService(c context.Conte
 		logger.LogErrorCtx(c, err, "Failed to create request for answer key", map[string]interface{}{"subtest": subtest})
 		return nil, err
 	}
-	switch tokenType {
-	case "tryout":
-		req.Header.Add("Cookie", fmt.Sprintf("tryout_token=%s", token))
-	case "access":
-		req.Header.Add("Cookie", fmt.Sprintf("access_token=%s", token))
-	default:
-		err := fmt.Errorf("invalid token type: %s", tokenType)
-		logger.LogErrorCtx(c, err, "Invalid token type provided", map[string]interface{}{"subtest": subtest})
+	if accessToken == "" {
+		err := fmt.Errorf("access token is required")
+		logger.LogErrorCtx(c, err, "Missing access token for answer key request", map[string]interface{}{"subtest": subtest})
 		return nil, err
 	}
+	req.Header.Add("Cookie", fmt.Sprintf("access_token=%s", accessToken))
 
 	// Send the request
 	resp, err := s.httpClient.Do(req)

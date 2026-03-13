@@ -20,7 +20,6 @@ func InitializeRoutes(r *gin.Engine, userHandler *handlers.UserHandler) {
 	// public routes
 	public := r.Group("/user")
 	{
-		public.GET("/.well-known/jwks.json", userHandler.JWKSHandler)
 		public.GET("/refresh", userHandler.RefreshTokenHandler)
 		public.POST("/register", userHandler.RegisterUserHandler)
 		public.POST("/login", userHandler.LoginUserHandler)

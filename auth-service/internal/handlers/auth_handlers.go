@@ -3,6 +3,7 @@ package handlers
 import (
 	"auth-service/internal/logger"
 	"auth-service/internal/models"
+	"auth-service/internal/repositories"
 	"auth-service/internal/services"
 	"auth-service/pkg/utils/cookie"
 	"auth-service/pkg/utils/jwt"
@@ -25,17 +26,17 @@ func NewUserHandler(authService services.AuthService, tokenService services.Refr
 func (h *UserHandler) RegisterUserHandler(c *gin.Context) {
 	var userStructThatWantsToRegister models.User
 
-	// check if the password is more than 72 characters (bcrypt limitation)
-	if len(userStructThatWantsToRegister.Password) > 72 {
-		logger.LogErrorCtx(c, errors.New("password too long"), "Password maximum length is 72 characters", map[string]interface{}{"email": userStructThatWantsToRegister.Email})
-		c.JSON(http.StatusBadRequest, gin.H{"message": "Password maximum length is 72 characters"})
-		return
-	}
-
 	// bind the json input to the user struct so that it matches the user models
 	if err := c.ShouldBindJSON(&userStructThatWantsToRegister); err != nil {
 		logger.LogErrorCtx(c, err, "Failed to bind user input", map[string]interface{}{"email": userStructThatWantsToRegister.Email})
 		c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid input", "error": err.Error()})
+		return
+	}
+
+	// check if the password is more than 72 characters (bcrypt limitation)
+	if len(userStructThatWantsToRegister.Password) > 72 {
+		logger.LogErrorCtx(c, errors.New("password too long"), "Password maximum length is 72 characters", map[string]interface{}{"email": userStructThatWantsToRegister.Email})
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Password maximum length is 72 characters"})
 		return
 	}
 
@@ -91,16 +92,20 @@ func (h *UserHandler) LogoutUserHandler(c *gin.Context) {
 	// get the refresh token from the cookie
 	refreshToken, err := c.Cookie("refresh_token")
 	if err != nil {
-		logger.LogErrorCtx(c, err, "Failed to retrieve cookie for logout")
-		c.JSON(http.StatusBadRequest, gin.H{"message": "Failed to get refresh token for revoke", "error": err.Error()})
+		logger.LogDebugCtx(c, "Refresh token cookie missing during logout; clearing client cookies only")
+		cookie.ClearCookie(c, "access_token")
+		cookie.ClearCookie(c, "refresh_token")
+		c.JSON(http.StatusOK, gin.H{"message": "Logout successful"})
 		return
 	}
 
 	// blacklist the refresh token, if it's not possible then the token is already invalid
 	err = h.tokenService.BlacklistRefreshToken(c, refreshToken)
 	if err != nil {
-		logger.LogErrorCtx(c, err, "Failed to blacklist refresh token", map[string]interface{}{"refresh_token": refreshToken})
-		c.JSON(http.StatusUnauthorized, gin.H{"message": "You are already logged out"})
+		logger.LogDebugCtx(c, "Failed to blacklist refresh token during logout; continuing with cookie cleanup")
+		cookie.ClearCookie(c, "access_token")
+		cookie.ClearCookie(c, "refresh_token")
+		c.JSON(http.StatusOK, gin.H{"message": "Logout successful"})
 		return
 	}
 
@@ -140,8 +145,21 @@ func (h *UserHandler) RefreshTokenHandler(c *gin.Context) {
 		return
 	}
 
-	// return a success message and status code 200
-	c.JSON(http.StatusOK, gin.H{"message": "Token refreshed", "newAccessToken": newAccessToken, "newRefreshToken": newRefreshToken})
+	claims, err := jwt.ValidateAccessToken(newAccessToken)
+	if err != nil {
+		logger.LogErrorCtx(c, err, "Failed to validate refreshed access token")
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to validate refreshed session", "error": err.Error()})
+		return
+	}
+
+	// return refreshed session info without exposing raw tokens in the body
+	c.JSON(http.StatusOK, gin.H{
+		"message":      "Token refreshed",
+		"email":        claims.Email,
+		"user_id":      claims.UserID,
+		"username":     claims.NamaUser,
+		"asal_sekolah": claims.AsalSekolah,
+	})
 }
 
 func (h *UserHandler) ValidateUserAndGetInfoHandler(c *gin.Context) {
@@ -188,22 +206,24 @@ func (h *UserHandler) ResetPasswordHandler(c *gin.Context) {
 
 	// bind the json input to the reset password struct
 	if err := c.ShouldBindJSON(&resetPasswordStruct); err != nil {
-		logger.LogErrorCtx(c, err, "Failed to bind reset password input", map[string]interface{}{"reset_token": resetPasswordStruct.ResetToken})
+		logger.LogErrorCtx(c, err, "Failed to bind reset password input")
 		c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid input", "error": err.Error()})
 		return
 	}
 
 	// call the reset password function from the auth service
 	if err := h.authService.ResetPassword(c, resetPasswordStruct.ResetToken, resetPasswordStruct.NewPassword); err != nil {
-		logger.LogErrorCtx(c, err, "Failed to reset password", map[string]interface{}{"reset_token": resetPasswordStruct.ResetToken})
+		if errors.Is(err, services.ErrInvalidOrExpiredResetToken) || errors.Is(err, repositories.ErrInvalidOrExpiredResetToken) {
+			logger.LogDebugCtx(c, "Reset password rejected because token is invalid or expired")
+			c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid or expired reset token"})
+			return
+		}
+
+		logger.LogErrorCtx(c, err, "Failed to reset password")
 		c.JSON(http.StatusBadRequest, gin.H{"message": "Failed to reset password", "error": err.Error()})
 		return
 	}
 
 	// return a success message and status code 200
 	c.JSON(http.StatusOK, gin.H{"message": "Password reset successful"})
-}
-
-func (h *UserHandler) JWKSHandler(c *gin.Context) {
-	c.JSON(http.StatusOK, jwt.GetJWKS())
 }

@@ -13,8 +13,9 @@ import (
 
 type TryoutRepo interface {
 	BeginTransaction(c context.Context) (*sqlx.Tx, error)
-	CreateTryoutAttemptTx(c context.Context, tx *sqlx.Tx, attempt *models.TryoutAttempt) error                                          // Create a new tryout attempt
-	GetTryoutAttemptByUserIDTx(c context.Context, tx *sqlx.Tx, userID int) (string, error)                                              // Get the ongoing tryout attempt for a user
+	CreateTryoutAttemptTx(c context.Context, tx *sqlx.Tx, attempt *models.TryoutAttempt) error // Create a new tryout attempt
+	GetTryoutAttemptByUserIDTx(c context.Context, tx *sqlx.Tx, userID int) (string, error)     // Get the ongoing tryout attempt for a user
+	GetOngoingAttemptByUserID(c context.Context, userID int) (*models.TryoutAttempt, error)
 	GetTryoutAttemptByUserIDAndPaket(c context.Context, userID int, paket string) (*models.TryoutAttempt, error)                        // Get the ongoing tryout attempt for a user
 	GetTryoutAttemptTx(c context.Context, tx *sqlx.Tx, attemptID int) (*models.TryoutAttempt, error)                                    // Get a tryout attempt by its ID, including the user's answers based on the current subtest also (for transactinos)
 	GetAnswerFromCurrentAttemptAndSubtestTx(c context.Context, tx *sqlx.Tx, attemptID int, subtest string) ([]models.UserAnswer, error) // Get user's answers for the current subtest (for transactions)
@@ -103,6 +104,19 @@ func (r *tryoutRepo) GetTryoutAttemptByUserIDTx(c context.Context, tx *sqlx.Tx, 
 		return "", err
 	}
 	return status, nil
+}
+
+func (r *tryoutRepo) GetOngoingAttemptByUserID(c context.Context, userID int) (*models.TryoutAttempt, error) {
+	var attempt models.TryoutAttempt
+	query := `SELECT * FROM tryout_attempt WHERE user_id = $1 AND status = 'ongoing' ORDER BY start_time DESC LIMIT 1`
+	err := r.db.Get(&attempt, query, userID)
+	if err != nil {
+		logger.LogErrorCtx(c, err, "Failed to get ongoing attempt", map[string]interface{}{"user_id": userID})
+		return nil, err
+	}
+
+	logger.LogDebugCtx(c, "Ongoing attempt retrieved", map[string]interface{}{"user_id": userID, "attempt_id": attempt.TryoutAttemptID})
+	return &attempt, nil
 }
 
 func (r *tryoutRepo) SaveAnswersTx(c context.Context, tx *sqlx.Tx, answers []models.UserAnswer) error {

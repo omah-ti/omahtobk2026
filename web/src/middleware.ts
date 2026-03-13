@@ -4,18 +4,76 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-function setHeaders(response: NextResponse, userData: any) {
-  response.headers.set('x-user-id', userData.user_id)
-  response.headers.set('x-user-asal_sekolah', userData.asal_sekolah)
-  response.headers.set('x-user-username', userData.username)
-  response.headers.set('x-user-email', userData.email)
+function setHeaders(headers: Headers, userData: any) {
+  headers.set('x-user-id', String(userData.user_id))
+  headers.set('x-user-asal_sekolah', userData.asal_sekolah)
+  headers.set('x-user-username', userData.username)
+  headers.set('x-user-email', userData.email)
+}
+
+function forwardSetCookies(response: NextResponse, upstreamResponse: Response) {
+  const headers = upstreamResponse.headers as Headers & {
+    getSetCookie?: () => string[]
+  }
+  const setCookies = headers.getSetCookie?.()
+
+  if (setCookies && setCookies.length > 0) {
+    for (const cookie of setCookies) {
+      response.headers.append('set-cookie', cookie)
+    }
+    return
+  }
+
+  const combinedSetCookie = upstreamResponse.headers.get('set-cookie')
+  if (combinedSetCookie) {
+    response.headers.set('set-cookie', combinedSetCookie)
+  }
+}
+
+async function validateSession(cookieHeader: string) {
+  return fetch(`${process.env.API_GATEWAY_URL}/api/me`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      Cookie: cookieHeader,
+    },
+    cache: 'no-store',
+  })
+}
+
+async function refreshSession(cookieHeader: string) {
+  return fetch(`${process.env.API_GATEWAY_URL}/api/auth/refresh`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      Cookie: cookieHeader,
+    },
+    cache: 'no-store',
+  })
+}
+
+function nextWithUser(request: NextRequest, userData: any, refreshResponse?: Response) {
+  const requestHeaders = new Headers(request.headers)
+  setHeaders(requestHeaders, userData)
+
+  const response = NextResponse.next({
+    request: {
+      headers: requestHeaders,
+    },
+  })
+
+  if (refreshResponse) {
+    forwardSetCookies(response, refreshResponse)
+  }
+
+  return response
 }
 
 export async function middleware(request: NextRequest) {
   const accessToken = request.cookies.get('access_token')?.value
   const refreshToken = request.cookies.get('refresh_token')?.value
 
-  // Define public paths that don't require authentication
+  // // Define public paths that don't require authentication
   const publicPaths = ['/', '/login', '/register', '/forgot-password']
 
   // Add paths under tryout/* (but not /tryout exactly)
@@ -35,84 +93,33 @@ export async function middleware(request: NextRequest) {
         currentPath === path || (path !== '/' && currentPath.startsWith(path))
     ) || isTryoutSubpath
 
-  // If we have tokens, try to validate and set headers regardless of path
-  let userData = null
-  let validAuth = false
+  // Public routes should not trigger upstream auth checks.
+  if (isPublicPath) {
+    return NextResponse.next()
+  }
 
-  // Check if access token is valid
   if (accessToken) {
     try {
-      const res = await fetch(`${process.env.AUTH_URL}/auth/validateprofile`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          Cookie: `access_token=${accessToken}`,
-        },
-        credentials: 'include',
-      })
-
+      const res = await validateSession(`access_token=${accessToken}`)
       if (res.ok) {
-        // Token is valid, get user data and set headers
-        userData = await res.json()
-        validAuth = true
-
-        // If on a public path, still set headers but allow access
-        if (isPublicPath) {
-          const response = NextResponse.next()
-          setHeaders(response, userData)
-          return response
-        }
-
-        // For protected paths, continue with valid auth
-        const response = NextResponse.next()
-        setHeaders(response, userData)
-        return response
+        const userData = await res.json()
+        return nextWithUser(request, userData)
       }
     } catch (error) {
       console.error('Access token validation error:', error)
     }
   }
 
-  // If access token failed, try refresh token
-  if (!validAuth && refreshToken) {
+  if (refreshToken) {
     try {
-      const res = await fetch(`${process.env.AUTH_URL}/user/refresh`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          Cookie: `refresh_token=${refreshToken}`,
-        },
-        credentials: 'include',
-      })
-
+      const res = await refreshSession(`refresh_token=${refreshToken}`)
       if (res.ok) {
-        const resBody = await res.json()
-        userData = resBody
-        validAuth = true
-
-        // Extract new tokens from response
-        const setCookieHeader = res.headers.get('set-cookie')
-        if (!setCookieHeader) {
-          if (isPublicPath) return NextResponse.next()
-          return NextResponse.redirect(new URL('/login', request.url))
-        }
-
-        // Create response that will continue to the requested page
-        const response = NextResponse.next()
-
-        // Forward the Set-Cookie header from the auth service
-        response.headers.set('Set-Cookie', setCookieHeader)
-        setHeaders(response, userData)
-        return response
+        const userData = await res.json()
+        return nextWithUser(request, userData, res)
       }
     } catch (error) {
       console.error('Refresh token error:', error)
     }
-  }
-
-  // If authentication failed but path is public, allow access without auth
-  if (isPublicPath) {
-    return NextResponse.next()
   }
 
   // Otherwise, redirect to login

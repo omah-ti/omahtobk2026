@@ -12,17 +12,16 @@ import * as motion from 'motion/react-client'
 import { toast } from 'sonner'
 
 const TryoutLayout = async ({ children }: { children: React.ReactNode }) => {
-  const tryoutToken = (await cookies()).get('tryout_token')?.value as string
   const accessToken = (await cookies()).get('access_token')?.value as string
   const finishedAttempt = await getFinishedAttempt(accessToken)
   if (finishedAttempt) {
     redirect('/tryout')
   }
-  const currentSubtest = await getCurrentTryout(tryoutToken)
+  const currentSubtest = await getCurrentTryout(accessToken)
   if (currentSubtest == null) {
     redirect('/tryout')
   }
-  const syncData = await syncTryout([], tryoutToken)
+  const syncData = await syncTryout([], accessToken)
   if (syncData == null) {
     toast.error('Gagal menyimpan jawaban Tryout', {
       description: 'Silahkan mengulangi Tryout.'
@@ -33,12 +32,7 @@ const TryoutLayout = async ({ children }: { children: React.ReactNode }) => {
   const grace = 60_000
   const adjustedTimeLimit = new Date(new Date(timeLimit).getTime() - grace)
   const subtestSekarang = currentSubtest.data.subtest_sekarang
-  const soal = await getSoal(
-    currentSubtest.data.subtest_sekarang,
-    tryoutToken,
-    false,
-    true
-  )
+  const soal = await getSoal(currentSubtest.data.subtest_sekarang, accessToken)
   const user = await fetchUser()
   const panjangSoal = soal.length
 
