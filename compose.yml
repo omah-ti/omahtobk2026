@@ -191,7 +191,7 @@ services:
 
 networks:
     omahtryout-network:
-        external: true
+        name: omahtryout-network
 
 # volumes for persistent data
 volumes:

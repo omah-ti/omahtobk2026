@@ -103,6 +103,40 @@ func (h *TryoutHandler) ProgressTryoutHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Successfully get progress or submitted scores", "updated_subtest": updatedSubtest})
 }
 
+func (h *TryoutHandler) FinishTryoutHandler(c *gin.Context) {
+	userID := c.GetInt("user_id")
+	attempt, ok := h.getOngoingAttempt(c)
+	if !ok {
+		return
+	}
+	attemptID := attempt.TryoutAttemptID
+	accessToken, err := c.Cookie("access_token")
+	if err != nil || accessToken == "" {
+		logger.LogErrorCtx(c, err, "Failed to get access token")
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "Access token is required"})
+		return
+	}
+
+	var answers struct {
+		Answers []models.AnswerPayload `json:"answers" binding:"required,dive"`
+	}
+
+	if err := c.ShouldBindJSON(&answers); err != nil {
+		logger.LogErrorCtx(c, err, "Invalid input for finish handler")
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid input", "error": err.Error()})
+		return
+	}
+
+	updatedSubtest, err := h.tryoutService.FinishTryoutNow(c, answers.Answers, attemptID, userID, accessToken)
+	if err != nil {
+		logger.LogErrorCtx(c, err, "Failed to finish tryout early")
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to finish tryout", "error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Successfully finished tryout", "updated_subtest": updatedSubtest})
+}
+
 func (h *TryoutHandler) GetCurrentAttempt(c *gin.Context) {
 	attempt, ok := h.getOngoingAttempt(c)
 	if !ok {

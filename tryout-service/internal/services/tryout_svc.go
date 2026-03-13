@@ -14,6 +14,7 @@ type TryoutService interface {
 	StartAttempt(c context.Context, userID int, username, paket string) (attempt *models.TryoutAttempt, retErr error)
 	SyncWithDatabase(c context.Context, answers []models.AnswerPayload, attemptID int) (answersInDB []models.UserAnswer, timeLimit time.Time, err error)
 	SubmitCurrentSubtest(c context.Context, answers []models.AnswerPayload, attemptID, userID int, accessToken string) (updatedSubtest string, retErr error)
+	FinishTryoutNow(c context.Context, answers []models.AnswerPayload, attemptID, userID int, accessToken string) (updatedSubtest string, retErr error)
 	GetCurrentAttemptByUserID(c context.Context, userID int) (*models.TryoutAttempt, error)
 }
 
@@ -230,6 +231,14 @@ func (s *tryoutService) SyncWithDatabase(c context.Context, answers []models.Ans
 }
 
 func (s *tryoutService) SubmitCurrentSubtest(c context.Context, answers []models.AnswerPayload, attemptID, userID int, accessToken string) (updatedSubtest string, retErr error) {
+	return s.submitAttempt(c, answers, attemptID, userID, accessToken, false)
+}
+
+func (s *tryoutService) FinishTryoutNow(c context.Context, answers []models.AnswerPayload, attemptID, userID int, accessToken string) (updatedSubtest string, retErr error) {
+	return s.submitAttempt(c, answers, attemptID, userID, accessToken, true)
+}
+
+func (s *tryoutService) submitAttempt(c context.Context, answers []models.AnswerPayload, attemptID, userID int, accessToken string, forceFinish bool) (updatedSubtest string, retErr error) {
 	// begin a transaction
 	var committed bool
 	tx, err := s.tryoutRepo.BeginTransaction(c)
@@ -311,9 +320,10 @@ func (s *tryoutService) SubmitCurrentSubtest(c context.Context, answers []models
 	subtests := []string{"subtest_pu", "subtest_ppu", "subtest_pbm", "subtest_pk", "subtest_lbi", "subtest_lbe", "subtest_pm"}
 	var nextSubtest *string
 	for i, sub := range subtests {
-		// If the current subtest is found and there is a next subtest, set the next subtest
-		if sub == currentSubtest && i < len(subtests)-1 {
-			nextSubtest = &subtests[i+1]
+		if sub == currentSubtest {
+			if i < len(subtests)-1 {
+				nextSubtest = &subtests[i+1]
+			}
 			break
 		}
 	}
@@ -323,6 +333,10 @@ func (s *tryoutService) SubmitCurrentSubtest(c context.Context, answers []models
 		// make a hash map of the answers, to be used for checking if the answer is valid
 		userAnswers := make([]models.UserAnswer, 0, len(answers))
 		for _, answer := range answers {
+			if answer.Jawaban == nil {
+				retErr = errors.New("jawaban tidak boleh null saat submit")
+				return "", retErr
+			}
 			userAnswer := models.UserAnswer{
 				TryoutAttemptID: attemptID,
 				Subtest:         attempt.SubtestSekarang,
@@ -342,8 +356,8 @@ func (s *tryoutService) SubmitCurrentSubtest(c context.Context, answers []models
 		}
 	}
 
-	// if no next subtest, end the tryout
-	if nextSubtest == nil {
+	// if forced finish or no next subtest, end the tryout
+	if forceFinish || nextSubtest == nil {
 		// end the tryout
 		err = s.tryoutRepo.EndTryOutTx(c, tx, attemptID)
 		if err != nil {

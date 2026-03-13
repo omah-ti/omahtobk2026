@@ -28,7 +28,21 @@ func NewPageRepo(db *sqlx.DB) PageRepo {
 // buat tryout homepage ama pembahasan
 func (r *pageRepo) GetAllSubtestScoreForAUser(c context.Context, userID int) ([]models.UserScore, error) {
 	var scores []models.UserScore
-	query := `SELECT user_id, attempt_id, score, subtest FROM user_scores WHERE user_id = $1`
+	query := `
+		SELECT user_id, attempt_id, score, subtest
+		FROM user_scores
+		WHERE user_id = $1
+		ORDER BY CASE subtest
+			WHEN 'subtest_pu' THEN 1
+			WHEN 'subtest_ppu' THEN 2
+			WHEN 'subtest_pbm' THEN 3
+			WHEN 'subtest_pk' THEN 4
+			WHEN 'subtest_lbi' THEN 5
+			WHEN 'subtest_lbe' THEN 6
+			WHEN 'subtest_pm' THEN 7
+			ELSE 99
+		END
+	`
 	err := r.db.Select(&scores, query, userID)
 	if err != nil {
 		logger.LogErrorCtx(c, err, "Failed to get all subtest scores for user", map[string]interface{}{"user_id": userID})

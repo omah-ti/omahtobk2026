@@ -32,6 +32,7 @@ func InitializeRoutes(r *gin.Engine, tryoutHandler *handlers.TryoutHandler, page
 	{
 		sync.POST("", tryoutHandler.SyncHandler)
 		sync.POST("/progress", tryoutHandler.ProgressTryoutHandler)
+		sync.POST("/finish", tryoutHandler.FinishTryoutHandler)
 		sync.GET("/current", tryoutHandler.GetCurrentAttempt)
 	}
 }
