@@ -100,7 +100,11 @@ func (h *TryoutHandler) ProgressTryoutHandler(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to submit answers", "error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"message": "Successfully get progress or submitted scores", "updated_subtest": updatedSubtest})
+	c.JSON(http.StatusOK, gin.H{
+		"message":         "Successfully get progress or submitted scores",
+		"updated_subtest": updatedSubtest,
+		"next_action":     "return_dashboard",
+	})
 }
 
 func (h *TryoutHandler) FinishTryoutHandler(c *gin.Context) {
@@ -134,7 +138,11 @@ func (h *TryoutHandler) FinishTryoutHandler(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Successfully finished tryout", "updated_subtest": updatedSubtest})
+	c.JSON(http.StatusOK, gin.H{
+		"message":         "Successfully finished tryout",
+		"updated_subtest": updatedSubtest,
+		"next_action":     "return_dashboard",
+	})
 }
 
 func (h *TryoutHandler) GetCurrentAttempt(c *gin.Context) {

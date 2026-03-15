@@ -37,6 +37,33 @@ func (h *PageHandler) GetUserSubtestsScore(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Subtests scores retrieved successfully", "data": subtestsScore})
 }
 
+func (h *PageHandler) GetSubtestsProgressHandler(c *gin.Context) {
+	userID := c.GetInt("user_id")
+	progress, err := h.pageService.GetSubtestsProgress(c, userID)
+	if err != nil {
+		logger.LogErrorCtx(c, err, "Failed to get subtests progress", map[string]interface{}{"user_id": userID})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to get subtests progress", "error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Subtests progress retrieved successfully", "data": progress})
+}
+
+func (h *PageHandler) GetProgressOverviewHandler(c *gin.Context) {
+	userID := c.GetInt("user_id")
+	username := c.GetString("username")
+	school := c.GetString("asal_sekolah")
+
+	overview, err := h.pageService.GetProgressOverview(c, userID, username, school)
+	if err != nil {
+		logger.LogErrorCtx(c, err, "Failed to get progress overview", map[string]interface{}{"user_id": userID})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to get progress overview", "error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Progress overview retrieved successfully", "data": overview})
+}
+
 func (h *PageHandler) GetPembahasanPageHandler(c *gin.Context) {
 	userID := c.GetInt("user_id")
 	paket := c.Request.URL.Query().Get("paket")
