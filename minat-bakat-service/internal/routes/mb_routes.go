@@ -23,6 +23,7 @@ func InitializeRoutes(r *gin.Engine, mbHandler *handlers.MinatBakatHandler) {
 		mb.GET("/questions", mbHandler.GetQuestionsHandler)
 		mb.POST("/process", mbHandler.ProcessMinatBakatHandler)
 		mb.GET("/attempt", mbHandler.GetMinatBakatAttemptHandler)
+		mb.GET("/attempts", mbHandler.GetMinatBakatAttemptHistoryHandler)
 		mb.GET("/result/latest", mbHandler.GetLatestResultHandler)
 	}
 }

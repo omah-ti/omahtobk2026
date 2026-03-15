@@ -3,8 +3,17 @@ package models
 import "time"
 
 type MinatBakatAttempt struct {
-	UserID    int    `db:"user_id" json:"user_id"`
-	BakatUser string `db:"bakat_user" json:"bakat_user"`
+	AttemptID int       `db:"attempt_id" json:"attempt_id"`
+	UserID    int       `db:"user_id" json:"user_id"`
+	BakatUser string    `db:"bakat_user" json:"bakat_user"`
+	CreatedAt time.Time `db:"created_at" json:"created_at"`
+}
+
+type MinatBakatAttemptHistory struct {
+	Items  []MinatBakatAttempt `json:"items"`
+	Limit  int                 `json:"limit"`
+	Offset int                 `json:"offset"`
+	Count  int                 `json:"count"`
 }
 
 // Legacy payload format kept for backward compatibility.

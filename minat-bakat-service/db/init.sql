@@ -3,6 +3,25 @@ CREATE TABLE IF NOT EXISTS minat_bakat_attempt (
     bakat_user VARCHAR(50) NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS minat_bakat_attempt_history (
+    attempt_id BIGSERIAL PRIMARY KEY,
+    user_id INT NOT NULL,
+    bakat_user VARCHAR(50) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_mb_attempt_history_user_created
+ON minat_bakat_attempt_history (user_id, created_at DESC, attempt_id DESC);
+
+INSERT INTO minat_bakat_attempt_history (user_id, bakat_user, created_at)
+SELECT legacy.user_id, legacy.bakat_user, NOW()
+FROM minat_bakat_attempt legacy
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM minat_bakat_attempt_history hist
+    WHERE hist.user_id = legacy.user_id
+);
+
 CREATE TABLE IF NOT EXISTS mb_questions (
     question_id SERIAL PRIMARY KEY,
     kode_soal VARCHAR(36) NOT NULL UNIQUE,
@@ -47,6 +66,9 @@ CREATE TABLE IF NOT EXISTS mb_results (
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     FOREIGN KEY (attempt_id) REFERENCES mb_attempts(attempt_id) ON DELETE CASCADE
 );
+
+CREATE INDEX IF NOT EXISTS idx_mb_results_user_created
+ON mb_results (user_id, created_at DESC, result_id DESC);
 
 INSERT INTO mb_questions (kode_soal, statement, dimension, reverse_scored, is_active)
 VALUES

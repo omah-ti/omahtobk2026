@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "OmahTO - All Services",
-    "description": "Collection untuk testing semua service OmahTO (gateway + direct service).\n\nUrutan cepat testing via gateway:\n1) Auth > Register (optional)\n2) Auth > Login (cookie access_token + refresh_token tersimpan di Postman Cookie Jar)\n3) Protected endpoint lain di /api/*\n\nCatatan:\n- Endpoint protected di gateway memerlukan cookie session valid.\n- Upload image soal pakai form-data (kode_soal + file).\n- Untuk endpoint image object, isi object_key dari response upload.",
+    "description": "Collection untuk testing semua service OmahTO (gateway + direct service).\n\nUrutan cepat testing via gateway:\n1) Auth > Register (optional)\n2) Auth > Login (cookie access_token + refresh_token tersimpan di Postman Cookie Jar)\n3) Protected endpoint lain di /api/*\n\nCatatan:\n- Endpoint protected di gateway memerlukan cookie session valid.\n- Upload image soal pakai form-data (kode_soal + file).\n- Untuk endpoint image object, isi object_key dari response upload.\n- Minat Bakat sekarang mendukung multi-attempt: user bisa submit tes berkali-kali.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -19,7 +19,9 @@
     { "key": "nama_user", "value": "Tester OmahTO" },
     { "key": "asal_sekolah", "value": "SMA Negeri 1" },
     { "key": "reset_token", "value": "replace-with-reset-token" },
-    { "key": "image_file_path", "value": "C:/tmp/soal-image.png" }
+    { "key": "image_file_path", "value": "C:/tmp/soal-image.png" },
+    { "key": "mb_limit", "value": "10" },
+    { "key": "mb_offset", "value": "0" }
   ],
   "item": [
     {
@@ -318,7 +320,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"assessment_version\": \"v1\",\n  \"answers\": [\n    { \"question_id\": 1, \"likert_value\": 4 },\n    { \"question_id\": 2, \"likert_value\": 5 }\n  ]\n}"
+              "raw": "{\n  \"assessment_version\": \"dna-it-v1\",\n  \"answers\": [\n    { \"kode_soal\": \"MBQ001\", \"likert_value\": 4 },\n    { \"kode_soal\": \"MBQ002\", \"likert_value\": 5 },\n    { \"kode_soal\": \"MBQ003\", \"likert_value\": 4 },\n    { \"kode_soal\": \"MBQ004\", \"likert_value\": 5 },\n    { \"kode_soal\": \"MBQ005\", \"likert_value\": 3 },\n    { \"kode_soal\": \"MBQ006\", \"likert_value\": 4 },\n    { \"kode_soal\": \"MBQ007\", \"likert_value\": 5 },\n    { \"kode_soal\": \"MBQ008\", \"likert_value\": 2 },\n    { \"kode_soal\": \"MBQ009\", \"likert_value\": 4 },\n    { \"kode_soal\": \"MBQ010\", \"likert_value\": 5 },\n    { \"kode_soal\": \"MBQ011\", \"likert_value\": 4 },\n    { \"kode_soal\": \"MBQ012\", \"likert_value\": 2 },\n    { \"kode_soal\": \"MBQ013\", \"likert_value\": 4 },\n    { \"kode_soal\": \"MBQ014\", \"likert_value\": 5 },\n    { \"kode_soal\": \"MBQ015\", \"likert_value\": 4 },\n    { \"kode_soal\": \"MBQ016\", \"likert_value\": 3 }\n  ]\n}"
             },
             "url": "{{gateway_url}}/api/minat-bakat/process"
           }
@@ -332,16 +334,31 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "[\n  { \"kode_soal\": \"MB-001\", \"jawaban\": \"5\" },\n  { \"kode_soal\": \"MB-002\", \"jawaban\": \"3\" }\n]"
+              "raw": "[\n  { \"kode_soal\": \"MBQ001\", \"jawaban\": \"4\" },\n  { \"kode_soal\": \"MBQ002\", \"jawaban\": \"5\" },\n  { \"kode_soal\": \"MBQ003\", \"jawaban\": \"4\" },\n  { \"kode_soal\": \"MBQ004\", \"jawaban\": \"5\" },\n  { \"kode_soal\": \"MBQ005\", \"jawaban\": \"3\" },\n  { \"kode_soal\": \"MBQ006\", \"jawaban\": \"4\" },\n  { \"kode_soal\": \"MBQ007\", \"jawaban\": \"5\" },\n  { \"kode_soal\": \"MBQ008\", \"jawaban\": \"2\" },\n  { \"kode_soal\": \"MBQ009\", \"jawaban\": \"4\" },\n  { \"kode_soal\": \"MBQ010\", \"jawaban\": \"5\" },\n  { \"kode_soal\": \"MBQ011\", \"jawaban\": \"4\" },\n  { \"kode_soal\": \"MBQ012\", \"jawaban\": \"2\" },\n  { \"kode_soal\": \"MBQ013\", \"jawaban\": \"4\" },\n  { \"kode_soal\": \"MBQ014\", \"jawaban\": \"5\" },\n  { \"kode_soal\": \"MBQ015\", \"jawaban\": \"4\" },\n  { \"kode_soal\": \"MBQ016\", \"jawaban\": \"3\" }\n]"
             },
             "url": "{{gateway_url}}/api/minat-bakat/process"
           }
         },
         {
-          "name": "Get Attempt",
+          "name": "Get Latest Attempt Summary",
           "request": {
             "method": "GET",
             "url": "{{gateway_url}}/api/minat-bakat/attempt"
+          }
+        },
+        {
+          "name": "Get Attempt History",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{gateway_url}}/api/minat-bakat/attempts?limit={{mb_limit}}&offset={{mb_offset}}",
+              "host": ["{{gateway_url}}"],
+              "path": ["api", "minat-bakat", "attempts"],
+              "query": [
+                { "key": "limit", "value": "{{mb_limit}}" },
+                { "key": "offset", "value": "{{mb_offset}}" }
+              ]
+            }
           }
         },
         {

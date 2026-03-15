@@ -17,9 +17,10 @@ type MbRepo interface {
 	SaveAttemptAnswersTx(c context.Context, tx *sqlx.Tx, attemptID int, answers []models.MbAnswerInput, questionByID map[int]models.MbQuestion, questionByCode map[string]models.MbQuestion) error
 	SaveResultTx(c context.Context, tx *sqlx.Tx, result *models.MinatBakatResult) error
 	GetLatestResultByUserID(c context.Context, userID int) (*models.MinatBakatResult, error)
-	UpsertLegacyAttemptTx(c context.Context, tx *sqlx.Tx, userID int, bakatUser string) error
-	StoreMinatBakat(c context.Context, attempt *models.MinatBakatAttempt) error
+	InsertAttemptHistoryTx(c context.Context, tx *sqlx.Tx, userID int, bakatUser string) error
+	StoreMinatBakat(c context.Context, userID int, bakatUser string) error
 	GetMinatBakatFromUserID(c context.Context, userID int) (*models.MinatBakatAttempt, error)
+	GetMinatBakatHistoryByUserID(c context.Context, userID, limit, offset int) ([]models.MinatBakatAttempt, error)
 }
 
 type mbRepo struct {
@@ -129,9 +130,10 @@ func (r *mbRepo) SaveResultTx(c context.Context, tx *sqlx.Tx, result *models.Min
 			attempt_id, user_id, dna_it_top, confidence, total_questions,
 			assessment_version, scoring_version, dimension_scores, role_scores, created_at
 		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb, NOW())
+		RETURNING created_at
 	`
 
-	_, err = tx.ExecContext(
+	err = tx.QueryRowxContext(
 		c,
 		query,
 		result.AttemptID,
@@ -143,7 +145,7 @@ func (r *mbRepo) SaveResultTx(c context.Context, tx *sqlx.Tx, result *models.Min
 		result.ScoringVersion,
 		string(dimJSON),
 		string(roleJSON),
-	)
+	).Scan(&result.CreatedAt)
 	if err != nil {
 		logger.LogErrorCtx(c, err, "Failed to save MB result", map[string]interface{}{"attempt_id": result.AttemptID, "user_id": result.UserID})
 		return err
@@ -152,16 +154,14 @@ func (r *mbRepo) SaveResultTx(c context.Context, tx *sqlx.Tx, result *models.Min
 	return nil
 }
 
-func (r *mbRepo) UpsertLegacyAttemptTx(c context.Context, tx *sqlx.Tx, userID int, bakatUser string) error {
+func (r *mbRepo) InsertAttemptHistoryTx(c context.Context, tx *sqlx.Tx, userID int, bakatUser string) error {
 	query := `
-		INSERT INTO minat_bakat_attempt (user_id, bakat_user)
+		INSERT INTO minat_bakat_attempt_history (user_id, bakat_user)
 		VALUES ($1, $2)
-		ON CONFLICT (user_id)
-		DO UPDATE SET bakat_user = EXCLUDED.bakat_user
 	`
 
 	if _, err := tx.ExecContext(c, query, userID, bakatUser); err != nil {
-		logger.LogErrorCtx(c, err, "Failed to upsert legacy MB attempt", map[string]interface{}{"user_id": userID})
+		logger.LogErrorCtx(c, err, "Failed to insert MB attempt history", map[string]interface{}{"user_id": userID})
 		return err
 	}
 
@@ -224,15 +224,13 @@ func (r *mbRepo) GetLatestResultByUserID(c context.Context, userID int) (*models
 	return &result, nil
 }
 
-func (r *mbRepo) StoreMinatBakat(c context.Context, attempt *models.MinatBakatAttempt) error {
+func (r *mbRepo) StoreMinatBakat(c context.Context, userID int, bakatUser string) error {
 	query := `
-		INSERT INTO minat_bakat_attempt (user_id, bakat_user)
+		INSERT INTO minat_bakat_attempt_history (user_id, bakat_user)
 		VALUES ($1, $2)
-		ON CONFLICT (user_id)
-		DO UPDATE SET bakat_user = EXCLUDED.bakat_user
 	`
 
-	_, err := r.db.ExecContext(c, query, attempt.UserID, attempt.BakatUser)
+	_, err := r.db.ExecContext(c, query, userID, bakatUser)
 	if err != nil {
 		logger.LogErrorCtx(c, err, "Failed to store minat bakat attempt")
 		return err
@@ -244,9 +242,11 @@ func (r *mbRepo) StoreMinatBakat(c context.Context, attempt *models.MinatBakatAt
 
 func (r *mbRepo) GetMinatBakatFromUserID(c context.Context, userID int) (*models.MinatBakatAttempt, error) {
 	query := `
-		SELECT user_id, bakat_user
-		FROM minat_bakat_attempt
+		SELECT attempt_id, user_id, bakat_user, created_at
+		FROM minat_bakat_attempt_history
 		WHERE user_id = $1
+		ORDER BY created_at DESC, attempt_id DESC
+		LIMIT 1
 	`
 
 	var attempt models.MinatBakatAttempt
@@ -260,4 +260,22 @@ func (r *mbRepo) GetMinatBakatFromUserID(c context.Context, userID int) (*models
 	}
 
 	return &attempt, nil
+}
+
+func (r *mbRepo) GetMinatBakatHistoryByUserID(c context.Context, userID, limit, offset int) ([]models.MinatBakatAttempt, error) {
+	query := `
+		SELECT attempt_id, user_id, bakat_user, created_at
+		FROM minat_bakat_attempt_history
+		WHERE user_id = $1
+		ORDER BY created_at DESC, attempt_id DESC
+		LIMIT $2 OFFSET $3
+	`
+
+	items := make([]models.MinatBakatAttempt, 0, limit)
+	if err := r.db.SelectContext(c, &items, query, userID, limit, offset); err != nil {
+		logger.LogErrorCtx(c, err, "Failed to get minat bakat history", map[string]interface{}{"user_id": userID, "limit": limit, "offset": offset})
+		return nil, err
+	}
+
+	return items, nil
 }

@@ -16,6 +16,7 @@ type MinatBakatService interface {
 	ProcessMinatBakatAnswers(c context.Context, userID int, req models.SubmitMinatBakatRequest) (*models.MinatBakatResult, error)
 	ProcessLegacyMinatBakatAnswers(c context.Context, userID int, answers []models.MinatBakatAnswers) (*models.MinatBakatResult, error)
 	GetMinatBakatAttempt(c context.Context, userID int) (*models.MinatBakatAttempt, error)
+	GetMinatBakatAttemptHistory(c context.Context, userID, limit, offset int) (*models.MinatBakatAttemptHistory, error)
 	GetLatestResult(c context.Context, userID int) (*models.MinatBakatResult, error)
 }
 
@@ -250,7 +251,7 @@ func (s *minatBakatService) ProcessMinatBakatAnswers(c context.Context, userID i
 		return nil, err
 	}
 
-	if err := s.minatBakatRepo.UpsertLegacyAttemptTx(c, tx, userID, topRole); err != nil {
+	if err := s.minatBakatRepo.InsertAttemptHistoryTx(c, tx, userID, topRole); err != nil {
 		return nil, err
 	}
 
@@ -260,12 +261,7 @@ func (s *minatBakatService) ProcessMinatBakatAnswers(c context.Context, userID i
 	}
 	committed = true
 
-	latest, err := s.minatBakatRepo.GetLatestResultByUserID(c, userID)
-	if err != nil {
-		return nil, err
-	}
-
-	return latest, nil
+	return result, nil
 }
 
 func (s *minatBakatService) GetMinatBakatAttempt(c context.Context, userID int) (*models.MinatBakatAttempt, error) {
@@ -276,6 +272,21 @@ func (s *minatBakatService) GetMinatBakatAttempt(c context.Context, userID int) 
 	}
 
 	return attempt, nil
+}
+
+func (s *minatBakatService) GetMinatBakatAttemptHistory(c context.Context, userID, limit, offset int) (*models.MinatBakatAttemptHistory, error) {
+	items, err := s.minatBakatRepo.GetMinatBakatHistoryByUserID(c, userID, limit, offset)
+	if err != nil {
+		logger.LogErrorCtx(c, err, "Failed to get minat bakat attempt history", map[string]interface{}{"user_id": userID, "limit": limit, "offset": offset})
+		return nil, err
+	}
+
+	return &models.MinatBakatAttemptHistory{
+		Items:  items,
+		Limit:  limit,
+		Offset: offset,
+		Count:  len(items),
+	}, nil
 }
 
 func (s *minatBakatService) GetLatestResult(c context.Context, userID int) (*models.MinatBakatResult, error) {
