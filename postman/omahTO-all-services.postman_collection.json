@@ -1,0 +1,494 @@
+{
+  "info": {
+    "name": "OmahTO - All Services",
+    "description": "Collection untuk testing semua service OmahTO (gateway + direct service).\n\nUrutan cepat testing via gateway:\n1) Auth > Register (optional)\n2) Auth > Login (cookie access_token + refresh_token tersimpan di Postman Cookie Jar)\n3) Protected endpoint lain di /api/*\n\nCatatan:\n- Endpoint protected di gateway memerlukan cookie session valid.\n- Upload image soal pakai form-data (kode_soal + file).\n- Untuk endpoint image object, isi object_key dari response upload.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "gateway_url", "value": "http://localhost:8080" },
+    { "key": "auth_service_url", "value": "http://localhost:8081" },
+    { "key": "soal_service_url", "value": "http://localhost:8082" },
+    { "key": "tryout_service_url", "value": "http://localhost:8083" },
+    { "key": "mb_service_url", "value": "http://localhost:8084" },
+    { "key": "paket", "value": "paket1" },
+    { "key": "subtest", "value": "subtest_pu" },
+    { "key": "kode_soal", "value": "pu-001" },
+    { "key": "object_key", "value": "soal/pu-001/example.webp" },
+    { "key": "email", "value": "tester@example.com" },
+    { "key": "password", "value": "password123" },
+    { "key": "nama_user", "value": "Tester OmahTO" },
+    { "key": "asal_sekolah", "value": "SMA Negeri 1" },
+    { "key": "reset_token", "value": "replace-with-reset-token" },
+    { "key": "image_file_path", "value": "C:/tmp/soal-image.png" }
+  ],
+  "item": [
+    {
+      "name": "Gateway - Public",
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "url": "{{gateway_url}}/health"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Gateway - Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"nama_user\": \"{{nama_user}}\",\n  \"asal_sekolah\": \"{{asal_sekolah}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": "{{gateway_url}}/api/auth/register"
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": "{{gateway_url}}/api/auth/login"
+          }
+        },
+        {
+          "name": "Refresh Session",
+          "request": {
+            "method": "GET",
+            "url": "{{gateway_url}}/api/auth/refresh"
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "url": "{{gateway_url}}/api/auth/logout"
+          }
+        },
+        {
+          "name": "Request Password Reset",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\"\n}"
+            },
+            "url": "{{gateway_url}}/api/auth/request-password-reset"
+          }
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reset_token\": \"{{reset_token}}\",\n  \"new_password\": \"new-password-123\"\n}"
+            },
+            "url": "{{gateway_url}}/api/auth/reset-password"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Gateway - Protected Profile",
+      "item": [
+        {
+          "name": "Get Me",
+          "request": {
+            "method": "GET",
+            "url": "{{gateway_url}}/api/me"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Gateway - Soal Service",
+      "item": [
+        {
+          "name": "Get Soal by Paket + Subtest",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{gateway_url}}/api/soal/{{paket}}?subtest={{subtest}}",
+              "host": ["{{gateway_url}}"],
+              "path": ["api", "soal", "{{paket}}"],
+              "query": [
+                { "key": "subtest", "value": "{{subtest}}" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Answer Key by Paket + Subtest",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{gateway_url}}/api/soal/answer-key/{{paket}}?subtest={{subtest}}",
+              "host": ["{{gateway_url}}"],
+              "path": ["api", "soal", "answer-key", "{{paket}}"],
+              "query": [
+                { "key": "subtest", "value": "{{subtest}}" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Minat-Bakat Soal (from soal-service)",
+          "request": {
+            "method": "GET",
+            "url": "{{gateway_url}}/api/soal/minat-bakat"
+          }
+        },
+        {
+          "name": "Upload Soal Image (WebP pipeline)",
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "kode_soal", "value": "{{kode_soal}}", "type": "text" },
+                { "key": "file", "type": "file", "src": "{{image_file_path}}" }
+              ]
+            },
+            "url": "{{gateway_url}}/api/soal/images/upload"
+          }
+        },
+        {
+          "name": "Get Soal Image Object",
+          "request": {
+            "method": "GET",
+            "url": "{{gateway_url}}/api/soal/images/object/{{object_key}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Gateway - Tryout Service",
+      "item": [
+        {
+          "name": "Start Attempt",
+          "request": {
+            "method": "POST",
+            "url": "{{gateway_url}}/api/tryout/start-attempt/{{paket}}"
+          }
+        },
+        {
+          "name": "Get Current Attempt",
+          "request": {
+            "method": "GET",
+            "url": "{{gateway_url}}/api/tryout/sync/current"
+          }
+        },
+        {
+          "name": "Sync Answers",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"answers\": [\n    { \"kode_soal\": \"pu-001\", \"jawaban\": \"A\" },\n    { \"kode_soal\": \"pu-002\", \"jawaban\": \"B\" }\n  ]\n}"
+            },
+            "url": "{{gateway_url}}/api/tryout/sync"
+          }
+        },
+        {
+          "name": "Progress Tryout",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"answers\": [\n    { \"kode_soal\": \"pu-001\", \"jawaban\": \"A\" }\n  ]\n}"
+            },
+            "url": "{{gateway_url}}/api/tryout/sync/progress"
+          }
+        },
+        {
+          "name": "Finish Tryout",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"answers\": [\n    { \"kode_soal\": \"pu-001\", \"jawaban\": \"A\" }\n  ]\n}"
+            },
+            "url": "{{gateway_url}}/api/tryout/sync/finish"
+          }
+        },
+        {
+          "name": "Get Pembahasan Page",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{gateway_url}}/api/tryout/pembahasan?paket={{paket}}",
+              "host": ["{{gateway_url}}"],
+              "path": ["api", "tryout", "pembahasan"],
+              "query": [
+                { "key": "paket", "value": "{{paket}}" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Progress Overview",
+          "request": {
+            "method": "GET",
+            "url": "{{gateway_url}}/api/tryout/progress-overview"
+          }
+        },
+        {
+          "name": "Get Leaderboard",
+          "request": {
+            "method": "GET",
+            "url": "{{gateway_url}}/api/tryout/leaderboard"
+          }
+        },
+        {
+          "name": "Get Subtests Score",
+          "request": {
+            "method": "GET",
+            "url": "{{gateway_url}}/api/tryout/subtests-score"
+          }
+        },
+        {
+          "name": "Get Subtests Progress",
+          "request": {
+            "method": "GET",
+            "url": "{{gateway_url}}/api/tryout/subtests-progress"
+          }
+        },
+        {
+          "name": "Get Ongoing Attempts",
+          "request": {
+            "method": "GET",
+            "url": "{{gateway_url}}/api/tryout/ongoing-attempts"
+          }
+        },
+        {
+          "name": "Get Finished Attempt",
+          "request": {
+            "method": "GET",
+            "url": "{{gateway_url}}/api/tryout/finished-attempt"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Gateway - Minat Bakat Service",
+      "item": [
+        {
+          "name": "Get Questions",
+          "request": {
+            "method": "GET",
+            "url": "{{gateway_url}}/api/minat-bakat/questions"
+          }
+        },
+        {
+          "name": "Process Answers (new payload)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"assessment_version\": \"v1\",\n  \"answers\": [\n    { \"question_id\": 1, \"likert_value\": 4 },\n    { \"question_id\": 2, \"likert_value\": 5 }\n  ]\n}"
+            },
+            "url": "{{gateway_url}}/api/minat-bakat/process"
+          }
+        },
+        {
+          "name": "Process Answers (legacy payload)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "[\n  { \"kode_soal\": \"MB-001\", \"jawaban\": \"5\" },\n  { \"kode_soal\": \"MB-002\", \"jawaban\": \"3\" }\n]"
+            },
+            "url": "{{gateway_url}}/api/minat-bakat/process"
+          }
+        },
+        {
+          "name": "Get Attempt",
+          "request": {
+            "method": "GET",
+            "url": "{{gateway_url}}/api/minat-bakat/attempt"
+          }
+        },
+        {
+          "name": "Get Latest Result",
+          "request": {
+            "method": "GET",
+            "url": "{{gateway_url}}/api/minat-bakat/result/latest"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Direct Service - API Gateway",
+      "item": [
+        {
+          "name": "Gateway Health",
+          "request": {
+            "method": "GET",
+            "url": "{{gateway_url}}/health"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Direct Service - Auth Service",
+      "item": [
+        {
+          "name": "Ping",
+          "request": {
+            "method": "GET",
+            "url": "{{auth_service_url}}/ping/"
+          }
+        },
+        {
+          "name": "Metrics",
+          "request": {
+            "method": "GET",
+            "url": "{{auth_service_url}}/metrics"
+          }
+        },
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"nama_user\": \"{{nama_user}}\",\n  \"asal_sekolah\": \"{{asal_sekolah}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": "{{auth_service_url}}/user/register"
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": "{{auth_service_url}}/user/login"
+          }
+        },
+        {
+          "name": "Refresh",
+          "request": {
+            "method": "GET",
+            "url": "{{auth_service_url}}/user/refresh"
+          }
+        },
+        {
+          "name": "Validate Profile (requires access_token cookie)",
+          "request": {
+            "method": "GET",
+            "url": "{{auth_service_url}}/auth/validateprofile"
+          }
+        },
+        {
+          "name": "Logout (requires access_token cookie)",
+          "request": {
+            "method": "POST",
+            "url": "{{auth_service_url}}/auth/logout"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Direct Service - Soal Service",
+      "item": [
+        {
+          "name": "Ping",
+          "request": {
+            "method": "GET",
+            "url": "{{soal_service_url}}/ping/"
+          }
+        },
+        {
+          "name": "Metrics",
+          "request": {
+            "method": "GET",
+            "url": "{{soal_service_url}}/metrics"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Direct Service - Tryout Service",
+      "item": [
+        {
+          "name": "Ping",
+          "request": {
+            "method": "GET",
+            "url": "{{tryout_service_url}}/ping/"
+          }
+        },
+        {
+          "name": "Metrics",
+          "request": {
+            "method": "GET",
+            "url": "{{tryout_service_url}}/metrics"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Direct Service - Minat Bakat Service",
+      "item": [
+        {
+          "name": "Ping",
+          "request": {
+            "method": "GET",
+            "url": "{{mb_service_url}}/ping/"
+          }
+        },
+        {
+          "name": "Metrics",
+          "request": {
+            "method": "GET",
+            "url": "{{mb_service_url}}/metrics"
+          }
+        }
+      ]
+    }
+  ]
+}

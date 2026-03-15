@@ -14,6 +14,8 @@ type SoalRepo interface {
 	GetSoalByPaketAndSubtest(c context.Context, paketSoal, subtest string) ([]models.SoalGabungan, error)
 	GetAnswerKeyByPaketAndSubtest(c context.Context, paketSoal, subtest string) (*models.AnswerKeys, error)
 	GetMinatBakatSoal(c context.Context) ([]models.MinatBakatGabungan, error)
+	GetSoalImagePathByKodeSoal(c context.Context, kodeSoal string) (*string, error)
+	UpdateSoalImagePath(c context.Context, kodeSoal, objectKey string) error
 }
 
 type soalRepo struct {
@@ -297,4 +299,45 @@ func (r *soalRepo) GetMinatBakatSoal(c context.Context) ([]models.MinatBakatGabu
 
 	// return the slice
 	return results, nil
+}
+
+func (r *soalRepo) GetSoalImagePathByKodeSoal(c context.Context, kodeSoal string) (*string, error) {
+	var path sql.NullString
+
+	query := `SELECT path_gambar_soal FROM soal WHERE kode_soal = $1`
+	if err := r.db.QueryRowx(query, kodeSoal).Scan(&path); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, sql.ErrNoRows
+		}
+		logger.LogErrorCtx(c, err, "Failed to get soal image path", map[string]interface{}{"kode_soal": kodeSoal})
+		return nil, err
+	}
+
+	if !path.Valid || path.String == "" {
+		return nil, nil
+	}
+
+	result := path.String
+	return &result, nil
+}
+
+func (r *soalRepo) UpdateSoalImagePath(c context.Context, kodeSoal, objectKey string) error {
+	query := `UPDATE soal SET path_gambar_soal = $1 WHERE kode_soal = $2`
+	res, err := r.db.ExecContext(c, query, objectKey, kodeSoal)
+	if err != nil {
+		logger.LogErrorCtx(c, err, "Failed to update soal image path", map[string]interface{}{"kode_soal": kodeSoal})
+		return err
+	}
+
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		logger.LogErrorCtx(c, err, "Failed to read updated rows for soal image path", map[string]interface{}{"kode_soal": kodeSoal})
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+
+	return nil
 }

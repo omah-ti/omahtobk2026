@@ -52,6 +52,20 @@ services:
             timeout: 3s
             retries: 10
 
+    minio:
+        image: minio/minio:latest
+        command: server /data --console-address ":9001"
+        environment:
+            MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
+            MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
+        ports:
+            - "${MINIO_API_PORT}:9000"
+            - "${MINIO_CONSOLE_PORT}:9001"
+        volumes:
+            - minio-data:/data
+        networks:
+            - omahtryout-network
+
     api-gateway:
         build: ./api-gateway
         depends_on:
@@ -111,6 +125,8 @@ services:
                 condition: service_healthy # Ensure DB is ready
             auth-service-api:
                 condition: service_healthy # Ensure Auth service is ready
+            minio:
+                condition: service_started
         networks:
             - omahtryout-network
         volumes:
@@ -200,3 +216,4 @@ volumes:
     tryout-data:
     minat-bakat-data:
     redis-data:
+    minio-data:
