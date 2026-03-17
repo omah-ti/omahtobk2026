@@ -4,8 +4,8 @@ import WhyCompsci from '@/modules/home/why-compsci'
 import SubjectSemester from '@/modules/home/subject-semester'
 import Footer from '@/modules/home/footer'
 import CompsciDivisions from '@/modules/home/compsci-divisions'
-import ReadyPath from '@/modules/home/ready-path'
-import UtbkPerspective from '@/modules/home/utbk-perspective'
+import FinalCta from '@/modules/home/final-cta'
+import Testimony from '@/modules/home/testimony'
 import Inspiration from '@/modules/home/inspiration'
 
 export default function Home() {
@@ -16,9 +16,9 @@ export default function Home() {
       <WhyCompsci />
       <CompsciDivisions />
       <Inspiration />
-      <UtbkPerspective />
+      <Testimony />
       <SubjectSemester />
-      <ReadyPath />
+      <FinalCta />
       {/* <TryoutResult /> ini buat ngetes */}
       <Footer />
     </>
