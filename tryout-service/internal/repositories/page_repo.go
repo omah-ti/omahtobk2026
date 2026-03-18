@@ -10,8 +10,8 @@ import (
 
 type PageRepo interface {
 	GetAllSubtestScoreForAUser(c context.Context, userID int) ([]models.UserScore, error)
-	GetTop4Leaderboard(c context.Context) ([]models.TryoutAttempt, error)              // /leaderboard
-	GetScoreAndRank(c context.Context, userID int, paket string) (float64, int, error) // /pembahasan
+	GetTop4Leaderboard(c context.Context) ([]models.TryoutAttempt, error) // /leaderboard
+	GetScoreAndRank(c context.Context, userID int, paket string) (float64, int, error)
 	GetUserAnswersBasedOnIDPaketAndSubtest(c context.Context, userID int, paket, subtest string) ([]models.UserAnswer, error)
 	GetOngoingAttemptByUserID(c context.Context, userID int) (*models.TryoutAttempt, error)
 	GetFinishedAttemptByUserID(c context.Context, userID int) (*models.TryoutAttempt, error)
@@ -25,7 +25,7 @@ func NewPageRepo(db *sqlx.DB) PageRepo {
 	return &pageRepo{db: db}
 }
 
-// buat tryout homepage ama pembahasan
+// Query helper for score summary shown in progress/result pages.
 func (r *pageRepo) GetAllSubtestScoreForAUser(c context.Context, userID int) ([]models.UserScore, error) {
 	var scores []models.UserScore
 	query := `
@@ -63,7 +63,7 @@ func (r *pageRepo) GetTop4Leaderboard(c context.Context) ([]models.TryoutAttempt
 	return leaderboards, nil
 }
 
-// buat rank dan score di pembahasan
+// Query helper for rank and score by paket.
 func (r *pageRepo) GetScoreAndRank(c context.Context, userID int, paket string) (float64, int, error) {
 	var userScore float64
 	var userRank int
@@ -86,7 +86,7 @@ func (r *pageRepo) GetScoreAndRank(c context.Context, userID int, paket string) 
 	return userScore, userRank, nil
 }
 
-// buat di pembahasan
+// Query helper for per-subtest answers in an attempt.
 func (s *pageRepo) GetUserAnswersBasedOnIDPaketAndSubtest(c context.Context, userID int, paket, subtest string) ([]models.UserAnswer, error) {
 	query := `
 	SELECT 

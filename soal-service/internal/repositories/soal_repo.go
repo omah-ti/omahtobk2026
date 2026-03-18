@@ -109,24 +109,21 @@ func (r *soalRepo) GetAnswerKeyByPaketAndSubtest(c context.Context, paketSoal, s
 			IsCorrect   bool
 			Bobot       int
 			TextPilihan string
-			Pembahasan  string
 		}),
 		TrueFalseAnswers: make(map[string]struct {
 			Jawaban     string
 			Bobot       int
 			TextPilihan string
-			Pembahasan  string
 		}),
 		UraianAnswers: make(map[string]struct {
-			Jawaban    string
-			Bobot      int
-			Pembahasan string
+			Jawaban string
+			Bobot   int
 		}),
 	}
 
 	// 🔹 Pilihan Ganda
 	pgQuery := `
-		SELECT ppg.pilihan_pilihan_ganda_id, ppg.is_correct, s.bobot_soal, ppg.kode_soal, s.pembahasan, ppg.pilihan
+		SELECT ppg.pilihan_pilihan_ganda_id, ppg.is_correct, s.bobot_soal, ppg.kode_soal, ppg.pilihan
 		FROM pilihan_pilihan_ganda ppg
 		JOIN soal s ON ppg.kode_soal = s.kode_soal
 		WHERE s.paket_soal_id = $1 AND s.subtest = $2
@@ -144,8 +141,7 @@ func (r *soalRepo) GetAnswerKeyByPaketAndSubtest(c context.Context, paketSoal, s
 		var bobot int
 		var kodeSoal string
 		var textPilihan string
-		var pembahasan string
-		if err := pgRows.Scan(&pilihanGandaID, &isCorrect, &bobot, &kodeSoal, &pembahasan, &textPilihan); err != nil {
+		if err := pgRows.Scan(&pilihanGandaID, &isCorrect, &bobot, &kodeSoal, &textPilihan); err != nil {
 			logger.LogErrorCtx(c, err, "Failed to scan pilihan ganda by paket and subtest", map[string]interface{}{"paket_soal": paketSoal, "subtest": subtest})
 			return nil, err
 		}
@@ -156,7 +152,6 @@ func (r *soalRepo) GetAnswerKeyByPaketAndSubtest(c context.Context, paketSoal, s
 				IsCorrect   bool
 				Bobot       int
 				TextPilihan string
-				Pembahasan  string
 			})
 		}
 
@@ -165,13 +160,12 @@ func (r *soalRepo) GetAnswerKeyByPaketAndSubtest(c context.Context, paketSoal, s
 			IsCorrect   bool
 			Bobot       int
 			TextPilihan string
-			Pembahasan  string
-		}{IsCorrect: isCorrect.Valid && isCorrect.Bool, Bobot: bobot, TextPilihan: textPilihan, Pembahasan: pembahasan}
+		}{IsCorrect: isCorrect.Valid && isCorrect.Bool, Bobot: bobot, TextPilihan: textPilihan}
 	}
 
 	// 🔹 True False
 	tfQuery := `
-		SELECT ptf.jawaban, s.bobot_soal, ptf.kode_soal, s.pembahasan, ptf.pilihan_tf
+		SELECT ptf.jawaban, s.bobot_soal, ptf.kode_soal, ptf.pilihan_tf
 		FROM pilihan_true_false ptf
 		JOIN soal s ON ptf.kode_soal = s.kode_soal
 		WHERE s.paket_soal_id = $1 AND s.subtest = $2
@@ -188,9 +182,8 @@ func (r *soalRepo) GetAnswerKeyByPaketAndSubtest(c context.Context, paketSoal, s
 		var bobot int
 		var kodeSoal string
 		var textPilihan string
-		var pembahasan string
 
-		if err := tfRows.Scan(&jawaban, &bobot, &kodeSoal, &pembahasan, &textPilihan); err != nil {
+		if err := tfRows.Scan(&jawaban, &bobot, &kodeSoal, &textPilihan); err != nil {
 			logger.LogErrorCtx(c, err, "Failed to scan true false by paket and subtest", map[string]interface{}{"paket_soal": paketSoal, "subtest": subtest})
 			return nil, err
 		}
@@ -200,13 +193,12 @@ func (r *soalRepo) GetAnswerKeyByPaketAndSubtest(c context.Context, paketSoal, s
 			Jawaban     string
 			Bobot       int
 			TextPilihan string
-			Pembahasan  string
-		}{Jawaban: jawaban, Bobot: bobot, TextPilihan: textPilihan, Pembahasan: pembahasan}
+		}{Jawaban: jawaban, Bobot: bobot, TextPilihan: textPilihan}
 	}
 
 	// 🔹 Uraian
 	uraianQuery := `
-		SELECT u.jawaban, s.bobot_soal, u.kode_soal, s.pembahasan
+		SELECT u.jawaban, s.bobot_soal, u.kode_soal
 		FROM uraian u
 		JOIN soal s ON u.kode_soal = s.kode_soal
 		WHERE s.paket_soal_id = $1 AND s.subtest = $2
@@ -222,19 +214,17 @@ func (r *soalRepo) GetAnswerKeyByPaketAndSubtest(c context.Context, paketSoal, s
 		var jawaban sql.NullString
 		var bobot int
 		var kodeSoal string
-		var pembahasan string
 
-		if err := uraianRows.Scan(&jawaban, &bobot, &kodeSoal, &pembahasan); err != nil {
+		if err := uraianRows.Scan(&jawaban, &bobot, &kodeSoal); err != nil {
 			logger.LogErrorCtx(c, err, "Failed to scan uraian by paket and subtest", map[string]interface{}{"paket_soal": paketSoal, "subtest": subtest})
 			return nil, err
 		}
 
 		// Store by kodeSoal
 		answers.UraianAnswers[kodeSoal] = struct {
-			Jawaban    string
-			Bobot      int
-			Pembahasan string
-		}{Jawaban: jawaban.String, Bobot: bobot, Pembahasan: pembahasan}
+			Jawaban string
+			Bobot   int
+		}{Jawaban: jawaban.String, Bobot: bobot}
 	}
 
 	logger.LogDebugCtx(c, "Answer keys retrieved successfully", map[string]interface{}{"paket_soal": paketSoal, "subtest": subtest})

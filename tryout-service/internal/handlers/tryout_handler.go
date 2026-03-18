@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"database/sql"
+	"errors"
 	"net/http"
 	"tryout-service/internal/logger"
 	"tryout-service/internal/models"
@@ -18,11 +20,14 @@ func NewTryoutHandler(tryoutService services.TryoutService) *TryoutHandler {
 }
 
 func (h *TryoutHandler) getOngoingAttempt(c *gin.Context) (*models.TryoutAttempt, bool) {
-	userID := c.GetInt("user_id")
+	userID, ok := getAuthUserID(c)
+	if !ok {
+		return nil, false
+	}
 	attempt, err := h.tryoutService.GetCurrentAttemptByUserID(c, userID)
 	if err != nil {
 		logger.LogErrorCtx(c, err, "Failed to resolve ongoing attempt", map[string]interface{}{"user_id": userID})
-		c.JSON(http.StatusNotFound, gin.H{"message": "No ongoing attempt found", "error": err.Error()})
+		writeTryoutError(c, err, "No ongoing attempt found")
 		return nil, false
 	}
 
@@ -31,14 +36,17 @@ func (h *TryoutHandler) getOngoingAttempt(c *gin.Context) (*models.TryoutAttempt
 
 func (h *TryoutHandler) StartAttempt(c *gin.Context) {
 	// retrieve user_id from context
-	userID := c.GetInt("user_id")
+	userID, ok := getAuthUserID(c)
+	if !ok {
+		return
+	}
 	username := c.GetString("username")
 	paket := c.Param("paket")
 	// start the attempt, making a new record in the database
 	attempt, err := h.tryoutService.StartAttempt(c, userID, username, paket)
 	if err != nil {
 		logger.LogErrorCtx(c, err, "Failed to start attempt")
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to start attempt", "error": err.Error()})
+		writeTryoutError(c, err, "Failed to start attempt")
 		return
 	}
 
@@ -46,7 +54,10 @@ func (h *TryoutHandler) StartAttempt(c *gin.Context) {
 }
 
 func (h *TryoutHandler) SyncHandler(c *gin.Context) {
-	userID := c.GetInt("user_id")
+	userID, ok := getAuthUserID(c)
+	if !ok {
+		return
+	}
 	attempt, ok := h.getOngoingAttempt(c)
 	if !ok {
 		return
@@ -64,7 +75,7 @@ func (h *TryoutHandler) SyncHandler(c *gin.Context) {
 	answersInDB, timeLimit, err := h.tryoutService.SyncWithDatabase(c, answers.Answers, attemptID)
 	if err != nil {
 		logger.LogErrorCtx(c, err, "Failed to sync answers")
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to sync answers", "error": err.Error()})
+		writeTryoutError(c, err, "Failed to sync answers")
 		return
 	}
 
@@ -72,7 +83,10 @@ func (h *TryoutHandler) SyncHandler(c *gin.Context) {
 }
 
 func (h *TryoutHandler) ProgressTryoutHandler(c *gin.Context) {
-	userID := c.GetInt("user_id")
+	userID, ok := getAuthUserID(c)
+	if !ok {
+		return
+	}
 	attempt, ok := h.getOngoingAttempt(c)
 	if !ok {
 		return
@@ -97,7 +111,7 @@ func (h *TryoutHandler) ProgressTryoutHandler(c *gin.Context) {
 	updatedSubtest, err := h.tryoutService.SubmitCurrentSubtest(c, answers.Answers, attemptID, userID, accessToken)
 	if err != nil {
 		logger.LogErrorCtx(c, err, "Failed to submit answers")
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to submit answers", "error": err.Error()})
+		writeTryoutError(c, err, "Failed to submit answers")
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
@@ -108,7 +122,10 @@ func (h *TryoutHandler) ProgressTryoutHandler(c *gin.Context) {
 }
 
 func (h *TryoutHandler) FinishTryoutHandler(c *gin.Context) {
-	userID := c.GetInt("user_id")
+	userID, ok := getAuthUserID(c)
+	if !ok {
+		return
+	}
 	attempt, ok := h.getOngoingAttempt(c)
 	if !ok {
 		return
@@ -134,7 +151,7 @@ func (h *TryoutHandler) FinishTryoutHandler(c *gin.Context) {
 	updatedSubtest, err := h.tryoutService.FinishTryoutNow(c, answers.Answers, attemptID, userID, accessToken)
 	if err != nil {
 		logger.LogErrorCtx(c, err, "Failed to finish tryout early")
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to finish tryout", "error": err.Error()})
+		writeTryoutError(c, err, "Failed to finish tryout")
 		return
 	}
 
@@ -151,4 +168,45 @@ func (h *TryoutHandler) GetCurrentAttempt(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Successfully get current attempt", "data": attempt})
+}
+
+func getAuthUserID(c *gin.Context) (int, bool) {
+	userID := c.GetInt("user_id")
+	if userID <= 0 {
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "Invalid authentication context"})
+		return 0, false
+	}
+
+	return userID, true
+}
+
+func writeTryoutError(c *gin.Context, err error, fallbackMessage string) {
+	status := http.StatusInternalServerError
+	message := fallbackMessage
+
+	switch {
+	case errors.Is(err, services.ErrAuthContextInvalid):
+		status = http.StatusUnauthorized
+		message = "Invalid authentication context"
+	case errors.Is(err, services.ErrAttemptNotFound), errors.Is(err, sql.ErrNoRows):
+		status = http.StatusNotFound
+		message = "No ongoing attempt found"
+	case errors.Is(err, services.ErrAttemptAlreadyOngoing):
+		status = http.StatusConflict
+		message = "You already have an ongoing attempt"
+	case errors.Is(err, services.ErrInvalidAnswerPayload):
+		status = http.StatusBadRequest
+		message = "Invalid input"
+	case errors.Is(err, services.ErrAttemptEnded), errors.Is(err, services.ErrAttemptNotOngoing), errors.Is(err, services.ErrNoActiveSubtest):
+		status = http.StatusConflict
+		message = "Tryout attempt state is no longer valid"
+	case errors.Is(err, services.ErrTimeLimitReached):
+		status = http.StatusGone
+		message = "Time limit has been reached"
+	case errors.Is(err, services.ErrScoringFailed):
+		status = http.StatusServiceUnavailable
+		message = "Tryout finalized but scoring is not available yet"
+	}
+
+	c.JSON(status, gin.H{"message": message, "error": err.Error()})
 }

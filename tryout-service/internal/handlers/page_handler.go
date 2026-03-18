@@ -64,37 +64,6 @@ func (h *PageHandler) GetProgressOverviewHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Progress overview retrieved successfully", "data": overview})
 }
 
-func (h *PageHandler) GetPembahasanPageHandler(c *gin.Context) {
-	userID := c.GetInt("user_id")
-	paket := c.Request.URL.Query().Get("paket")
-	accessToken, err := c.Cookie("access_token")
-	if err != nil {
-		logger.LogErrorCtx(c, err, "Failed to get access token from cookie")
-		c.JSON(http.StatusUnauthorized, gin.H{"message": "Access token is required"})
-		return
-	}
-
-	//derived context from gin context, because c is tied to the request cycle, if the request is done, the context is destroye(process might still run, potential memory leak)
-	requestContext := c.Request.Context()
-
-	// call the service to get the pembahasan page
-	enrichedAnswers, averageScores, rank, subtestsScores, err := h.pageService.GetPembahasanPage(requestContext, userID, paket, accessToken)
-	if err != nil {
-		logger.LogErrorCtx(c, err, "Failed to get pembahasan page", map[string]interface{}{
-			"user_id": userID,
-			"paket":   paket,
-		})
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to get pembahasan page", "error": err.Error()})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{"message": "Pembahasan page retrieved successfully", "data": gin.H{
-		"enriched_answers": enrichedAnswers,
-		"average_scores":   averageScores,
-		"rank":             rank,
-		"subtests_scores":  subtestsScores,
-	}})
-}
-
 func (h *PageHandler) GetOngoingAttemptHandler(c *gin.Context) {
 	userID := c.GetInt("user_id")
 	attempt, _ := h.pageService.GetOngoingAttempt(c, userID)

@@ -45,20 +45,17 @@ type AnswerKeys struct {
 		IsCorrect   bool
 		Bobot       int
 		TextPilihan string
-		Pembahasan  string
 	} `json:"pilihan_ganda,omitempty"`
 
 	TrueFalseAnswers map[string]struct { // Now groups by KodeSoal
 		Jawaban     string
 		Bobot       int
 		TextPilihan string
-		Pembahasan  string
 	} `json:"true_false,omitempty"`
 
 	UraianAnswers map[string]struct { // Now groups by KodeSoal
-		Jawaban    string
-		Bobot      int
-		Pembahasan string
+		Jawaban string
+		Bobot   int
 	} `json:"uraian,omitempty"`
 }
 
@@ -70,7 +67,6 @@ type EnrichedUserAnswer struct {
 	IsCorrect   bool   `json:"is_correct"`
 	Bobot       int    `json:"bobot"`
 	TextPilihan string `json:"text_pilihan,omitempty"` // Only for MCQ/True-False
-	Pembahasan  string `json:"pembahasan"`
 }
 
 type SubtestProgressRow struct {

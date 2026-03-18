@@ -11,6 +11,7 @@ import (
 type ScoreRepo interface {
 	BeginTransaction(c context.Context) (*sqlx.Tx, error)
 	InsertScoreForUserAttemptIDAndSubtestTx(c context.Context, tx *sqlx.Tx, attemptID, userID int, subtest string, score float64) error // Insert a user's score for a subtest, this will be called after calculating
+	GetUserAnswersFromAttemptIDandSubtest(c context.Context, attemptID int, subtest string) ([]models.UserAnswer, error)
 	GetUserAnswersFromAttemptIDandSubtestTx(c context.Context, tx *sqlx.Tx, attemptID int, subtest string) ([]models.UserAnswer, error) // Get user's answers for a subtest
 	GetUserScoreFromAttemptIDAndSubtestTx(c context.Context, tx *sqlx.Tx, attemptID int, subtest string) (*models.UserScore, error)     // Get user's score for a subtest
 	CalculateAverageScoreForAttempt(c context.Context, tx *sqlx.Tx, attemptID int) (float64, error)
@@ -39,6 +40,8 @@ func (r *scoreRepo) InsertScoreForUserAttemptIDAndSubtestTx(c context.Context, t
 	query := `
 		INSERT INTO user_scores (attempt_id, user_id, subtest, score)
 		VALUES ($1, $2, $3, $4)
+		ON CONFLICT (user_id, attempt_id, subtest)
+		DO UPDATE SET score = EXCLUDED.score
 	`
 
 	_, err := tx.Exec(query, attemptID, userID, subtest, score)
@@ -59,6 +62,28 @@ func (r *scoreRepo) InsertScoreForUserAttemptIDAndSubtestTx(c context.Context, t
 		"score":      score,
 	})
 	return nil
+}
+
+func (r *scoreRepo) GetUserAnswersFromAttemptIDandSubtest(c context.Context, attemptID int, subtest string) ([]models.UserAnswer, error) {
+	var userAnswers []models.UserAnswer
+
+	query := `SELECT attempt_id, subtest, kode_soal, jawaban FROM user_answers WHERE attempt_id = $1 AND subtest = $2`
+	err := r.db.Select(&userAnswers, query, attemptID, subtest)
+	if err != nil {
+		logger.LogErrorCtx(c, err, "Failed to fetch user answers", map[string]interface{}{
+			"attemptID": attemptID,
+			"subtest":   subtest,
+		})
+		return nil, err
+	}
+
+	logger.LogDebugCtx(c, "Fetched user answers", map[string]interface{}{
+		"attemptID":   attemptID,
+		"subtest":     subtest,
+		"answerCount": len(userAnswers),
+	})
+
+	return userAnswers, nil
 }
 
 func (r *scoreRepo) GetUserAnswersFromAttemptIDandSubtestTx(c context.Context, tx *sqlx.Tx, attemptID int, subtest string) ([]models.UserAnswer, error) {

@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "OmahTO - All Services",
-    "description": "Collection untuk testing semua service OmahTO (gateway + direct service).\n\nUrutan cepat testing via gateway:\n1) Auth > Register (optional)\n2) Auth > Login (cookie access_token + refresh_token tersimpan di Postman Cookie Jar)\n3) Protected endpoint lain di /api/*\n\nCatatan:\n- Endpoint protected di gateway memerlukan cookie session valid.\n- Upload image soal pakai form-data (kode_soal + file).\n- Untuk endpoint image object, isi object_key dari response upload.\n- Minat Bakat sekarang mendukung multi-attempt: user bisa submit tes berkali-kali.",
+    "description": "Collection untuk testing semua service OmahTO (gateway + direct service).\n\nUrutan cepat testing via gateway:\n1) Auth > Register (optional)\n2) Auth > Login (cookie access_token + refresh_token tersimpan di Postman Cookie Jar)\n3) Protected endpoint lain di /api/*\n\nCatatan:\n- Endpoint protected di gateway memerlukan cookie session valid.\n- Upload image soal pakai form-data (kode_soal + file) dan membutuhkan role admin.\n- Login via request Auth > Login Admin sebelum mencoba endpoint admin-only.\n- Untuk endpoint image object, isi object_key dari response upload.\n- Minat Bakat sekarang mendukung multi-attempt: user bisa submit tes berkali-kali.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -16,6 +16,8 @@
     { "key": "object_key", "value": "soal/pu-001/example.webp" },
     { "key": "email", "value": "tester@example.com" },
     { "key": "password", "value": "password123" },
+    { "key": "admin_email", "value": "admin@example.com" },
+    { "key": "admin_password", "value": "password123" },
     { "key": "nama_user", "value": "Tester OmahTO" },
     { "key": "asal_sekolah", "value": "SMA Negeri 1" },
     { "key": "reset_token", "value": "replace-with-reset-token" },
@@ -63,6 +65,20 @@
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": "{{gateway_url}}/api/auth/login"
+          }
+        },
+        {
+          "name": "Login Admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{admin_email}}\",\n  \"password\": \"{{admin_password}}\"\n}"
             },
             "url": "{{gateway_url}}/api/auth/login"
           }
@@ -162,7 +178,7 @@
           }
         },
         {
-          "name": "Upload Soal Image (WebP pipeline)",
+          "name": "Upload Soal Image (Admin only)",
           "request": {
             "method": "POST",
             "body": {
@@ -241,20 +257,6 @@
               "raw": "{\n  \"answers\": [\n    { \"kode_soal\": \"pu-001\", \"jawaban\": \"A\" }\n  ]\n}"
             },
             "url": "{{gateway_url}}/api/tryout/sync/finish"
-          }
-        },
-        {
-          "name": "Get Pembahasan Page",
-          "request": {
-            "method": "GET",
-            "url": {
-              "raw": "{{gateway_url}}/api/tryout/pembahasan?paket={{paket}}",
-              "host": ["{{gateway_url}}"],
-              "path": ["api", "tryout", "pembahasan"],
-              "query": [
-                { "key": "paket", "value": "{{paket}}" }
-              ]
-            }
           }
         },
         {
