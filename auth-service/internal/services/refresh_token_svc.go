@@ -6,6 +6,9 @@ import (
 	"auth-service/internal/repositories"
 	"auth-service/pkg/utils/jwt"
 	"context"
+	"os"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -23,6 +26,21 @@ type refreshTokenService struct {
 
 func NewRefreshTokenService(refreshTokenRepo repositories.RefreshTokenRepo, authRepo repositories.AuthRepo) RefreshTokenService {
 	return &refreshTokenService{refreshTokenRepo: refreshTokenRepo, authRepo: authRepo}
+}
+
+func refreshTokenTTL() time.Duration {
+	const defaultDays = 7
+	raw := strings.TrimSpace(os.Getenv("REFRESH_TOKEN_TTL_DAYS"))
+	if raw == "" {
+		return time.Duration(defaultDays) * 24 * time.Hour
+	}
+
+	days, err := strconv.Atoi(raw)
+	if err != nil || days <= 0 {
+		return time.Duration(defaultDays) * 24 * time.Hour
+	}
+
+	return time.Duration(days) * 24 * time.Hour
 }
 
 func (s *refreshTokenService) GenerateAccessRefreshTokenPair(c context.Context, userID int) (string, string, error) {
@@ -51,7 +69,7 @@ func (s *refreshTokenService) GenerateAccessRefreshTokenPair(c context.Context, 
 	err = s.refreshTokenRepo.StoreRefreshToken(c, &models.RefreshToken{
 		UserID:            userID,
 		RefreshTokenValue: refreshToken,
-		ExpiredAt:         time.Now().Add(7 * 24 * time.Hour),
+		ExpiredAt:         time.Now().Add(refreshTokenTTL()),
 		CreatedAt:         time.Now(),
 		Revoked:           false,
 	})

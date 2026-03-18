@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -19,6 +21,20 @@ type AuthenticatedUser struct {
 	Role        string `json:"role"`
 }
 
+type refreshResult struct {
+	user              *AuthenticatedUser
+	setCookies        []string
+	resolvedAccessTok string
+	err               error
+}
+
+type refreshCall struct {
+	done chan struct{}
+	res  refreshResult
+}
+
+var refreshInFlight sync.Map
+
 func SessionAuthMiddleware(authServiceURL string) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		accessToken := c.Cookies("access_token")
@@ -31,7 +47,7 @@ func SessionAuthMiddleware(authServiceURL string) fiber.Handler {
 			})
 		}
 
-		user, setCookies, err := resolveSession(authServiceURL, accessToken, refreshToken)
+		user, setCookies, resolvedAccessToken, err := resolveSession(authServiceURL, accessToken, refreshToken)
 		if err != nil {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 				"error":   "Unauthorized",
@@ -40,7 +56,11 @@ func SessionAuthMiddleware(authServiceURL string) fiber.Handler {
 		}
 
 		for _, cookie := range setCookies {
-			c.Append("Set-Cookie", cookie)
+			c.Context().Response.Header.Add("Set-Cookie", cookie)
+		}
+
+		if resolvedAccessToken != "" {
+			c.Locals("access_token", resolvedAccessToken)
 		}
 
 		c.Locals("user_id", user.UserID)
@@ -77,21 +97,46 @@ func AddInternalHeaders(req *http.Request, c *fiber.Ctx) {
 	}
 }
 
-func resolveSession(authServiceURL, accessToken, refreshToken string) (*AuthenticatedUser, []string, error) {
+func resolveSession(authServiceURL, accessToken, refreshToken string) (*AuthenticatedUser, []string, string, error) {
 	client := &http.Client{Timeout: 10 * time.Second}
 
 	if accessToken != "" {
 		user, err := validateAccessToken(client, authServiceURL, accessToken)
 		if err == nil {
-			return user, nil, nil
+			return user, nil, accessToken, nil
 		}
 	}
 
 	if refreshToken == "" {
-		return nil, nil, fmt.Errorf("invalid or expired session")
+		return nil, nil, "", fmt.Errorf("invalid or expired session")
 	}
 
-	return refreshSession(client, authServiceURL, refreshToken)
+	return refreshSessionSingleFlight(client, authServiceURL, refreshToken)
+}
+
+func refreshSessionSingleFlight(client *http.Client, authServiceURL, refreshToken string) (*AuthenticatedUser, []string, string, error) {
+	call := &refreshCall{done: make(chan struct{})}
+	actual, loaded := refreshInFlight.LoadOrStore(refreshToken, call)
+	if loaded {
+		existing := actual.(*refreshCall)
+		<-existing.done
+		return existing.res.user, existing.res.setCookies, existing.res.resolvedAccessTok, existing.res.err
+	}
+
+	defer func() {
+		close(call.done)
+		refreshInFlight.Delete(refreshToken)
+	}()
+
+	user, setCookies, resolvedAccessToken, err := refreshSession(client, authServiceURL, refreshToken)
+	call.res = refreshResult{
+		user:              user,
+		setCookies:        setCookies,
+		resolvedAccessTok: resolvedAccessToken,
+		err:               err,
+	}
+
+	return user, setCookies, resolvedAccessToken, err
 }
 
 func validateAccessToken(client *http.Client, authServiceURL, accessToken string) (*AuthenticatedUser, error) {
@@ -127,10 +172,10 @@ func validateAccessToken(client *http.Client, authServiceURL, accessToken string
 	return &user, nil
 }
 
-func refreshSession(client *http.Client, authServiceURL, refreshToken string) (*AuthenticatedUser, []string, error) {
+func refreshSession(client *http.Client, authServiceURL, refreshToken string) (*AuthenticatedUser, []string, string, error) {
 	req, err := http.NewRequest(http.MethodGet, authServiceURL+"/user/refresh", nil)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, "", err
 	}
 
 	req.Header.Set("Cookie", fmt.Sprintf("refresh_token=%s", refreshToken))
@@ -139,23 +184,38 @@ func refreshSession(client *http.Client, authServiceURL, refreshToken string) (*
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, "", err
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, "", err
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, nil, fmt.Errorf("failed to refresh session")
+		return nil, nil, "", fmt.Errorf("failed to refresh session")
 	}
 
 	var user AuthenticatedUser
 	if err := json.Unmarshal(body, &user); err != nil {
-		return nil, nil, err
+		return nil, nil, "", err
 	}
 
-	return &user, resp.Header.Values("Set-Cookie"), nil
+	setCookies := resp.Header.Values("Set-Cookie")
+	newAccessToken := extractCookieValueFromSetCookies(setCookies, "access_token")
+
+	return &user, setCookies, newAccessToken, nil
+}
+
+func extractCookieValueFromSetCookies(setCookies []string, name string) string {
+	prefix := name + "="
+	for _, setCookie := range setCookies {
+		firstPart := strings.SplitN(setCookie, ";", 2)[0]
+		if strings.HasPrefix(firstPart, prefix) {
+			return strings.TrimPrefix(firstPart, prefix)
+		}
+	}
+
+	return ""
 }

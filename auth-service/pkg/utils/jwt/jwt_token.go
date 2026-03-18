@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -43,6 +44,21 @@ func tokenAudience() string {
 	return strings.TrimSpace(os.Getenv("JWT_AUDIENCE"))
 }
 
+func accessTokenTTL() time.Duration {
+	const defaultMinutes = 60
+	raw := strings.TrimSpace(os.Getenv("ACCESS_TOKEN_TTL_MINUTES"))
+	if raw == "" {
+		return time.Duration(defaultMinutes) * time.Minute
+	}
+
+	minutes, err := strconv.Atoi(raw)
+	if err != nil || minutes <= 0 {
+		return time.Duration(defaultMinutes) * time.Minute
+	}
+
+	return time.Duration(minutes) * time.Minute
+}
+
 func CreateAccessToken(userID int, namaUser, asalSekolah, email, role string) (string, error) {
 	secret, err := accessTokenSecret()
 	if err != nil {
@@ -54,7 +70,7 @@ func CreateAccessToken(userID int, namaUser, asalSekolah, email, role string) (s
 		return "", err
 	}
 
-	expirationTime := time.Now().Add(15 * time.Minute)
+	expirationTime := time.Now().Add(accessTokenTTL())
 	registeredClaims := jwt.RegisteredClaims{
 		ExpiresAt: jwt.NewNumericDate(expirationTime),
 		IssuedAt:  jwt.NewNumericDate(time.Now()),

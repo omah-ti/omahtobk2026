@@ -94,7 +94,7 @@ func (a *AuthController) proxy(c *fiber.Ctx, method, upstreamPath string) error 
 	for key, values := range resp.Header {
 		if key == "Set-Cookie" {
 			for _, value := range values {
-				c.Append("Set-Cookie", value)
+				c.Context().Response.Header.Add("Set-Cookie", value)
 			}
 			continue
 		}

@@ -115,10 +115,10 @@ func ValidateJWT() gin.HandlerFunc {
 		accessToken, errAccess := c.Cookie("access_token")
 
 		var tokenStr string
-		if errTryout == nil && tryoutToken != "" {
-			tokenStr = tryoutToken
-		} else if errAccess == nil && accessToken != "" {
+		if errAccess == nil && accessToken != "" {
 			tokenStr = accessToken
+		} else if errTryout == nil && tryoutToken != "" {
+			tokenStr = tryoutToken
 		} else {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "No valid authentication token found"})
 			c.Abort()
