@@ -16,6 +16,7 @@ type AuthenticatedUser struct {
 	Email       string `json:"email"`
 	Username    string `json:"username"`
 	AsalSekolah string `json:"asal_sekolah"`
+	Role        string `json:"role"`
 }
 
 func SessionAuthMiddleware(authServiceURL string) fiber.Handler {
@@ -46,6 +47,7 @@ func SessionAuthMiddleware(authServiceURL string) fiber.Handler {
 		c.Locals("user_email", user.Email)
 		c.Locals("user_username", user.Username)
 		c.Locals("user_asal_sekolah", user.AsalSekolah)
+		c.Locals("user_role", user.Role)
 
 		return c.Next()
 	}
@@ -69,6 +71,9 @@ func AddInternalHeaders(req *http.Request, c *fiber.Ctx) {
 	}
 	if asalSekolah := c.Locals("user_asal_sekolah"); asalSekolah != nil {
 		req.Header.Set("X-User-Asal-Sekolah", fmt.Sprintf("%v", asalSekolah))
+	}
+	if role := c.Locals("user_role"); role != nil {
+		req.Header.Set("X-User-Role", fmt.Sprintf("%v", role))
 	}
 }
 

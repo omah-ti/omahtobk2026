@@ -38,6 +38,7 @@ func ValidateAccessTokenMiddleware() gin.HandlerFunc {
 		c.Set("email", accessTokenClaims.Email)
 		c.Set("nama_user", accessTokenClaims.NamaUser)
 		c.Set("asal_sekolah", accessTokenClaims.AsalSekolah)
+		c.Set("role", accessTokenClaims.Role)
 		// proceed the request further
 		c.Next()
 	}

@@ -34,7 +34,7 @@ func (s *refreshTokenService) GenerateAccessRefreshTokenPair(c context.Context, 
 	}
 
 	// generate access token using the user that we fetched
-	accessToken, err := jwt.CreateAccessToken(user.UserID, user.NamaUser, user.AsalSekolah, user.Email)
+	accessToken, err := jwt.CreateAccessToken(user.UserID, user.NamaUser, user.AsalSekolah, user.Email, user.Role)
 	if err != nil {
 		logger.LogErrorCtx(c, err, "Failed to generate access token", map[string]interface{}{"user_id": user.UserID})
 		return "", "", err

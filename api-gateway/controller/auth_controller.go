@@ -52,6 +52,7 @@ func (a *AuthController) Me(c *fiber.Ctx) error {
 		"email":        c.Locals("user_email"),
 		"username":     c.Locals("user_username"),
 		"asal_sekolah": c.Locals("user_asal_sekolah"),
+		"role":         c.Locals("user_role"),
 	})
 }
 
