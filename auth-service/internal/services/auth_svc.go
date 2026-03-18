@@ -34,6 +34,9 @@ func NewAuthService(authRepo repositories.AuthRepo, tokenService RefreshTokenSer
 }
 
 func (s *authService) RegisterUser(c context.Context, userFromHandlers *models.User) error {
+	// Force default role from server-side so clients cannot self-assign elevated privileges.
+	userFromHandlers.Role = models.RoleUser
+
 	// check if a user with that email exists, returns nil if no user is found and okay to proceed
 	existingUser, _ := s.authRepo.GetUserByEmail(c, userFromHandlers.Email)
 

@@ -14,6 +14,8 @@ type SoalRepo interface {
 	GetSoalByPaketAndSubtest(c context.Context, paketSoal, subtest string) ([]models.SoalGabungan, error)
 	GetAnswerKeyByPaketAndSubtest(c context.Context, paketSoal, subtest string) (*models.AnswerKeys, error)
 	GetMinatBakatSoal(c context.Context) ([]models.MinatBakatGabungan, error)
+	GetSoalImagePathByKodeSoal(c context.Context, kodeSoal string) (*string, error)
+	UpdateSoalImagePath(c context.Context, kodeSoal, objectKey string) error
 }
 
 type soalRepo struct {
@@ -107,24 +109,21 @@ func (r *soalRepo) GetAnswerKeyByPaketAndSubtest(c context.Context, paketSoal, s
 			IsCorrect   bool
 			Bobot       int
 			TextPilihan string
-			Pembahasan  string
 		}),
 		TrueFalseAnswers: make(map[string]struct {
 			Jawaban     string
 			Bobot       int
 			TextPilihan string
-			Pembahasan  string
 		}),
 		UraianAnswers: make(map[string]struct {
-			Jawaban    string
-			Bobot      int
-			Pembahasan string
+			Jawaban string
+			Bobot   int
 		}),
 	}
 
 	// 🔹 Pilihan Ganda
 	pgQuery := `
-		SELECT ppg.pilihan_pilihan_ganda_id, ppg.is_correct, s.bobot_soal, ppg.kode_soal, s.pembahasan, ppg.pilihan
+		SELECT ppg.pilihan_pilihan_ganda_id, ppg.is_correct, s.bobot_soal, ppg.kode_soal, ppg.pilihan
 		FROM pilihan_pilihan_ganda ppg
 		JOIN soal s ON ppg.kode_soal = s.kode_soal
 		WHERE s.paket_soal_id = $1 AND s.subtest = $2
@@ -142,8 +141,7 @@ func (r *soalRepo) GetAnswerKeyByPaketAndSubtest(c context.Context, paketSoal, s
 		var bobot int
 		var kodeSoal string
 		var textPilihan string
-		var pembahasan string
-		if err := pgRows.Scan(&pilihanGandaID, &isCorrect, &bobot, &kodeSoal, &pembahasan, &textPilihan); err != nil {
+		if err := pgRows.Scan(&pilihanGandaID, &isCorrect, &bobot, &kodeSoal, &textPilihan); err != nil {
 			logger.LogErrorCtx(c, err, "Failed to scan pilihan ganda by paket and subtest", map[string]interface{}{"paket_soal": paketSoal, "subtest": subtest})
 			return nil, err
 		}
@@ -154,7 +152,6 @@ func (r *soalRepo) GetAnswerKeyByPaketAndSubtest(c context.Context, paketSoal, s
 				IsCorrect   bool
 				Bobot       int
 				TextPilihan string
-				Pembahasan  string
 			})
 		}
 
@@ -163,13 +160,12 @@ func (r *soalRepo) GetAnswerKeyByPaketAndSubtest(c context.Context, paketSoal, s
 			IsCorrect   bool
 			Bobot       int
 			TextPilihan string
-			Pembahasan  string
-		}{IsCorrect: isCorrect.Valid && isCorrect.Bool, Bobot: bobot, TextPilihan: textPilihan, Pembahasan: pembahasan}
+		}{IsCorrect: isCorrect.Valid && isCorrect.Bool, Bobot: bobot, TextPilihan: textPilihan}
 	}
 
 	// 🔹 True False
 	tfQuery := `
-		SELECT ptf.jawaban, s.bobot_soal, ptf.kode_soal, s.pembahasan, ptf.pilihan_tf
+		SELECT ptf.jawaban, s.bobot_soal, ptf.kode_soal, ptf.pilihan_tf
 		FROM pilihan_true_false ptf
 		JOIN soal s ON ptf.kode_soal = s.kode_soal
 		WHERE s.paket_soal_id = $1 AND s.subtest = $2
@@ -186,9 +182,8 @@ func (r *soalRepo) GetAnswerKeyByPaketAndSubtest(c context.Context, paketSoal, s
 		var bobot int
 		var kodeSoal string
 		var textPilihan string
-		var pembahasan string
 
-		if err := tfRows.Scan(&jawaban, &bobot, &kodeSoal, &pembahasan, &textPilihan); err != nil {
+		if err := tfRows.Scan(&jawaban, &bobot, &kodeSoal, &textPilihan); err != nil {
 			logger.LogErrorCtx(c, err, "Failed to scan true false by paket and subtest", map[string]interface{}{"paket_soal": paketSoal, "subtest": subtest})
 			return nil, err
 		}
@@ -198,13 +193,12 @@ func (r *soalRepo) GetAnswerKeyByPaketAndSubtest(c context.Context, paketSoal, s
 			Jawaban     string
 			Bobot       int
 			TextPilihan string
-			Pembahasan  string
-		}{Jawaban: jawaban, Bobot: bobot, TextPilihan: textPilihan, Pembahasan: pembahasan}
+		}{Jawaban: jawaban, Bobot: bobot, TextPilihan: textPilihan}
 	}
 
 	// 🔹 Uraian
 	uraianQuery := `
-		SELECT u.jawaban, s.bobot_soal, u.kode_soal, s.pembahasan
+		SELECT u.jawaban, s.bobot_soal, u.kode_soal
 		FROM uraian u
 		JOIN soal s ON u.kode_soal = s.kode_soal
 		WHERE s.paket_soal_id = $1 AND s.subtest = $2
@@ -220,19 +214,17 @@ func (r *soalRepo) GetAnswerKeyByPaketAndSubtest(c context.Context, paketSoal, s
 		var jawaban sql.NullString
 		var bobot int
 		var kodeSoal string
-		var pembahasan string
 
-		if err := uraianRows.Scan(&jawaban, &bobot, &kodeSoal, &pembahasan); err != nil {
+		if err := uraianRows.Scan(&jawaban, &bobot, &kodeSoal); err != nil {
 			logger.LogErrorCtx(c, err, "Failed to scan uraian by paket and subtest", map[string]interface{}{"paket_soal": paketSoal, "subtest": subtest})
 			return nil, err
 		}
 
 		// Store by kodeSoal
 		answers.UraianAnswers[kodeSoal] = struct {
-			Jawaban    string
-			Bobot      int
-			Pembahasan string
-		}{Jawaban: jawaban.String, Bobot: bobot, Pembahasan: pembahasan}
+			Jawaban string
+			Bobot   int
+		}{Jawaban: jawaban.String, Bobot: bobot}
 	}
 
 	logger.LogDebugCtx(c, "Answer keys retrieved successfully", map[string]interface{}{"paket_soal": paketSoal, "subtest": subtest})
@@ -297,4 +289,45 @@ func (r *soalRepo) GetMinatBakatSoal(c context.Context) ([]models.MinatBakatGabu
 
 	// return the slice
 	return results, nil
+}
+
+func (r *soalRepo) GetSoalImagePathByKodeSoal(c context.Context, kodeSoal string) (*string, error) {
+	var path sql.NullString
+
+	query := `SELECT path_gambar_soal FROM soal WHERE kode_soal = $1`
+	if err := r.db.QueryRowx(query, kodeSoal).Scan(&path); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, sql.ErrNoRows
+		}
+		logger.LogErrorCtx(c, err, "Failed to get soal image path", map[string]interface{}{"kode_soal": kodeSoal})
+		return nil, err
+	}
+
+	if !path.Valid || path.String == "" {
+		return nil, nil
+	}
+
+	result := path.String
+	return &result, nil
+}
+
+func (r *soalRepo) UpdateSoalImagePath(c context.Context, kodeSoal, objectKey string) error {
+	query := `UPDATE soal SET path_gambar_soal = $1 WHERE kode_soal = $2`
+	res, err := r.db.ExecContext(c, query, objectKey, kodeSoal)
+	if err != nil {
+		logger.LogErrorCtx(c, err, "Failed to update soal image path", map[string]interface{}{"kode_soal": kodeSoal})
+		return err
+	}
+
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		logger.LogErrorCtx(c, err, "Failed to read updated rows for soal image path", map[string]interface{}{"kode_soal": kodeSoal})
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+
+	return nil
 }

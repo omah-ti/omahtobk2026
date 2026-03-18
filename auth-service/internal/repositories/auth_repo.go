@@ -35,9 +35,9 @@ func NewAuthRepo(db *sqlx.DB) AuthRepo {
 // This function implements the CreateUser method from the AuthRepo interface, it creates a new user in the database, accepts the user models as the params, and returns an error if the query fails
 func (r *authRepo) CreateUser(c context.Context, user *models.User) error {
 	// Define the query to insert a new user
-	query := "INSERT INTO users (email, nama_user, password, asal_sekolah) VALUES ($1, $2, $3, $4) RETURNING user_id"
+	query := "INSERT INTO users (email, nama_user, password, asal_sekolah, role) VALUES ($1, $2, $3, $4, $5) RETURNING user_id"
 	// Execute the query and scan the result into the user struct
-	err := r.db.QueryRow(query, user.Email, user.NamaUser, user.Password, user.AsalSekolah).Scan(&user.UserID)
+	err := r.db.QueryRow(query, user.Email, user.NamaUser, user.Password, user.AsalSekolah, user.Role).Scan(&user.UserID)
 	if err != nil {
 		// Log the error if the query fails
 		logger.LogErrorCtx(c, err, "Failed to insert user")
@@ -51,7 +51,7 @@ func (r *authRepo) CreateUser(c context.Context, user *models.User) error {
 func (r *authRepo) GetUserByEmail(c context.Context, email string) (*models.User, error) {
 	// Create a new user struct to store the result
 	var user models.User
-	query := "SELECT user_id, email, nama_user, asal_sekolah, password FROM users WHERE email = $1"
+	query := "SELECT user_id, email, nama_user, asal_sekolah, role, password FROM users WHERE email = $1"
 	// Get the user struct from the database using the query and the username
 	err := r.db.Get(&user, query, email)
 	if err != nil {
@@ -64,7 +64,7 @@ func (r *authRepo) GetUserByEmail(c context.Context, email string) (*models.User
 
 func (r *authRepo) GetUserByID(c context.Context, userID int) (*models.User, error) {
 	var user models.User
-	query := "SELECT user_id, email, nama_user, asal_sekolah, password FROM users WHERE user_id = $1"
+	query := "SELECT user_id, email, nama_user, asal_sekolah, role, password FROM users WHERE user_id = $1"
 	err := r.db.Get(&user, query, userID)
 	if err != nil {
 		logger.LogErrorCtx(c, err, "Failed to get user by ID")

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v4"
@@ -23,11 +24,57 @@ func tokenSecrets() [][]byte {
 	return secrets
 }
 
+func tokenIssuer() (string, error) {
+	issuer := strings.TrimSpace(os.Getenv("JWT_ISSUER"))
+	if issuer == "" {
+		return "", fmt.Errorf("JWT_ISSUER is not set")
+	}
+
+	return issuer, nil
+}
+
+func tokenAudience() string {
+	return strings.TrimSpace(os.Getenv("JWT_AUDIENCE"))
+}
+
+func claimContainsAudience(claimAud any, expected string) bool {
+	if expected == "" {
+		return true
+	}
+
+	switch aud := claimAud.(type) {
+	case string:
+		return aud == expected
+	case []any:
+		for _, v := range aud {
+			s, ok := v.(string)
+			if ok && s == expected {
+				return true
+			}
+		}
+	case []string:
+		for _, v := range aud {
+			if v == expected {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
 func parseToken(tokenStr string) (jwt.MapClaims, error) {
 	secrets := tokenSecrets()
 	if len(secrets) == 0 {
 		return nil, fmt.Errorf("no JWT secret configured")
 	}
+
+	issuer, err := tokenIssuer()
+	if err != nil {
+		return nil, err
+	}
+
+	audience := tokenAudience()
 
 	for _, secret := range secrets {
 		token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
@@ -44,6 +91,15 @@ func parseToken(tokenStr string) (jwt.MapClaims, error) {
 		claims, ok := token.Claims.(jwt.MapClaims)
 		if !ok {
 			return nil, fmt.Errorf("invalid token claims")
+		}
+
+		issuerClaim, ok := claims["iss"].(string)
+		if !ok || issuerClaim != issuer {
+			continue
+		}
+
+		if audience != "" && !claimContainsAudience(claims["aud"], audience) {
+			continue
 		}
 
 		return claims, nil

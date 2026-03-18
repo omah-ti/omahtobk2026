@@ -6,6 +6,9 @@ import (
 	"auth-service/internal/repositories"
 	"auth-service/pkg/utils/jwt"
 	"context"
+	"os"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -25,6 +28,21 @@ func NewRefreshTokenService(refreshTokenRepo repositories.RefreshTokenRepo, auth
 	return &refreshTokenService{refreshTokenRepo: refreshTokenRepo, authRepo: authRepo}
 }
 
+func refreshTokenTTL() time.Duration {
+	const defaultDays = 7
+	raw := strings.TrimSpace(os.Getenv("REFRESH_TOKEN_TTL_DAYS"))
+	if raw == "" {
+		return time.Duration(defaultDays) * 24 * time.Hour
+	}
+
+	days, err := strconv.Atoi(raw)
+	if err != nil || days <= 0 {
+		return time.Duration(defaultDays) * 24 * time.Hour
+	}
+
+	return time.Duration(days) * 24 * time.Hour
+}
+
 func (s *refreshTokenService) GenerateAccessRefreshTokenPair(c context.Context, userID int) (string, string, error) {
 	// Get user using user id so that it can be used to generate the access token
 	user, err := s.authRepo.GetUserByID(c, userID)
@@ -34,7 +52,7 @@ func (s *refreshTokenService) GenerateAccessRefreshTokenPair(c context.Context, 
 	}
 
 	// generate access token using the user that we fetched
-	accessToken, err := jwt.CreateAccessToken(user.UserID, user.NamaUser, user.AsalSekolah, user.Email)
+	accessToken, err := jwt.CreateAccessToken(user.UserID, user.NamaUser, user.AsalSekolah, user.Email, user.Role)
 	if err != nil {
 		logger.LogErrorCtx(c, err, "Failed to generate access token", map[string]interface{}{"user_id": user.UserID})
 		return "", "", err
@@ -51,7 +69,7 @@ func (s *refreshTokenService) GenerateAccessRefreshTokenPair(c context.Context, 
 	err = s.refreshTokenRepo.StoreRefreshToken(c, &models.RefreshToken{
 		UserID:            userID,
 		RefreshTokenValue: refreshToken,
-		ExpiredAt:         time.Now().Add(7 * 24 * time.Hour),
+		ExpiredAt:         time.Now().Add(refreshTokenTTL()),
 		CreatedAt:         time.Now(),
 		Revoked:           false,
 	})

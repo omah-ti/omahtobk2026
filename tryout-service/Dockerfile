@@ -21,7 +21,7 @@ RUN --mount=type=cache,id=gomodcache,target=/go/pkg/mod,sharing=locked \
 
 FROM alpine:3.21
 
-RUN apk add --no-cache ca-certificates
+RUN apk add --no-cache ca-certificates tzdata
 
 COPY --from=builder /out/tryout-service /usr/local/bin/tryout-service
 

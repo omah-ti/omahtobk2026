@@ -2,11 +2,13 @@
 
 FROM golang:1.24.4-alpine3.21 AS builder
 
-ENV CGO_ENABLED=0 \
+ENV CGO_ENABLED=1 \
     GOOS=linux \
     GOARCH=amd64 \
     GOPROXY=https://proxy.golang.org,direct \
     GONOSUMDB=*
+
+RUN apk add --no-cache build-base libwebp-dev
 
 WORKDIR /app
 
@@ -21,7 +23,7 @@ RUN --mount=type=cache,id=gomodcache,target=/go/pkg/mod,sharing=locked \
 
 FROM alpine:3.21
 
-RUN apk add --no-cache ca-certificates
+RUN apk add --no-cache ca-certificates libwebp
 
 COPY --from=builder /out/soal-service /usr/local/bin/soal-service
 

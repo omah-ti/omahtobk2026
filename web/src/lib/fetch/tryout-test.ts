@@ -6,16 +6,103 @@ import {
 } from '@/lib/types/url'
 import { Jawaban } from '@/lib/types/types'
 
-const cookieHeaders = (accessToken?: string) => {
+const cookieHeaders = (accessToken?: string, refreshToken?: string) => {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   }
 
+  const cookieParts: string[] = []
   if (accessToken) {
-    headers.Cookie = `access_token=${accessToken}`
+    cookieParts.push(`access_token=${accessToken}`)
+  }
+  if (refreshToken) {
+    cookieParts.push(`refresh_token=${refreshToken}`)
+  }
+
+  if (cookieParts.length > 0) {
+    headers.Cookie = cookieParts.join('; ')
   }
 
   return headers
+}
+
+const mapTryoutSyncError = async (
+  res: Response,
+  fallbackMessage: string
+): Promise<Error> => {
+  let backendMessage = ''
+  try {
+    const contentType = res.headers.get('content-type') || ''
+    if (contentType.includes('application/json')) {
+      const body = await res.json()
+      backendMessage = body?.message || body?.error || ''
+    } else {
+      backendMessage = await res.text()
+    }
+  } catch {
+    backendMessage = ''
+  }
+
+  switch (res.status) {
+    case 401:
+      return new Error('Sesi login kamu habis. Silahkan login ulang.')
+    case 404:
+      return new Error(
+        'Tidak ada tryout yang sedang berjalan. Silahkan mulai tryout lagi.'
+      )
+    case 410:
+      return new Error(
+        'Waktu subtest sudah habis. Silahkan mulai ulang dari dashboard tryout.'
+      )
+    case 409:
+      return new Error(
+        backendMessage ||
+          'Status tryout sudah berubah. Kembali ke dashboard untuk melanjutkan.'
+      )
+    case 400:
+      return new Error(backendMessage || 'Data jawaban tidak valid.')
+    default:
+      return new Error(backendMessage || fallbackMessage)
+  }
+}
+
+const mapSoalFetchError = async (
+  res: Response,
+  fallbackMessage: string
+): Promise<Error> => {
+  let backendMessage = ''
+  try {
+    const contentType = res.headers.get('content-type') || ''
+    if (contentType.includes('application/json')) {
+      const body = await res.json()
+      backendMessage = body?.message || body?.error || ''
+    } else {
+      backendMessage = await res.text()
+    }
+  } catch {
+    backendMessage = ''
+  }
+
+  switch (res.status) {
+    case 401:
+      return new Error('Sesi login kamu habis. Silahkan login ulang.')
+    case 404:
+      return new Error(
+        backendMessage || 'Soal untuk subtest ini tidak ditemukan.'
+      )
+    case 500:
+      return new Error(
+        backendMessage || 'Server soal sedang bermasalah. Silahkan coba lagi.'
+      )
+    case 502:
+    case 503:
+    case 504:
+      return new Error(
+        backendMessage || 'Layanan soal sedang tidak tersedia. Silahkan coba lagi.'
+      )
+    default:
+      return new Error(backendMessage || fallbackMessage)
+  }
 }
 
 export const getTryoutUrl = (isPublic?: boolean) => {
@@ -28,14 +115,15 @@ export const getSoalUrl = (isPublic?: boolean) => {
 
 export const getCurrentTryout = async (
   accessToken?: string,
-  isPublic?: boolean
+  isPublic?: boolean,
+  refreshToken?: string
 ) => {
   try {
     const tryoutUrl = getTryoutUrl(isPublic)
     const res = await fetch(`${tryoutUrl}/sync/current`, {
       method: 'GET',
       credentials: 'include',
-      headers: cookieHeaders(accessToken),
+      headers: cookieHeaders(accessToken, refreshToken),
     })
     if (!res.ok) {
       return null
@@ -51,31 +139,49 @@ export const getCurrentTryout = async (
 export const getSoal = async (
   subtest: string,
   accessToken?: string,
-  isPublic?: boolean
+  isPublic?: boolean,
+  refreshToken?: string
 ) => {
+  const soalUrl = getSoalUrl(isPublic)
   try {
-    const soalUrl = getSoalUrl(isPublic)
     const res = await fetch(`${soalUrl}/paket1?subtest=${subtest}`, {
       method: 'GET',
-      headers: cookieHeaders(accessToken),
+      headers: cookieHeaders(accessToken, refreshToken),
       credentials: 'include',
       cache: 'force-cache',
     })
     if (!res.ok) {
-      throw new Error('Failed to fetch soal')
+      throw await mapSoalFetchError(
+        res,
+        'Gagal memuat soal. Silahkan coba lagi.'
+      )
     }
 
     return res.json()
   } catch (error) {
-    console.error('Error fetching soal:', error)
-    throw new Error('Failed to fetch soal: ' + (error instanceof Error ? error.message : 'Unknown error'))
+    if (error instanceof Error) {
+      console.error('Error fetching soal:', {
+        subtest,
+        soalUrl,
+        message: error.message,
+      })
+      throw error
+    }
+
+    console.error('Error fetching soal:', {
+      subtest,
+      soalUrl,
+      message: 'Unknown error',
+    })
+    throw new Error('Gagal memuat soal. Silahkan coba lagi.')
   }
 }
 
 export const syncTryout = async (
   jawaban: Jawaban[],
   accessToken?: string,
-  isPublic?: boolean
+  isPublic?: boolean,
+  refreshToken?: string
 ) => {
   try {
     const tryoutUrl = getTryoutUrl(isPublic)
@@ -84,14 +190,15 @@ export const syncTryout = async (
     }
     const res = await fetch(`${tryoutUrl}/sync`, {
       method: 'POST',
-      headers: cookieHeaders(accessToken),
+      headers: cookieHeaders(accessToken, refreshToken),
       credentials: 'include',
       body: JSON.stringify(payload),
     })
 
     if (!res.ok) {
-      throw Error(
-        'Anda tidak mengumpulkan jawaban tepat waktu, silahkan mulai ulang Tryout.'
+      throw await mapTryoutSyncError(
+        res,
+        'Gagal menyinkronkan jawaban tryout. Silahkan coba lagi.'
       )
     }
 
@@ -105,7 +212,8 @@ export const syncTryout = async (
 export const progressTryout = async (
   jawaban: Jawaban[],
   accessToken?: string,
-  isPublic?: boolean
+  isPublic?: boolean,
+  refreshToken?: string
 ) => {
   try {
     const tryoutUrl = getTryoutUrl(isPublic)
@@ -114,14 +222,15 @@ export const progressTryout = async (
     }
     const res = await fetch(`${tryoutUrl}/sync/progress`, {
       method: 'POST',
-      headers: cookieHeaders(accessToken),
+      headers: cookieHeaders(accessToken, refreshToken),
       credentials: 'include',
       body: JSON.stringify(payload),
     })
 
     if (!res.ok) {
-      throw new Error(
-        'Gagal memprogres Tryout, waktu pengumpulan sudah habis.'
+      throw await mapTryoutSyncError(
+        res,
+        'Gagal memprogres tryout. Silahkan coba lagi.'
       )
     }
 

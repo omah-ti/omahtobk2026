@@ -21,9 +21,10 @@ func InitializeRoutes(r *gin.Engine, tryoutHandler *handlers.TryoutHandler, page
 	tryout.Use(utils.ValidateJWT())
 	{
 		tryout.POST("/start-attempt/:paket", tryoutHandler.StartAttempt)
-		tryout.GET("/pembahasan", pageHandler.GetPembahasanPageHandler)
+		tryout.GET("/progress-overview", pageHandler.GetProgressOverviewHandler)
 		tryout.GET("/leaderboard", pageHandler.GetLeaderboardHandler)
 		tryout.GET("/subtests-score", pageHandler.GetUserSubtestsScore)
+		tryout.GET("/subtests-progress", pageHandler.GetSubtestsProgressHandler)
 		tryout.GET("/ongoing-attempts", pageHandler.GetOngoingAttemptHandler)
 		tryout.GET("/finished-attempt", pageHandler.GetFinishedAttemptHandler)
 	}
@@ -32,6 +33,7 @@ func InitializeRoutes(r *gin.Engine, tryoutHandler *handlers.TryoutHandler, page
 	{
 		sync.POST("", tryoutHandler.SyncHandler)
 		sync.POST("/progress", tryoutHandler.ProgressTryoutHandler)
+		sync.POST("/finish", tryoutHandler.FinishTryoutHandler)
 		sync.GET("/current", tryoutHandler.GetCurrentAttempt)
 	}
 }

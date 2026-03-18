@@ -28,6 +28,7 @@ func main() {
 	config := appconfig.LoadConfig()
 	redisConfig := appconfig.LoadRedisConfig()
 	var authRateLimiter fiber.Handler
+	var refreshRateLimiter fiber.Handler
 
 	app := fiber.New(fiber.Config{
 		AppName:                 "OmahTO API Gateway",
@@ -51,7 +52,7 @@ func main() {
 	if redisConfig.Host != "" {
 		redisClient := appconfig.NewRedisClient(redisConfig)
 		globalRateConfig := middleware.RedisRateLimiterConfig{
-			Max:         100,
+			Max:         200,
 			Expiration:  time.Minute,
 			RedisClient: redisClient,
 		}
@@ -60,9 +61,15 @@ func main() {
 			Expiration:  time.Minute,
 			RedisClient: redisClient,
 		}
+		refreshRateConfig := middleware.RedisRateLimiterConfig{
+			Max:         100,
+			Expiration:  time.Minute,
+			RedisClient: redisClient,
+		}
 
 		app.Use(middleware.RedisGlobalRateLimiter(globalRateConfig))
 		authRateLimiter = middleware.RedisAuthRateLimiter(authRateConfig)
+		refreshRateLimiter = middleware.RedisRefreshRateLimiter(refreshRateConfig)
 	}
 
 	authController := controller.NewAuthController(config.AuthServiceURL)
@@ -75,15 +82,26 @@ func main() {
 	})
 
 	authGroup := app.Group("/api/auth")
+
 	if authRateLimiter != nil {
-		authGroup.Use(authRateLimiter)
+		authGroup.Post("/login", authRateLimiter, authController.Login)
+		authGroup.Post("/register", authRateLimiter, authController.Register)
+		authGroup.Post("/request-password-reset", authRateLimiter, authController.RequestPasswordReset)
+		authGroup.Post("/reset-password", authRateLimiter, authController.ResetPassword)
+		authGroup.Post("/logout", authRateLimiter, authController.Logout)
+	} else {
+		authGroup.Post("/login", authController.Login)
+		authGroup.Post("/register", authController.Register)
+		authGroup.Post("/request-password-reset", authController.RequestPasswordReset)
+		authGroup.Post("/reset-password", authController.ResetPassword)
+		authGroup.Post("/logout", authController.Logout)
 	}
-	authGroup.Post("/login", authController.Login)
-	authGroup.Post("/register", authController.Register)
-	authGroup.Get("/refresh", authController.Refresh)
-	authGroup.Post("/logout", authController.Logout)
-	authGroup.Post("/request-password-reset", authController.RequestPasswordReset)
-	authGroup.Post("/reset-password", authController.ResetPassword)
+
+	if refreshRateLimiter != nil {
+		authGroup.Get("/refresh", refreshRateLimiter, authController.Refresh)
+	} else {
+		authGroup.Get("/refresh", authController.Refresh)
+	}
 
 	protected := app.Group("/api", middleware.SessionAuthMiddleware(config.AuthServiceURL))
 	protected.Get("/me", authController.Me)
@@ -147,6 +165,10 @@ func proxyRequest(targetURL, stripPrefix string) fiber.Handler {
 			}
 		}
 
+		if refreshedAccessToken, ok := c.Locals("access_token").(string); ok && refreshedAccessToken != "" {
+			req.Header.Set("Cookie", upsertCookie(req.Header.Get("Cookie"), "access_token", refreshedAccessToken))
+		}
+
 		middleware.AddInternalHeaders(req, c)
 
 		resp, err := client.Do(req)
@@ -169,7 +191,7 @@ func proxyRequest(targetURL, stripPrefix string) fiber.Handler {
 		for key, values := range resp.Header {
 			if key == "Set-Cookie" {
 				for _, value := range values {
-					c.Append("Set-Cookie", value)
+					c.Context().Response.Header.Add("Set-Cookie", value)
 				}
 				continue
 			}
@@ -181,4 +203,32 @@ func proxyRequest(targetURL, stripPrefix string) fiber.Handler {
 
 		return c.Status(resp.StatusCode).Send(respBody)
 	}
+}
+
+func upsertCookie(rawCookieHeader, cookieName, cookieValue string) string {
+	parts := strings.Split(rawCookieHeader, ";")
+	prefix := cookieName + "="
+	found := false
+	filtered := make([]string, 0, len(parts)+1)
+
+	for _, part := range parts {
+		trimmed := strings.TrimSpace(part)
+		if trimmed == "" {
+			continue
+		}
+
+		if strings.HasPrefix(trimmed, prefix) {
+			filtered = append(filtered, prefix+cookieValue)
+			found = true
+			continue
+		}
+
+		filtered = append(filtered, trimmed)
+	}
+
+	if !found {
+		filtered = append(filtered, prefix+cookieValue)
+	}
+
+	return strings.Join(filtered, "; ")
 }

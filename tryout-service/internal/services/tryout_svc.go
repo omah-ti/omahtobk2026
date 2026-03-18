@@ -2,8 +2,9 @@ package services
 
 import (
 	"context"
+	"database/sql"
 	"errors"
-	"fmt"
+	"strings"
 	"time"
 	"tryout-service/internal/logger"
 	"tryout-service/internal/models"
@@ -14,6 +15,7 @@ type TryoutService interface {
 	StartAttempt(c context.Context, userID int, username, paket string) (attempt *models.TryoutAttempt, retErr error)
 	SyncWithDatabase(c context.Context, answers []models.AnswerPayload, attemptID int) (answersInDB []models.UserAnswer, timeLimit time.Time, err error)
 	SubmitCurrentSubtest(c context.Context, answers []models.AnswerPayload, attemptID, userID int, accessToken string) (updatedSubtest string, retErr error)
+	FinishTryoutNow(c context.Context, answers []models.AnswerPayload, attemptID, userID int, accessToken string) (updatedSubtest string, retErr error)
 	GetCurrentAttemptByUserID(c context.Context, userID int) (*models.TryoutAttempt, error)
 }
 
@@ -27,6 +29,15 @@ func NewTryoutService(tryoutRepo repositories.TryoutRepo, scoreService ScoreServ
 }
 
 func (s *tryoutService) StartAttempt(c context.Context, userID int, username, paket string) (attempt *models.TryoutAttempt, retErr error) {
+	if userID <= 0 {
+		return nil, ErrAuthContextInvalid
+	}
+	username = strings.TrimSpace(username)
+	paket = strings.TrimSpace(paket)
+	if username == "" || paket == "" {
+		return nil, ErrInvalidAnswerPayload
+	}
+
 	// sstart a transaction to the db
 	startTime := time.Now()
 	tx, err := s.tryoutRepo.BeginTransaction(c)
@@ -53,9 +64,13 @@ func (s *tryoutService) StartAttempt(c context.Context, userID int, username, pa
 	}()
 
 	// Check if user already has an ongoing attempt
-	ongoing, _ := s.tryoutRepo.GetTryoutAttemptByUserIDTx(c, tx, userID)
-	if ongoing != "" {
-		retErr = errors.New("user already has an ongoing attempt")
+	hasOngoing, err := s.tryoutRepo.HasOngoingAttemptByUserIDTx(c, tx, userID)
+	if err != nil {
+		retErr = err
+		return nil, retErr
+	}
+	if hasOngoing {
+		retErr = ErrAttemptAlreadyOngoing
 		return nil, retErr
 	}
 
@@ -70,6 +85,10 @@ func (s *tryoutService) StartAttempt(c context.Context, userID int, username, pa
 	// Create new attempt, calling the db
 	err = s.tryoutRepo.CreateTryoutAttemptTx(c, tx, attempt)
 	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "duplicate key") {
+			retErr = ErrAttemptAlreadyOngoing
+			return nil, retErr
+		}
 		logger.LogErrorCtx(c, err, "Failed to create tryout attempt", map[string]interface{}{
 			"userID":   userID,
 			"username": username,
@@ -125,6 +144,10 @@ func (s *tryoutService) SyncWithDatabase(c context.Context, answers []models.Ans
 	// Get and validate current attempt within transaction
 	attempt, err := s.tryoutRepo.GetTryoutAttemptTx(c, tx, attemptID)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			retErr = ErrAttemptNotFound
+			return nil, time.Time{}, retErr
+		}
 		retErr = err
 		logger.LogErrorCtx(c, err, "Failed to get tryout attempt", map[string]interface{}{
 			"attemptID": attemptID,
@@ -133,15 +156,15 @@ func (s *tryoutService) SyncWithDatabase(c context.Context, answers []models.Ans
 	}
 
 	if attempt.EndTime != nil {
-		retErr = errors.New("tryout attempt has ended")
+		retErr = ErrAttemptEnded
 		return nil, time.Time{}, retErr
 	}
 	if attempt.Status != "ongoing" {
-		retErr = errors.New("tryout attempt is not ongoing")
+		retErr = ErrAttemptNotOngoing
 		return nil, time.Time{}, retErr
 	}
 	if attempt.SubtestSekarang == "" {
-		retErr = errors.New("no active subtest found")
+		retErr = ErrNoActiveSubtest
 		return nil, time.Time{}, retErr
 	}
 
@@ -177,21 +200,16 @@ func (s *tryoutService) SyncWithDatabase(c context.Context, answers []models.Ans
 		}
 		// set committed to true so that the defer won't rollback the transaction
 		committed = true
-		retErr = errors.New("time limit has been reached for this subtest")
+		retErr = ErrTimeLimitReached
 		return nil, time.Time{}, retErr
 	}
 
 	// Process and save new answers
 	if len(answers) > 0 {
-		userAnswers := make([]models.UserAnswer, 0, len(answers))
-		for _, answer := range answers {
-			userAnswer := models.UserAnswer{
-				TryoutAttemptID: attemptID,
-				Subtest:         attempt.SubtestSekarang,
-				KodeSoal:        answer.KodeSoal,
-				Jawaban:         *answer.Jawaban,
-			}
-			userAnswers = append(userAnswers, userAnswer)
+		userAnswers, err := buildUserAnswers(answers, attemptID, attempt.SubtestSekarang)
+		if err != nil {
+			retErr = err
+			return nil, timeLimit, retErr
 		}
 
 		if err = s.tryoutRepo.SaveAnswersTx(c, tx, userAnswers); err != nil {
@@ -230,6 +248,14 @@ func (s *tryoutService) SyncWithDatabase(c context.Context, answers []models.Ans
 }
 
 func (s *tryoutService) SubmitCurrentSubtest(c context.Context, answers []models.AnswerPayload, attemptID, userID int, accessToken string) (updatedSubtest string, retErr error) {
+	return s.submitAttempt(c, answers, attemptID, userID, accessToken, false)
+}
+
+func (s *tryoutService) FinishTryoutNow(c context.Context, answers []models.AnswerPayload, attemptID, userID int, accessToken string) (updatedSubtest string, retErr error) {
+	return s.submitAttempt(c, answers, attemptID, userID, accessToken, true)
+}
+
+func (s *tryoutService) submitAttempt(c context.Context, answers []models.AnswerPayload, attemptID, userID int, accessToken string, forceFinish bool) (updatedSubtest string, retErr error) {
 	// begin a transaction
 	var committed bool
 	tx, err := s.tryoutRepo.BeginTransaction(c)
@@ -255,6 +281,10 @@ func (s *tryoutService) SubmitCurrentSubtest(c context.Context, answers []models
 	// Get and validate current attempt
 	attempt, err := s.tryoutRepo.GetTryoutAttemptTx(c, tx, attemptID)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			retErr = ErrAttemptNotFound
+			return "", retErr
+		}
 		logger.LogErrorCtx(c, err, "Failed to get tryout attempt", map[string]interface{}{"attemptID": attemptID})
 		retErr = err
 		return "", retErr
@@ -262,12 +292,17 @@ func (s *tryoutService) SubmitCurrentSubtest(c context.Context, answers []models
 
 	// validate the attempt
 	if attempt.EndTime != nil {
-		retErr = errors.New("tryout attempt has already ended")
+		retErr = ErrAttemptEnded
+		return "", retErr
+	}
+
+	if attempt.Status != "ongoing" {
+		retErr = ErrAttemptNotOngoing
 		return "", retErr
 	}
 
 	if attempt.SubtestSekarang == "" {
-		retErr = errors.New("no active subtest found")
+		retErr = ErrNoActiveSubtest
 		return "", retErr
 	}
 
@@ -302,7 +337,7 @@ func (s *tryoutService) SubmitCurrentSubtest(c context.Context, answers []models
 		}
 		// set committed to true so that the defer won't rollback the transaction
 		committed = true
-		retErr = errors.New("time limit has been reached for this subtest")
+		retErr = ErrTimeLimitReached
 		return "", retErr
 	}
 
@@ -311,25 +346,20 @@ func (s *tryoutService) SubmitCurrentSubtest(c context.Context, answers []models
 	subtests := []string{"subtest_pu", "subtest_ppu", "subtest_pbm", "subtest_pk", "subtest_lbi", "subtest_lbe", "subtest_pm"}
 	var nextSubtest *string
 	for i, sub := range subtests {
-		// If the current subtest is found and there is a next subtest, set the next subtest
-		if sub == currentSubtest && i < len(subtests)-1 {
-			nextSubtest = &subtests[i+1]
+		if sub == currentSubtest {
+			if i < len(subtests)-1 {
+				nextSubtest = &subtests[i+1]
+			}
 			break
 		}
 	}
 
 	// Save final answers if any
 	if len(answers) > 0 {
-		// make a hash map of the answers, to be used for checking if the answer is valid
-		userAnswers := make([]models.UserAnswer, 0, len(answers))
-		for _, answer := range answers {
-			userAnswer := models.UserAnswer{
-				TryoutAttemptID: attemptID,
-				Subtest:         attempt.SubtestSekarang,
-				KodeSoal:        answer.KodeSoal,
-				Jawaban:         *answer.Jawaban,
-			}
-			userAnswers = append(userAnswers, userAnswer)
+		userAnswers, err := buildUserAnswers(answers, attemptID, attempt.SubtestSekarang)
+		if err != nil {
+			retErr = err
+			return "", retErr
 		}
 		// Save the answers using the transaction
 		err = s.tryoutRepo.SaveAnswersTx(c, tx, userAnswers)
@@ -342,27 +372,23 @@ func (s *tryoutService) SubmitCurrentSubtest(c context.Context, answers []models
 		}
 	}
 
-	// if no next subtest, end the tryout
-	if nextSubtest == nil {
+	// if forced finish or no next subtest, end the tryout
+	if forceFinish || nextSubtest == nil {
 		// end the tryout
 		err = s.tryoutRepo.EndTryOutTx(c, tx, attemptID)
 		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				retErr = ErrAttemptNotOngoing
+				return "", retErr
+			}
 			logger.LogErrorCtx(c, err, "Failed to end tryout", map[string]interface{}{
-				"attemptID": attemptID,
-			})
-			retErr = fmt.Errorf("failed to finalize tryout: %w", err)
-			return "", retErr
-		}
-		// score the tryout
-		err = s.scoreService.CalculateAndStoreScores(c, tx, attemptID, userID, accessToken)
-		if err != nil {
-			logger.LogErrorCtx(c, err, "Failed to calculate and store scores", map[string]interface{}{
 				"attemptID": attemptID,
 			})
 			retErr = err
 			return "", retErr
 		}
-		// commit if nothing's wrong
+
+		// Phase 1: finalize attempt state and commit quickly.
 		if err := tx.Commit(); err != nil {
 			logger.LogErrorCtx(c, err, "Failed to commit transaction after finalizing tryout", map[string]interface{}{
 				"attemptID": attemptID,
@@ -373,6 +399,17 @@ func (s *tryoutService) SubmitCurrentSubtest(c context.Context, answers []models
 		// set committed to true so that the defer won't rollback the transaction
 		committed = true
 		tx = nil
+
+		// Phase 2: calculate and store scores in a dedicated transaction.
+		err = s.scoreService.CalculateAndStoreScores(c, attemptID, userID, attempt.Paket, accessToken)
+		if err != nil {
+			logger.LogErrorCtx(c, err, "Failed to calculate and store scores", map[string]interface{}{
+				"attemptID": attemptID,
+				"paket":     attempt.Paket,
+			})
+			retErr = ErrScoringFailed
+			return "", retErr
+		}
 
 		// return final indicating a final state
 		return "final", nil
@@ -405,5 +442,37 @@ func (s *tryoutService) SubmitCurrentSubtest(c context.Context, answers []models
 }
 
 func (s *tryoutService) GetCurrentAttemptByUserID(c context.Context, userID int) (*models.TryoutAttempt, error) {
-	return s.tryoutRepo.GetOngoingAttemptByUserID(c, userID)
+	attempt, err := s.tryoutRepo.GetOngoingAttemptByUserID(c, userID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrAttemptNotFound
+		}
+		return nil, err
+	}
+
+	return attempt, nil
+}
+
+func buildUserAnswers(answers []models.AnswerPayload, attemptID int, subtest string) ([]models.UserAnswer, error) {
+	userAnswers := make([]models.UserAnswer, 0, len(answers))
+	for _, answer := range answers {
+		kodeSoal := strings.TrimSpace(answer.KodeSoal)
+		if kodeSoal == "" || answer.Jawaban == nil {
+			return nil, ErrInvalidAnswerPayload
+		}
+
+		jawaban := strings.TrimSpace(*answer.Jawaban)
+		if jawaban == "" {
+			return nil, ErrInvalidAnswerPayload
+		}
+
+		userAnswers = append(userAnswers, models.UserAnswer{
+			TryoutAttemptID: attemptID,
+			Subtest:         subtest,
+			KodeSoal:        kodeSoal,
+			Jawaban:         jawaban,
+		})
+	}
+
+	return userAnswers, nil
 }

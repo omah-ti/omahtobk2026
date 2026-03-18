@@ -165,6 +165,11 @@ func rateLimiterMiddleware() gin.HandlerFunc {
 	instance := limiter.New(store, rate)
 
 	return func(c *gin.Context) {
+		if !isSensitivePublicAuthRoute(c.Request.Method, c.Request.URL.Path) {
+			c.Next()
+			return
+		}
+
 		ctx, err := instance.Get(c, c.ClientIP())
 		// If an error occurred or the limit is reached, abort the request
 		if err != nil || ctx.Reached {
@@ -172,6 +177,19 @@ func rateLimiterMiddleware() gin.HandlerFunc {
 			return
 		}
 		c.Next()
+	}
+}
+
+func isSensitivePublicAuthRoute(method, path string) bool {
+	if method != http.MethodPost {
+		return false
+	}
+
+	switch path {
+	case "/user/login", "/user/register", "/user/request-password-reset", "/user/reset-password":
+		return true
+	default:
+		return false
 	}
 }
 

@@ -5,16 +5,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
+	"strings"
+	"time"
 	"tryout-service/internal/logger"
 	"tryout-service/internal/models"
 	"tryout-service/internal/repositories"
-
-	"github.com/jmoiron/sqlx"
 )
 
 type ScoreService interface {
-	CalculateAndStoreScores(c context.Context, tx *sqlx.Tx, attemptID, userID int, accessToken string) error
-	GetAnswerKeyBasedOnSubtestFromSoalService(c context.Context, subtest, accessToken string) (*models.AnswerKeys, error)
+	CalculateAndStoreScores(c context.Context, attemptID, userID int, paket, accessToken string) error
+	GetAnswerKeyBasedOnSubtestFromSoalService(c context.Context, paket, subtest, accessToken string) (*models.AnswerKeys, error)
 	CalculateScore(userAnswers []models.UserAnswer, answerKeys *models.AnswerKeys) (totalScore float64)
 }
 
@@ -27,33 +28,53 @@ type scoreService struct {
 
 // NewScoreService is a factory function that returns a new instance of score service
 func NewScoreService(scoreRepo repositories.ScoreRepo, soalServiceURL string) ScoreService {
-	return &scoreService{scoreRepo: scoreRepo, httpClient: &http.Client{}, soalServiceURL: soalServiceURL}
+	return &scoreService{
+		scoreRepo:      scoreRepo,
+		httpClient:     &http.Client{Timeout: 8 * time.Second},
+		soalServiceURL: strings.TrimRight(soalServiceURL, "/"),
+	}
 }
 
-// CalculateAndStoreScores is a function that calculates the score for each subtest and stores it in the database
-func (s *scoreService) CalculateAndStoreScores(c context.Context, tx *sqlx.Tx, attemptID, userID int, accessToken string) error {
+// CalculateAndStoreScores calculates scores first, then writes them in a short transaction.
+func (s *scoreService) CalculateAndStoreScores(c context.Context, attemptID, userID int, paket, accessToken string) (retErr error) {
 	subtests := []string{"subtest_pu", "subtest_ppu", "subtest_pbm", "subtest_pk", "subtest_lbi", "subtest_lbe", "subtest_pm"}
+	scoreBySubtest := make(map[string]float64, len(subtests))
 
-	// loop through all the subtests and calculate the score for each subtest
+	// Fetch answer keys and calculate scores before opening write transaction.
 	for _, subtest := range subtests {
-		// get the user answers for this subtest from the user_answers table, for every subtest
-		userAnswers, err := s.scoreRepo.GetUserAnswersFromAttemptIDandSubtestTx(c, tx, attemptID, subtest)
+		userAnswers, err := s.scoreRepo.GetUserAnswersFromAttemptIDandSubtest(c, attemptID, subtest)
 		if err != nil {
 			logger.LogErrorCtx(c, err, "Failed to get user answers from attempt ID and subtest", map[string]interface{}{"attempt_id": attemptID, "subtest": subtest})
 			return err
 		}
 
 		// get the answer key for this subtest, call the soal service api
-		answerKey, err := s.GetAnswerKeyBasedOnSubtestFromSoalService(c, subtest, accessToken)
+		answerKey, err := s.GetAnswerKeyBasedOnSubtestFromSoalService(c, paket, subtest, accessToken)
 		if err != nil {
-			logger.LogErrorCtx(c, err, "Failed to get answer key from soal service", map[string]interface{}{"subtest": subtest})
+			logger.LogErrorCtx(c, err, "Failed to get answer key from soal service", map[string]interface{}{"subtest": subtest, "paket": paket})
 			return err
 		}
 
-		// calculate the score for this subtest, apply a calculation logic
-		score := s.CalculateScore(userAnswers, answerKey)
+		scoreBySubtest[subtest] = s.CalculateScore(userAnswers, answerKey)
+	}
 
-		// store the score for this subtest
+	tx, err := s.scoreRepo.BeginTransaction(c)
+	if err != nil {
+		logger.LogErrorCtx(c, err, "Failed to begin transaction for score write", map[string]interface{}{"attempt_id": attemptID})
+		return err
+	}
+
+	committed := false
+	defer func() {
+		if committed {
+			return
+		}
+		if rbErr := tx.Rollback(); rbErr != nil {
+			logger.LogErrorCtx(c, rbErr, "Failed to rollback score transaction", map[string]interface{}{"attempt_id": attemptID})
+		}
+	}()
+
+	for subtest, score := range scoreBySubtest {
 		if err := s.scoreRepo.InsertScoreForUserAttemptIDAndSubtestTx(c, tx, attemptID, userID, subtest, score); err != nil {
 			logger.LogErrorCtx(c, err, "Failed to insert score for user attempt ID and subtest", map[string]interface{}{
 				"attempt_id": attemptID,
@@ -77,22 +98,30 @@ func (s *scoreService) CalculateAndStoreScores(c context.Context, tx *sqlx.Tx, a
 		return err
 	}
 
+	if err := tx.Commit(); err != nil {
+		logger.LogErrorCtx(c, err, "Failed to commit score transaction", map[string]interface{}{"attempt_id": attemptID})
+		return err
+	}
+	committed = true
+
 	return nil
 }
 
 // make a function that retrieves the answer key from the soal service and the subtest, also distinguish them from the soal type and shit type shit bro
-func (s *scoreService) GetAnswerKeyBasedOnSubtestFromSoalService(c context.Context, subtest, accessToken string) (*models.AnswerKeys, error) {
-	// NANTI PAKETNYA DYNAMIC YAA JANGAN STATIC, FORGOT BRO PLES
-	url := fmt.Sprintf("%s/soal/answer-key/paket1?subtest=%s", s.soalServiceURL, subtest)
+func (s *scoreService) GetAnswerKeyBasedOnSubtestFromSoalService(c context.Context, paket, subtest, accessToken string) (*models.AnswerKeys, error) {
+	if strings.TrimSpace(paket) == "" {
+		return nil, fmt.Errorf("paket is required")
+	}
+	requestURL := fmt.Sprintf("%s/soal/answer-key/%s?subtest=%s", s.soalServiceURL, url.PathEscape(strings.TrimSpace(paket)), url.QueryEscape(subtest))
 	// make a new request and add cookie to the header
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequestWithContext(c, http.MethodGet, requestURL, nil)
 	if err != nil {
-		logger.LogErrorCtx(c, err, "Failed to create request for answer key", map[string]interface{}{"subtest": subtest})
+		logger.LogErrorCtx(c, err, "Failed to create request for answer key", map[string]interface{}{"subtest": subtest, "paket": paket})
 		return nil, err
 	}
 	if accessToken == "" {
 		err := fmt.Errorf("access token is required")
-		logger.LogErrorCtx(c, err, "Missing access token for answer key request", map[string]interface{}{"subtest": subtest})
+		logger.LogErrorCtx(c, err, "Missing access token for answer key request", map[string]interface{}{"subtest": subtest, "paket": paket})
 		return nil, err
 	}
 	req.Header.Add("Cookie", fmt.Sprintf("access_token=%s", accessToken))
@@ -100,7 +129,7 @@ func (s *scoreService) GetAnswerKeyBasedOnSubtestFromSoalService(c context.Conte
 	// Send the request
 	resp, err := s.httpClient.Do(req)
 	if err != nil {
-		logger.LogErrorCtx(c, err, "Failed to send request to fetch answer key", map[string]interface{}{"subtest": subtest})
+		logger.LogErrorCtx(c, err, "Failed to send request to fetch answer key", map[string]interface{}{"subtest": subtest, "paket": paket})
 		return nil, err
 	}
 	defer resp.Body.Close()
@@ -108,21 +137,21 @@ func (s *scoreService) GetAnswerKeyBasedOnSubtestFromSoalService(c context.Conte
 	// Handle non-200 responses
 	if resp.StatusCode != http.StatusOK {
 		err := fmt.Errorf("unexpected response status: %d", resp.StatusCode)
-		logger.LogErrorCtx(c, err, "Unexpected response status when fetching answer key", map[string]interface{}{"subtest": subtest, "status_code": resp.StatusCode})
+		logger.LogErrorCtx(c, err, "Unexpected response status when fetching answer key", map[string]interface{}{"subtest": subtest, "paket": paket, "status_code": resp.StatusCode})
 		return nil, err
 	}
 
 	// Parse the response body
 	var answerKey models.AnswerKeys
 	if err := json.NewDecoder(resp.Body).Decode(&answerKey); err != nil {
-		logger.LogErrorCtx(c, err, "Failed to decode response body for answer key", map[string]interface{}{"subtest": subtest})
+		logger.LogErrorCtx(c, err, "Failed to decode response body for answer key", map[string]interface{}{"subtest": subtest, "paket": paket})
 		return nil, err
 	}
 
 	// Check if answerKey is empty
 	if isAnswerKeyEmpty(answerKey) {
 		err := fmt.Errorf("answer key is empty for subtest: %s", subtest)
-		logger.LogErrorCtx(c, err, "Empty answer key received", map[string]interface{}{"subtest": subtest})
+		logger.LogErrorCtx(c, err, "Empty answer key received", map[string]interface{}{"subtest": subtest, "paket": paket})
 		return nil, err
 	}
 

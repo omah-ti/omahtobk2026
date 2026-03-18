@@ -18,11 +18,12 @@ import * as motion from 'motion/react-client'
 const TryOutPage = async () => {
   const cookieStore = await cookies()
   const accessToken = cookieStore.get('access_token')?.value as string
-  const subtestsScore = await getSubtestsScore(accessToken)
-  const leaderboard = await getLeaderboard(accessToken)
+  const refreshToken = cookieStore.get('refresh_token')?.value as string
+  const subtestsScore = await getSubtestsScore(accessToken, refreshToken)
+  const leaderboard = await getLeaderboard(accessToken, refreshToken)
   const user = await fetchUser()
-  const ongoing = await getOngoingAttempt(accessToken)
-  const finished = await getFinishedAttempt(accessToken)
+  const ongoing = await getOngoingAttempt(accessToken, refreshToken)
+  const finished = await getFinishedAttempt(accessToken, refreshToken)
 
   return (
     <main className='min-h-screen bg-neutral-50'>
