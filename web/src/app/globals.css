@@ -21,6 +21,7 @@
   --color-neutral-900: #121926;
   --color-neutral-1000: 51 51 51;
 
+  --color-colours-text-primary: #454a53;
   --color-primary-25: #f5f8ff;
   --color-primary-50: #eef4ff;
   --color-primary-100: #d1e0ff;
@@ -45,6 +46,7 @@
   --color-primary-new-800: #ededf8;
   --color-primary-new-900: #e6e6f5;
 
+  --color-colours-text-secondary: #9ea2ad;
   --color-secondary: #0479ce;
   --color-secondary-25: #fcfcfd;
   --color-secondary-50: #f8fafc;
@@ -72,7 +74,7 @@
   --color-success-25: #f6fef9;
   --color-success-50: #edfdf2;
   --color-success-100: #d3fbdf;
-  --color-success-200: #AAFOC4;
+  --color-success-200: #aaf0c4;
   --color-success-300: #73e2a3;
   --color-success-400: #3ecf8e;
   --color-success-500: #16b364;

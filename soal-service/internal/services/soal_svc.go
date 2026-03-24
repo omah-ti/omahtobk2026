@@ -1,24 +1,41 @@
 package services
 
 import (
+	"bytes"
 	"context"
+	"database/sql"
+	"fmt"
+	"io"
 	"soal-service/internal/logger"
 	"soal-service/internal/models"
 	"soal-service/internal/repositories"
+	"soal-service/internal/storage"
+	"soal-service/internal/utils"
+	"strings"
 )
 
 type SoalService interface {
 	GetSoalByPaketAndSubtest(c context.Context, paketSoal, subtest string) ([]models.SoalGabungan, error)
 	GetAnswerKeyByPaketAndSubtest(c context.Context, paketSoal, subtest string) (*models.AnswerKeys, error)
 	GetMinatBakatSoal(c context.Context) ([]models.MinatBakatGabungan, error)
+	UploadSoalImage(c context.Context, kodeSoal string, raw []byte) (map[string]interface{}, error)
+	GetSoalImageObject(c context.Context, objectKey string) (io.ReadCloser, int64, string, error)
 }
 
 type soalService struct {
-	soalRepo repositories.SoalRepo
+	soalRepo    repositories.SoalRepo
+	imageStore  storage.ObjectStorage
+	webpQuality float32
+	maxImageDim int
 }
 
-func NewSoalService(soalRepo repositories.SoalRepo) SoalService {
-	return &soalService{soalRepo: soalRepo}
+func NewSoalService(soalRepo repositories.SoalRepo, imageStore storage.ObjectStorage) SoalService {
+	return &soalService{
+		soalRepo:    soalRepo,
+		imageStore:  imageStore,
+		webpQuality: storage.GetWebPQuality(),
+		maxImageDim: storage.GetMaxImageDimension(),
+	}
 }
 
 func (s *soalService) GetSoalByPaketAndSubtest(c context.Context, paketSoal, subtest string) ([]models.SoalGabungan, error) {
@@ -26,6 +43,24 @@ func (s *soalService) GetSoalByPaketAndSubtest(c context.Context, paketSoal, sub
 	if err != nil {
 		logger.LogErrorCtx(c, err, "Failed to get soal by paket and subtest", map[string]interface{}{"paket_soal": paketSoal, "subtest": subtest})
 		return nil, err
+	}
+
+	for i := range soalGabungans {
+		if soalGabungans[i].PathGambarSoal == nil || strings.TrimSpace(*soalGabungans[i].PathGambarSoal) == "" {
+			continue
+		}
+
+		currentPath := strings.TrimSpace(*soalGabungans[i].PathGambarSoal)
+		if isAbsoluteURL(currentPath) {
+			continue
+		}
+
+		if s.imageStore == nil {
+			continue
+		}
+
+		proxyURL := s.imageStore.BuildProxyURL(currentPath)
+		soalGabungans[i].PathGambarSoal = &proxyURL
 	}
 
 	return soalGabungans, nil
@@ -49,4 +84,78 @@ func (s *soalService) GetMinatBakatSoal(c context.Context) ([]models.MinatBakatG
 	}
 
 	return minatBakatSoal, nil
+}
+
+func (s *soalService) UploadSoalImage(c context.Context, kodeSoal string, raw []byte) (map[string]interface{}, error) {
+	if s.imageStore == nil {
+		return nil, fmt.Errorf("image storage is not configured")
+	}
+
+	kodeSoal = strings.TrimSpace(kodeSoal)
+	if kodeSoal == "" {
+		return nil, fmt.Errorf("kode_soal is required")
+	}
+
+	converted, err := utils.ValidateAndConvertToWebP(raw, s.webpQuality, s.maxImageDim)
+	if err != nil {
+		return nil, err
+	}
+
+	oldPath, err := s.soalRepo.GetSoalImagePathByKodeSoal(c, kodeSoal)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("soal not found")
+		}
+		return nil, err
+	}
+
+	objectKey := storage.NewObjectKey(kodeSoal)
+	if err := s.imageStore.UploadObject(c, objectKey, bytes.NewReader(converted.Data), int64(len(converted.Data)), converted.ContentType); err != nil {
+		return nil, err
+	}
+
+	if err := s.soalRepo.UpdateSoalImagePath(c, kodeSoal, objectKey); err != nil {
+		_ = s.imageStore.DeleteObject(c, objectKey)
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("soal not found")
+		}
+		return nil, err
+	}
+
+	if oldPath != nil && strings.TrimSpace(*oldPath) != "" && !isAbsoluteURL(*oldPath) && strings.TrimSpace(*oldPath) != objectKey {
+		if err := s.imageStore.DeleteObject(c, strings.TrimSpace(*oldPath)); err != nil {
+			logger.LogErrorCtx(c, err, "Failed deleting previous soal image", map[string]interface{}{"kode_soal": kodeSoal})
+		}
+	}
+
+	return map[string]interface{}{
+		"kode_soal":        kodeSoal,
+		"object_key":       objectKey,
+		"path_gambar_soal": s.imageStore.BuildProxyURL(objectKey),
+		"content_type":     converted.ContentType,
+		"width":            converted.Width,
+		"height":           converted.Height,
+		"size_bytes":       len(converted.Data),
+	}, nil
+}
+
+func (s *soalService) GetSoalImageObject(c context.Context, objectKey string) (io.ReadCloser, int64, string, error) {
+	if s.imageStore == nil {
+		return nil, 0, "", fmt.Errorf("image storage is not configured")
+	}
+
+	key := strings.TrimSpace(strings.TrimLeft(objectKey, "/"))
+	if key == "" {
+		return nil, 0, "", fmt.Errorf("object key is required")
+	}
+	if strings.Contains(key, "..") {
+		return nil, 0, "", fmt.Errorf("invalid object key")
+	}
+
+	return s.imageStore.GetObject(c, key)
+}
+
+func isAbsoluteURL(path string) bool {
+	trimmed := strings.TrimSpace(strings.ToLower(path))
+	return strings.HasPrefix(trimmed, "http://") || strings.HasPrefix(trimmed, "https://")
 }

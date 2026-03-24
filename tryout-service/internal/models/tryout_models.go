@@ -45,20 +45,17 @@ type AnswerKeys struct {
 		IsCorrect   bool
 		Bobot       int
 		TextPilihan string
-		Pembahasan  string
 	} `json:"pilihan_ganda,omitempty"`
 
 	TrueFalseAnswers map[string]struct { // Now groups by KodeSoal
 		Jawaban     string
 		Bobot       int
 		TextPilihan string
-		Pembahasan  string
 	} `json:"true_false,omitempty"`
 
 	UraianAnswers map[string]struct { // Now groups by KodeSoal
-		Jawaban    string
-		Bobot      int
-		Pembahasan string
+		Jawaban string
+		Bobot   int
 	} `json:"uraian,omitempty"`
 }
 
@@ -70,5 +67,82 @@ type EnrichedUserAnswer struct {
 	IsCorrect   bool   `json:"is_correct"`
 	Bobot       int    `json:"bobot"`
 	TextPilihan string `json:"text_pilihan,omitempty"` // Only for MCQ/True-False
-	Pembahasan  string `json:"pembahasan"`
+}
+
+type SubtestProgressRow struct {
+	Order       int      `json:"order"`
+	SubtestKey  string   `json:"subtest_key"`
+	SubtestName string   `json:"subtest_name"`
+	ScoreValue  *float64 `json:"score_value"`
+	ScoreMax    int      `json:"score_max"`
+	ScoreText   string   `json:"score_text"`
+	StatusLabel string   `json:"status_label"`
+	ActionLabel string   `json:"action_label"`
+	ActionRoute string   `json:"action_route"`
+	IsCurrent   bool     `json:"is_current"`
+	IsLocked    bool     `json:"is_locked"`
+}
+
+type SubtestsProgressSummary struct {
+	TotalSubtests     int    `json:"total_subtests"`
+	CompletedSubtests int    `json:"completed_subtests"`
+	CurrentSubtest    string `json:"current_subtest,omitempty"`
+	AttemptStatus     string `json:"attempt_status"`
+}
+
+type SubtestsProgressResponse struct {
+	Summary SubtestsProgressSummary `json:"summary"`
+	Rows    []SubtestProgressRow    `json:"rows"`
+}
+
+type ProgressOverviewProfile struct {
+	UserID int    `json:"user_id"`
+	Name   string `json:"name"`
+	School string `json:"school"`
+}
+
+type ProgressOverviewStatistics struct {
+	AverageScore      float64 `json:"average_score"`
+	CompletedSubtests int     `json:"completed_subtests"`
+	TotalSubtests     int     `json:"total_subtests"`
+	ProgressText      string  `json:"progress_text"`
+}
+
+type ProgressOverviewInsightItem struct {
+	SubtestKey  string   `json:"subtest_key"`
+	SubtestName string   `json:"subtest_name"`
+	Score       *float64 `json:"score"`
+	ScoreText   string   `json:"score_text"`
+}
+
+type ProgressOverviewInsight struct {
+	StrongestSubtest ProgressOverviewInsightItem `json:"strongest_subtest"`
+	FocusSubtest     ProgressOverviewInsightItem `json:"focus_subtest"`
+}
+
+type ProgressOverviewLeaderboardEntry struct {
+	Rank     int     `json:"rank"`
+	Username string  `json:"username"`
+	Score    float64 `json:"score"`
+}
+
+type ProgressOverviewLeaderboard struct {
+	TopN             []ProgressOverviewLeaderboardEntry `json:"top_n"`
+	CurrentUserRank  *int                               `json:"current_user_rank"`
+	CurrentUserScore *float64                           `json:"current_user_score"`
+}
+
+type ProgressOverviewUTBK struct {
+	Label      string    `json:"label"`
+	StartAt    time.Time `json:"start_at"`
+	EndAt      time.Time `json:"end_at"`
+	ServerTime time.Time `json:"server_time"`
+}
+
+type ProgressOverviewResponse struct {
+	Profile     ProgressOverviewProfile     `json:"profile"`
+	Statistics  ProgressOverviewStatistics  `json:"statistics"`
+	Insight     ProgressOverviewInsight     `json:"insight"`
+	Leaderboard ProgressOverviewLeaderboard `json:"leaderboard"`
+	UTBK        ProgressOverviewUTBK        `json:"utbk"`
 }

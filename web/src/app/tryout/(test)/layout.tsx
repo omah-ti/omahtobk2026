@@ -9,30 +9,39 @@ import { redirect } from 'next/navigation'
 import { TryoutDataProvider } from './tryout-context'
 import { fetchUser } from '@/app/fetch_user'
 import * as motion from 'motion/react-client'
-import { toast } from 'sonner'
 
 const TryoutLayout = async ({ children }: { children: React.ReactNode }) => {
   const accessToken = (await cookies()).get('access_token')?.value as string
+  const refreshToken = (await cookies()).get('refresh_token')?.value as string
   const finishedAttempt = await getFinishedAttempt(accessToken)
   if (finishedAttempt) {
     redirect('/tryout')
   }
-  const currentSubtest = await getCurrentTryout(accessToken)
+  const currentSubtest = await getCurrentTryout(accessToken, undefined, refreshToken)
   if (currentSubtest == null) {
     redirect('/tryout')
   }
-  const syncData = await syncTryout([], accessToken)
+  const syncData = await syncTryout([], accessToken, undefined, refreshToken)
   if (syncData == null) {
-    toast.error('Gagal menyimpan jawaban Tryout', {
-      description: 'Silahkan mengulangi Tryout.'
-    })
-    redirect('/tryout')
+    redirect('/tryout?error=sync-failed')
   }
   const timeLimit = syncData.data.time_limit
   const grace = 60_000
   const adjustedTimeLimit = new Date(new Date(timeLimit).getTime() - grace)
   const subtestSekarang = currentSubtest.data.subtest_sekarang
-  const soal = await getSoal(currentSubtest.data.subtest_sekarang, accessToken)
+  let soal
+  try {
+    soal = await getSoal(
+      currentSubtest.data.subtest_sekarang,
+      accessToken,
+      undefined,
+      refreshToken
+    )
+  } catch (error) {
+    console.error('Failed to fetch soal in layout:', error)
+    redirect('/tryout?error=soal-fetch-failed')
+  }
+
   const user = await fetchUser()
   const panjangSoal = soal.length
 

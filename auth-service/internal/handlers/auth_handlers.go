@@ -159,6 +159,7 @@ func (h *UserHandler) RefreshTokenHandler(c *gin.Context) {
 		"user_id":      claims.UserID,
 		"username":     claims.NamaUser,
 		"asal_sekolah": claims.AsalSekolah,
+		"role":         claims.Role,
 	})
 }
 
@@ -168,9 +169,10 @@ func (h *UserHandler) ValidateUserAndGetInfoHandler(c *gin.Context) {
 	email, _ := c.Get("email")
 	username, _ := c.Get("nama_user")
 	asalSekolah, _ := c.Get("asal_sekolah")
+	role, _ := c.Get("role")
 
 	// return the user info and status code 200
-	c.JSON(http.StatusOK, gin.H{"message": "Authorized and okay to proceed", "email": email, "user_id": userID, "username": username, "asal_sekolah": asalSekolah})
+	c.JSON(http.StatusOK, gin.H{"message": "Authorized and okay to proceed", "email": email, "user_id": userID, "username": username, "asal_sekolah": asalSekolah, "role": role})
 }
 
 func (h *UserHandler) RequestPasswordResetHandler(c *gin.Context) {

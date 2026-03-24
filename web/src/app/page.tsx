@@ -8,6 +8,7 @@ import ReadyPath from '@/modules/home/ready-path'
 import UtbkPerspective from '@/modules/home/utbk-perspective'
 import Inspiration from '@/modules/home/inspiration'
 import Statistic from '@/modules/home/statistic'
+import Faq from '@/modules/home/faq'
 
 export default function Home() {
   return (
@@ -18,6 +19,7 @@ export default function Home() {
       <CompsciDivisions />
       <Statistic />
       <Inspiration />
+      <Faq />
       <UtbkPerspective />
       <SubjectSemester />
       <ReadyPath />

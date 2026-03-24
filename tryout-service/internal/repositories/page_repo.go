@@ -10,8 +10,8 @@ import (
 
 type PageRepo interface {
 	GetAllSubtestScoreForAUser(c context.Context, userID int) ([]models.UserScore, error)
-	GetTop4Leaderboard(c context.Context) ([]models.TryoutAttempt, error)              // /leaderboard
-	GetScoreAndRank(c context.Context, userID int, paket string) (float64, int, error) // /pembahasan
+	GetTop4Leaderboard(c context.Context) ([]models.TryoutAttempt, error) // /leaderboard
+	GetScoreAndRank(c context.Context, userID int, paket string) (float64, int, error)
 	GetUserAnswersBasedOnIDPaketAndSubtest(c context.Context, userID int, paket, subtest string) ([]models.UserAnswer, error)
 	GetOngoingAttemptByUserID(c context.Context, userID int) (*models.TryoutAttempt, error)
 	GetFinishedAttemptByUserID(c context.Context, userID int) (*models.TryoutAttempt, error)
@@ -25,10 +25,24 @@ func NewPageRepo(db *sqlx.DB) PageRepo {
 	return &pageRepo{db: db}
 }
 
-// buat tryout homepage ama pembahasan
+// Query helper for score summary shown in progress/result pages.
 func (r *pageRepo) GetAllSubtestScoreForAUser(c context.Context, userID int) ([]models.UserScore, error) {
 	var scores []models.UserScore
-	query := `SELECT user_id, attempt_id, score, subtest FROM user_scores WHERE user_id = $1`
+	query := `
+		SELECT user_id, attempt_id, score, subtest
+		FROM user_scores
+		WHERE user_id = $1
+		ORDER BY CASE subtest
+			WHEN 'subtest_pu' THEN 1
+			WHEN 'subtest_ppu' THEN 2
+			WHEN 'subtest_pbm' THEN 3
+			WHEN 'subtest_pk' THEN 4
+			WHEN 'subtest_lbi' THEN 5
+			WHEN 'subtest_lbe' THEN 6
+			WHEN 'subtest_pm' THEN 7
+			ELSE 99
+		END
+	`
 	err := r.db.Select(&scores, query, userID)
 	if err != nil {
 		logger.LogErrorCtx(c, err, "Failed to get all subtest scores for user", map[string]interface{}{"user_id": userID})
@@ -49,7 +63,7 @@ func (r *pageRepo) GetTop4Leaderboard(c context.Context) ([]models.TryoutAttempt
 	return leaderboards, nil
 }
 
-// buat rank dan score di pembahasan
+// Query helper for rank and score by paket.
 func (r *pageRepo) GetScoreAndRank(c context.Context, userID int, paket string) (float64, int, error) {
 	var userScore float64
 	var userRank int
@@ -72,7 +86,7 @@ func (r *pageRepo) GetScoreAndRank(c context.Context, userID int, paket string) 
 	return userScore, userRank, nil
 }
 
-// buat di pembahasan
+// Query helper for per-subtest answers in an attempt.
 func (s *pageRepo) GetUserAnswersBasedOnIDPaketAndSubtest(c context.Context, userID int, paket, subtest string) ([]models.UserAnswer, error) {
 	query := `
 	SELECT 

@@ -3,6 +3,8 @@
 *.out
 *.app
 
+scripts
+
 # Build cache
 /vendor/
 /bin/
