@@ -7,6 +7,7 @@ import CompsciDivisions from '@/modules/home/compsci-divisions'
 import ReadyPath from '@/modules/home/ready-path'
 import UtbkPerspective from '@/modules/home/utbk-perspective'
 import Inspiration from '@/modules/home/inspiration'
+import Faq from '@/modules/home/faq'
 
 export default function Home() {
   return (
@@ -16,6 +17,7 @@ export default function Home() {
       <WhyCompsci />
       <CompsciDivisions />
       <Inspiration />
+      <Faq />
       <UtbkPerspective />
       <SubjectSemester />
       <ReadyPath />
