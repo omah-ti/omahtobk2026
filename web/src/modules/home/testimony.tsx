@@ -52,13 +52,13 @@ const TESTIMONIES: TestimonyType[] = [
 
 export default function Testimony() {
   return (
-    <Container className='mt-[120px] mb-[120px] flex flex-col items-center gap-8'>
+    <Container className='my-[120px] flex flex-col items-center gap-8'>
       
-      <div className=' w-[622.26px] h-[106.02px] gap-[18px]'>
+      <div className='max-w-[622px] flex flex-col gap-[18px]'>
         <Heading className='text-center text-neutral-900 font-bold text-[34px]'>
           Profil Lulusan Berprestasi
         </Heading>
-        <p className='max-w-[660px] text-center text-neutral-400 text-base leading-6 font-normal'>
+        <p className='max-w-[660px] mx-auto text-center text-neutral-400 text-base leading-6 font-normal'>
           Rekam jejak keberhasilan alumni menembus persaingan global, kini memegang
           peran strategis dan memimpin arus inovasi di berbagai perusahaan teknologi
           bergengsi.
