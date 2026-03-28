@@ -11,16 +11,18 @@ import Inspiration from '@/modules/home/inspiration'
 export default function Home() {
   return (
     <>
-      <Navbar />
-      <Hero />
+      {/* <Navbar /> */}
+      {/* <Hero /> */}
       <WhyCompsci />
-      <CompsciDivisions />
-      <Inspiration />
-      <UtbkPerspective />
-      <SubjectSemester />
+      {/* <CompsciDivisions /> */}
+      {/* <Inspiration /> */}
+      {/* <UtbkPerspective /> */}
+      {/* <SubjectSemester /> */}
       <ReadyPath />
       {/* <TryoutResult /> ini buat ngetes */}
-      <Footer />
+      {/* <Footer /> */}
+
+
     </>
   )
 }
