@@ -1,0 +1,4 @@
+kode_soal,subtest,tipe_soal,text_soal,bobot_soal,is_image,image_path,pembahasan,pilihan_a,pilihan_b,pilihan_c,pilihan_d,pilihan_e,kunci_pg,pilihan_tf,jawaban_tf,jawaban_uraian
+pu-001,subtest_pu,multiple_choice,"Contoh teks soal pilihan ganda",34,true,images/imgtest.png,"Contoh pembahasan singkat","Pilihan A","Pilihan B","Pilihan C","Pilihan D",,B,,,
+tf-001,subtest_ppu,true_false,"Pernyataan ini benar atau salah",20,false,,"Pilih benar/salah sesuai fakta",,,,,,,"Pernyataan ini benar",true,
+uraian-001,subtest_pk,short_answer,"Jelaskan langkah penyelesaian soal berikut",46,true,images/imgtest.png,"Pastikan langkah logis dan runtut",,,,,,,,,"Jawaban uraian lengkap"
