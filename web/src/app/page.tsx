@@ -13,16 +13,16 @@ import Faq from '@/modules/home/faq'
 export default function Home() {
   return (
     <>
-      <Navbar />
+      {/* <Navbar />
       <Hero />
-      <WhyCompsci />
+      <WhyCompsci /> */}
       <CompsciDivisions />
-      <Statistic />
+      {/* <Statistic />
       <Inspiration />
       <Faq />
       <UtbkPerspective />
       <SubjectSemester />
-      <ReadyPath />
+      <ReadyPath /> */}
       {/* <TryoutResult /> ini buat ngetes */}
       <Footer />
     </>
