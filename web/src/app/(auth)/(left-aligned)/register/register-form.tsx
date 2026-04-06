@@ -1,5 +1,6 @@
 'use client'
 import { Button } from '@/components/ui/button'
+import Link from 'next/link'
 import {
   Form,
   FormControl,
@@ -97,7 +98,7 @@ const RegisterForm = () => {
     <Form {...form}>
       <form
         onSubmit={form.handleSubmit(handleLogin)}
-        className='flex w-full max-w-lg flex-col gap-4 text-left'
+        className='flex w-full flex-col gap-4 p-4 text-left'
       >
         <FormField
           control={form.control}
@@ -176,8 +177,7 @@ const RegisterForm = () => {
         <Button
           type='submit'
           disabled={loading}
-          variant={`tertiary`}
-          className='mt-8 w-full max-w-xs self-center'
+          className='bg-primary-900 hover:bg-primary-900/75 mt-8 w-full max-w-xs cursor-pointer self-center'
         >
           {loading ? (
             <>
@@ -185,9 +185,18 @@ const RegisterForm = () => {
               Loading...
             </>
           ) : (
-            'Daftar'
+            'Masuk'
           )}
         </Button>
+        <p className='text-center text-xs font-bold'>
+          Sudah punya akun?{' '}
+          <Link
+            href={`/login`}
+            className='font-light underline underline-offset-2'
+          >
+            Login
+          </Link>
+        </p>
       </form>
     </Form>
   )
