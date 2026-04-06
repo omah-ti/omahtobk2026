@@ -1,6 +1,5 @@
 'use client'
 import { Button } from '@/components/ui/button'
-import Link from 'next/link'
 import {
   Form,
   FormControl,
@@ -188,15 +187,6 @@ const RegisterForm = () => {
             'Masuk'
           )}
         </Button>
-        <p className='text-center text-xs font-bold'>
-          Sudah punya akun?{' '}
-          <Link
-            href={`/login`}
-            className='font-light underline underline-offset-2'
-          >
-            Login
-          </Link>
-        </p>
       </form>
     </Form>
   )
