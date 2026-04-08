@@ -112,7 +112,17 @@ const CompsciDivisions = () => {
 
   return (
     <Container>
-      <section className='w-full py-8 md:py-12'>
+      <section className='relative isolate w-full py-8 md:py-12'>
+        <div
+          aria-hidden='true'
+          className='pointer-events-none absolute left-0 top-0 z-0 h-[100px] w-[100px] -translate-x-1/3 -translate-y-1/3 rounded-full bg-primary-400 blur-[160px] min-[1000px]:h-[250px] min-[1000px]:w-[250px]'
+        />
+        <div
+          aria-hidden='true'
+          className='pointer-events-none absolute right-0 bottom-0 z-0 h-[100px] w-[100px] translate-x-1/3 -translate-y-1/3 rounded-full bg-primary-400 blur-[200px] min-[1000px]:h-[250px] min-[1000px]:w-[250px]'
+        />
+
+        <div className='relative z-10'>
         <div className='mb-8 text-center md:mb-10'>
           <h2 className='text-[30px] font-bold leading-tight text-neutral-1100 xl:text-[36px]'>
             Pilih Jalur Masa Depanmu
@@ -270,6 +280,7 @@ const CompsciDivisions = () => {
               }`}
             />
           ))}
+        </div>
         </div>
       </section>
     </Container>
