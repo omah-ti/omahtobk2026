@@ -81,7 +81,7 @@ const LoginForm = () => {
     <Form {...form}>
       <form
         onSubmit={form.handleSubmit(handleLogin)}
-        className='flex w-full max-w-lg flex-col gap-4 text-left'
+        className='flex w-full flex-col gap-4 p-4 text-left'
       >
         <FormField
           control={form.control}
@@ -119,6 +119,7 @@ const LoginForm = () => {
                   </button>
                 </div>
               </FormControl>
+              <FormMessage />
               <Link
                 href={`/forgot-password`}
                 tabIndex={-1}
@@ -126,7 +127,6 @@ const LoginForm = () => {
               >
                 Lupa Password
               </Link>
-              <FormMessage />
             </FormItem>
           )}
         />
@@ -134,8 +134,7 @@ const LoginForm = () => {
         <Button
           type='submit'
           disabled={loading}
-          variant={`tertiary`}
-          className='mt-8 w-full max-w-xs self-center'
+          className='bg-primary-900 hover:bg-primary-900/75 mt-1 w-full max-w-xs cursor-pointer self-center md:mt-6'
         >
           {loading ? (
             <>
