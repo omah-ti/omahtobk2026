@@ -72,7 +72,7 @@ const IntroPage = async () => {
           <h2 className='text-sm md:text-base'>{description}</h2>
 
           <Link
-            href='/tryout/1'
+            href='/tryout/soal/1'
             className={cn(
               buttonVariants({ variant: 'white' }),
               'mt-2 w-fit px-8 font-medium! text-black!'

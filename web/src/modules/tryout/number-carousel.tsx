@@ -98,7 +98,7 @@ const NumberCarousel = ({ totalQuestions }: { totalQuestions: number }) => {
                     className='basis-[33%] pl-2 min-[400px]:basis-[25%] sm:basis-[11%] md:basis-[9%] lg:basis-[6%] xl:basis-[5%]'
                   >
                     <Link
-                      href={`/tryout/${questionNumber}`}
+                      href={`/tryout/soal/${questionNumber}`}
                       replace={true}
                       scroll={false}
                     >

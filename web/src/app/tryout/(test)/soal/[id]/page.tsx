@@ -2,7 +2,7 @@
 
 import StyledCard from '@/components/tryout/styled-card'
 import AnswerCard from '@/modules/tryout/answer-card'
-import { useTryoutData } from '../tryout-context'
+import { useTryoutData } from '../../tryout-context'
 import { use } from 'react'
 import Image from 'next/image'
 import 'katex/dist/katex.min.css' // Import KaTeX styles
@@ -20,7 +20,7 @@ const LatexRenderer = ({ content }: { content: string }) => {
   const normalizeLatex = (latex: string) => {
     return latex
       .replace(/\\\\/g, '\\') // Convert \\ to \ for LaTeX commands
-      .replace(/[""]/g, '"') // Fix curly quotes
+      .replace(/["”]/g, '"') // Fix curly quotes
   }
 
   // Function to render the content with LaTeX
@@ -153,7 +153,7 @@ const TryoutPage = ({ params }: { params: Promise<{ id: number }> }) => {
   const { value: soal, time, currentSubtest } = useTryoutData()
   const currentSoal = soal[id - 1]
 
-  if (!currentSoal) redirect('/tryout/1')
+  if (!currentSoal) redirect('/tryout/soal/1')
 
   // Determine question type
   let variant: 'multiple_choice' | 'true_false' | 'uraian' = 'multiple_choice'
