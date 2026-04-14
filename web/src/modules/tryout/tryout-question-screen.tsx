@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowLeft, ArrowRight, Flag, LogOut } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Flag, LogOut, Menu, X } from 'lucide-react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
@@ -44,6 +44,8 @@ const TryoutQuestionScreen = ({
   const [selectedOption, setSelectedOption] = useState<keyof NonNullable<TryoutQuestion['options']> | null>(null)
   const [shortAnswer, setShortAnswer] = useState('')
   const [trueFalseAnswer, setTrueFalseAnswer] = useState<TrueFalseAnswer>({})
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
+  const [isSmallScreen, setIsSmallScreen] = useState(false)
 
   const subtestValid = isSubtestCode(subtest)
 
@@ -75,6 +77,18 @@ const TryoutQuestionScreen = ({
     }
   }, [subtest, questionNumber])
 
+  useEffect(() => {
+    const handleResize = () => {
+      setIsSmallScreen(window.innerWidth < 400)
+    }
+
+    // Set initial value
+    setIsSmallScreen(window.innerWidth < 400)
+
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
   if (!subtestValid) {
     return (
       <div className='flex min-h-screen items-center justify-center bg-white p-6'>
@@ -87,6 +101,55 @@ const TryoutQuestionScreen = ({
 
   const currentSubtest = SUBTEST_META[subtest]
   const totalQuestions = currentSubtest.totalQuestions
+
+  const navigateToQuestion = (number: number) => {
+    setIsMobileSidebarOpen(false)
+    router.push(getQuestionPath(subtest, number))
+  }
+
+  const renderSidebarContent = () => (
+    <div className='flex h-full flex-col gap-6'>
+      <div className={`rounded-lg bg-white p-6 ${cardShadow}`}>
+        <p className='text-[16px] font-bold text-neutral-900'>
+          Hafidz Kurniawan
+        </p>
+      </div>
+
+      <div className={`mt-1 rounded-lg bg-white p-4 ${cardShadow}`}>
+        <h2 className='text-[16px] font-bold text-neutral-900'>Daftar Soal</h2>
+
+        <div className='mt-4 grid grid-cols-4 gap-2'>
+          {Array.from({ length: totalQuestions }, (_, index) => {
+            const number = index + 1
+            const isActive = number === questionNumber
+
+            return (
+              <button
+                key={`${subtest}-${number}`}
+                type='button'
+                onClick={() => navigateToQuestion(number)}
+                className={`${numberButtonBase} ${
+                  isActive
+                    ? 'border-[#0D3388] bg-[#0D3388] text-white'
+                    : 'border-neutral-300 bg-white text-neutral-800 hover:bg-neutral-100'
+                }`}
+              >
+                {number}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      <button
+        type='button'
+        className='mt-auto flex w-full items-center justify-center gap-2 rounded-lg border border-[#FB3748] bg-white py-[10px] text-[16px] font-bold text-[#FB3748] transition-colors hover:bg-[#FB3748]/10'
+      >
+        <LogOut size={18} />
+        Log Out
+      </button>
+    </div>
+  )
 
   if (questionNumber < 1 || questionNumber > totalQuestions) {
     return (
@@ -158,6 +221,8 @@ const TryoutQuestionScreen = ({
       return null
     }
 
+    const statements = question.statements
+
     return (
       <section className='rounded-lg border border-neutral-200 bg-white'>
         <div className='rounded-t-lg bg-slate-100 px-[14px] py-[14px] text-[13px] md:text-[15px] font-bold text-neutral-900'>
@@ -171,7 +236,7 @@ const TryoutQuestionScreen = ({
                 <th className='border-b border-neutral-200 px-3 py-2 text-left font-bold'>
                   Pernyataan
                 </th>
-                <th className='w-20 border-b border-neutral-200px-3 py-2 text-center font-bold'>
+                <th className='w-20 border-b border-neutral-200 px-3 py-2 text-center font-bold'>
                   Benar
                 </th>
                 <th className='w-20 border-b border-neutral-200 px-3 py-2 text-center font-bold'>
@@ -180,10 +245,10 @@ const TryoutQuestionScreen = ({
               </tr>
             </thead>
             <tbody>
-              {question.statements.map((statement, index) => {
+              {statements.map((statement, index) => {
                 const rowIndex = index + 1
                 const chosen = trueFalseAnswer[rowIndex]
-                const isLastRow = index === question.statements.length - 1
+                const isLastRow = index === statements.length - 1
 
                 return (
                   <tr key={`${question.id}-statement-${rowIndex}`}>
@@ -328,48 +393,28 @@ const TryoutQuestionScreen = ({
 
   return (
     <div className='h-screen bg-white lg:flex'>
-      <aside className='w-full bg-slate-50 p-[6px] md:p-8 lg:h-screen lg:w-1/4'>
-        <div className='flex h-full flex-col gap-6'>
-          <div className={`rounded-lg bg-white p-6 ${cardShadow}`}>
-            <p className='text-[16px] font-bold text-neutral-900'>
-              Hafidz Kurniawan
-            </p>
-          </div>
-
-          <div className={`mt-1 rounded-lg bg-white p-4 ${cardShadow}`}>
-            <h2 className='text-[16px] font-bold text-neutral-900'>Daftar Soal</h2>
-
-            <div className='mt-4 grid grid-cols-4 gap-2'>
-              {Array.from({ length: totalQuestions }, (_, index) => {
-                const number = index + 1
-                const isActive = number === questionNumber
-
-                return (
-                  <button
-                    key={`${subtest}-${number}`}
-                    type='button'
-                    onClick={() => router.push(getQuestionPath(subtest, number))}
-                    className={`${numberButtonBase} ${
-                      isActive
-                        ? 'border-[#0D3388] bg-[#0D3388] text-white'
-                        : 'border-neutral-300 bg-white text-neutral-800 hover:bg-neutral-100'
-                    }`}
-                  >
-                    {number}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
-          <button
-            type='button'
-            className='mt-auto flex w-full items-center justify-center gap-2 rounded-lg border border-[#FB3748] bg-white py-[10px] text-[16px] font-bold text-[#FB3748] transition-colors hover:bg-[#FB3748]/10'
-          >
-            <LogOut size={18} />
-            Log Out
-          </button>
+      {isMobileSidebarOpen && (
+        <div className='fixed inset-0 z-40 bg-black/40 lg:hidden'>
+          <div
+            className='absolute inset-0'
+            onClick={() => setIsMobileSidebarOpen(false)}
+          />
+          <aside className='relative h-full w-[86%] max-w-[360px] bg-slate-50 p-[10px]'>
+            <button
+              type='button'
+              onClick={() => setIsMobileSidebarOpen(false)}
+              className='mb-3 flex items-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-[14px] font-semibold text-neutral-700'
+            >
+              <X size={16} />
+              Tutup
+            </button>
+            {renderSidebarContent()}
+          </aside>
         </div>
+      )}
+
+      <aside className='hidden bg-slate-50 p-[6px] md:p-8 lg:block lg:h-screen lg:w-1/4'>
+        {renderSidebarContent()}
       </aside>
 
       <main className='w-full overflow-y-auto bg-white p-[6px] md:p-6 lg:h-screen lg:w-3/4 lg:p-10'>
@@ -377,15 +422,35 @@ const TryoutQuestionScreen = ({
           className='rounded-xl border border-neutral-200 bg-slate-50 p-[10px] md:p-6 shadow-lg'
         >
           <div className='flex flex-col gap-4 md:gap-6'>
-            <header className='flex flex-wrap items-center justify-between gap-3 md:gap-4'>
-              <div className='rounded-lg border border-neutral-200 bg-white px-[14px] py-[14px] text-[14px] md:text-[16px] font-bold text-neutral-900 shadow-sm'>
-                Soal {questionNumber}
+            <header className='flex flex-col gap-3 md:gap-4'>
+              {/* First row: Mobile - Nomor, Sisa Waktu, Menu | Desktop - Nomor, Subtest, Sisa Waktu */}
+              <div className='flex items-center gap-3 md:gap-4'>
+                <div className='flex-shrink-0 rounded-lg border border-neutral-200 bg-white px-[14px] py-[14px] text-[14px] md:text-[16px] font-bold text-neutral-900 shadow-sm'>
+                  Nomor {questionNumber}
+                </div>
+
+                {/* Desktop only: Subtest in the middle */}
+                <div className='hidden md:block flex-1 rounded-lg border border-neutral-200 bg-white px-4 py-[14px] text-center text-[14px] md:text-[16px] font-bold text-neutral-900 shadow-sm'>
+                  {currentSubtest.title}
+                </div>
+
+                <div className='flex-1 md:flex-shrink-0 rounded-lg border border-neutral-200 bg-white px-[14px] py-[14px] text-[14px] md:text-[16px] font-bold text-[#FB3748] shadow-sm text-center'>
+                  {!isSmallScreen && 'Sisa Waktu : '}00:00:00
+                </div>
+
+                <button
+                  type='button'
+                  onClick={() => setIsMobileSidebarOpen(true)}
+                  className='flex-shrink-0 flex items-center justify-center rounded-lg border border-neutral-200 bg-white p-[14px] text-neutral-900 shadow-sm lg:hidden'
+                  aria-label='Buka daftar soal'
+                >
+                  <Menu size={20} />
+                </button>
               </div>
-              <div className='flex-1 rounded-lg border border-neutral-200 bg-white px-4 py-[14px] text-center text-[14px] md:text-[16px] font-bold text-neutral-900 shadow-sm'>
+
+              {/* Second row: Mobile only - Subtest full width */}
+              <div className='md:hidden w-full rounded-lg border border-neutral-200 bg-white px-4 py-[14px] text-center text-[14px] font-bold text-neutral-900 shadow-sm'>
                 {currentSubtest.title}
-              </div>
-              <div className='rounded-lg border border-neutral-200 bg-white px-[14px] py-[14px] text-[14px] md:text-[16px] font-bold text-[#FB3748] shadow-sm'>
-                Sisa Waktu : 00:00:00
               </div>
             </header>
 
