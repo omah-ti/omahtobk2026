@@ -26,10 +26,10 @@ const numberButtonBase =
   'rounded-md border py-2 text-[14px] font-medium transition-colors'
 
 const actionButtonOutline =
-  'flex w-full items-center justify-center gap-2 rounded-lg border border-[#0D3388] bg-white px-4 py-[10px] text-[16px] font-bold text-[#0D3388] transition-colors hover:bg-[#0D3388] hover:text-white'
+  'flex items-center justify-center gap-2 rounded-lg border border-[#0D3388] bg-white px-4 py-[10px] text-[14px] font-bold text-[#0D3388] transition-colors hover:bg-[#0D3388] hover:text-white md:text-[16px]'
 
 const actionButtonSolid =
-  'flex w-full items-center justify-center gap-2 rounded-lg border border-[#0D3388] bg-[#0D3388] px-4 py-[10px] text-[16px] font-bold text-white transition-colors hover:bg-[#0A276A]'
+  'flex items-center justify-center gap-2 rounded-lg border border-[#0D3388] bg-[#0D3388] px-4 py-[10px] text-[14px] font-bold text-white transition-colors hover:bg-[#0A276A] md:text-[16px]'
 
 const getQuestionPath = (subtest: SubtestCode, questionNumber: number) =>
   `/tryout/${subtest}/${questionNumber}`
@@ -116,7 +116,7 @@ const TryoutQuestionScreen = ({
 
     return (
       <section className='rounded-lg border border-neutral-200 bg-white'>
-        <div className='rounded-t-lg bg-slate-100 px-[14px] py-[14px] text-[15px] font-bold text-neutral-900'>
+        <div className='rounded-t-lg bg-slate-100 px-[14px] py-[14px] text-[13px] md:text-[15px] font-bold text-neutral-900'>
           Pilih satu jawaban yang benar!
         </div>
 
@@ -127,7 +127,7 @@ const TryoutQuestionScreen = ({
             return (
               <label
                 key={key}
-                className='flex cursor-pointer items-center gap-3 py-4 text-[15px] text-neutral-800'
+                className='flex cursor-pointer items-center gap-3 py-4 text-[13px] md:text-[15px] text-neutral-800'
               >
                 <span
                   className={`flex size-5 items-center justify-center rounded-full border-2 ${
@@ -143,7 +143,7 @@ const TryoutQuestionScreen = ({
                     className='sr-only'
                   />
                 </span>
-                <span className='font-semibold uppercase'>{key}.</span>
+                {/* <span className='font-semibold uppercase'>{key}.</span> */}
                 <span>{value}</span>
               </label>
             )
@@ -160,21 +160,21 @@ const TryoutQuestionScreen = ({
 
     return (
       <section className='rounded-lg border border-neutral-200 bg-white'>
-        <div className='rounded-t-lg bg-slate-100 px-[14px] py-[14px] text-[15px] font-bold text-neutral-900'>
+        <div className='rounded-t-lg bg-slate-100 px-[14px] py-[14px] text-[13px] md:text-[15px] font-bold text-neutral-900'>
           Tentukan kebenaran pernyataan berikut!
         </div>
 
-        <div className='p-[14px]'>
-          <table className='w-full table-fixed border-collapse text-[14px]'>
+        <div className=''>
+          <table className='w-full table-fixed border-collapse text-[13px] md:text-[14px]'>
             <thead>
               <tr>
-                <th className='border-b border-neutral-200 bg-slate-100 px-3 py-2 text-left font-bold'>
+                <th className='border-b border-neutral-200 px-3 py-2 text-left font-bold'>
                   Pernyataan
                 </th>
-                <th className='w-20 border-b border-neutral-200 bg-slate-100 px-3 py-2 text-center font-bold'>
+                <th className='w-20 border-b border-neutral-200px-3 py-2 text-center font-bold'>
                   Benar
                 </th>
-                <th className='w-20 border-b border-neutral-200 bg-slate-100 px-3 py-2 text-center font-bold'>
+                <th className='w-20 border-b border-neutral-200 px-3 py-2 text-center font-bold'>
                   Salah
                 </th>
               </tr>
@@ -183,13 +183,22 @@ const TryoutQuestionScreen = ({
               {question.statements.map((statement, index) => {
                 const rowIndex = index + 1
                 const chosen = trueFalseAnswer[rowIndex]
+                const isLastRow = index === question.statements.length - 1
 
                 return (
                   <tr key={`${question.id}-statement-${rowIndex}`}>
-                    <td className='border-b border-neutral-200 px-3 py-3 text-neutral-800 whitespace-normal break-words'>
+                    <td
+                      className={`${
+                        isLastRow ? '' : 'border-b border-neutral-200'
+                      } px-3 py-3 text-neutral-800 whitespace-normal break-words`}
+                    >
                       {statement}
                     </td>
-                    <td className='border-b border-neutral-200 px-3 py-3 text-center'>
+                    <td
+                      className={`${
+                        isLastRow ? '' : 'border-b border-neutral-200'
+                      } px-3 py-3 text-center`}
+                    >
                       <input
                         type='radio'
                         name={`statement-${rowIndex}`}
@@ -203,7 +212,11 @@ const TryoutQuestionScreen = ({
                         className='size-4 accent-[#0D3388]'
                       />
                     </td>
-                    <td className='border-b border-neutral-200 px-3 py-3 text-center'>
+                    <td
+                      className={`${
+                        isLastRow ? '' : 'border-b border-neutral-200'
+                      } px-3 py-3 text-center`}
+                    >
                       <input
                         type='radio'
                         name={`statement-${rowIndex}`}
@@ -229,7 +242,7 @@ const TryoutQuestionScreen = ({
 
   const renderShortAnswer = () => (
     <section className='rounded-lg border border-neutral-200 bg-white'>
-      <div className='rounded-t-lg bg-slate-100 px-[14px] py-[14px] text-[15px] font-bold text-neutral-900'>
+      <div className='rounded-t-lg bg-slate-100 px-[14px] py-[14px] text-[13px] md:text-[15px] font-bold text-neutral-900'>
         Masukkan jawaban singkat!
       </div>
 
@@ -239,7 +252,7 @@ const TryoutQuestionScreen = ({
           onChange={(event) => setShortAnswer(event.target.value)}
           rows={8}
           placeholder='Ketik jawabanmu disini'
-          className='w-full rounded-lg border border-neutral-200 bg-white p-[18px] text-[15px] text-neutral-900 placeholder:text-neutral-500 focus:border-primary-300 focus:outline-none'
+          className='w-full rounded-lg border border-neutral-200 bg-white p-[18px] text-[13px] md:text-[15px] text-neutral-900 placeholder:text-neutral-500 focus:border-primary-300 focus:outline-none'
         />
       </div>
     </section>
@@ -264,15 +277,22 @@ const TryoutQuestionScreen = ({
   const renderActions = () => {
     const isFirst = questionNumber === 1
     const isLast = questionNumber === totalQuestions
+    const showSideBySideNavigation = !isFirst
 
     return (
       <section className='rounded-lg bg-white p-[14px] shadow-md'>
-        <div className='flex flex-wrap items-center justify-between gap-4 md:flex-nowrap'>
+        <div
+          className={`flex items-center gap-3 ${
+            showSideBySideNavigation ? '' : 'flex-wrap'
+          }`}
+        >
           {!isFirst && (
             <button
               type='button'
               onClick={() => router.push(getQuestionPath(subtest, questionNumber - 1))}
-              className={actionButtonOutline}
+              className={`${actionButtonOutline} ${
+                showSideBySideNavigation ? 'flex-1' : 'w-full'
+              }`}
             >
               <ArrowLeft size={18} />
               Sebelumnya
@@ -283,7 +303,9 @@ const TryoutQuestionScreen = ({
             <button
               type='button'
               onClick={() => router.push(getQuestionPath(subtest, questionNumber + 1))}
-              className={actionButtonSolid}
+              className={`${actionButtonSolid} ${
+                showSideBySideNavigation ? 'flex-1' : 'w-full'
+              }`}
             >
               Selanjutnya
               <ArrowRight size={18} />
@@ -291,7 +313,9 @@ const TryoutQuestionScreen = ({
           ) : (
             <button
               type='button'
-              className='flex w-full items-center justify-center gap-2 rounded-lg border border-emerald-600 bg-emerald-600 px-4 py-[10px] text-[16px] font-bold text-white transition-colors hover:bg-emerald-700'
+              className={`flex items-center justify-center gap-2 rounded-lg border border-emerald-600 bg-emerald-600 px-4 py-[10px] text-[14px] font-bold text-white transition-colors hover:bg-emerald-700 md:text-[16px] ${
+                showSideBySideNavigation ? 'flex-1' : 'w-full'
+              }`}
             >
               <Flag size={18} />
               Finish Attempt
@@ -304,7 +328,7 @@ const TryoutQuestionScreen = ({
 
   return (
     <div className='h-screen bg-white lg:flex'>
-      <aside className='w-full bg-slate-50 p-8 lg:h-screen lg:w-1/4'>
+      <aside className='w-full bg-slate-50 p-[6px] md:p-8 lg:h-screen lg:w-1/4'>
         <div className='flex h-full flex-col gap-6'>
           <div className={`rounded-lg bg-white p-6 ${cardShadow}`}>
             <p className='text-[16px] font-bold text-neutral-900'>
@@ -348,26 +372,26 @@ const TryoutQuestionScreen = ({
         </div>
       </aside>
 
-      <main className='w-full overflow-y-auto bg-white p-6 lg:h-screen lg:w-3/4 lg:p-10'>
+      <main className='w-full overflow-y-auto bg-white p-[6px] md:p-6 lg:h-screen lg:w-3/4 lg:p-10'>
         <section
-          className='rounded-xl border border-neutral-200 bg-slate-50 p-6 shadow-lg'
+          className='rounded-xl border border-neutral-200 bg-slate-50 p-[10px] md:p-6 shadow-lg'
         >
-          <div className='flex flex-col gap-6'>
-            <header className='flex flex-wrap items-center justify-between gap-4'>
-              <div className='rounded-lg border border-neutral-200 bg-white px-[14px] py-[14px] text-[16px] font-bold text-neutral-900 shadow-sm'>
+          <div className='flex flex-col gap-4 md:gap-6'>
+            <header className='flex flex-wrap items-center justify-between gap-3 md:gap-4'>
+              <div className='rounded-lg border border-neutral-200 bg-white px-[14px] py-[14px] text-[14px] md:text-[16px] font-bold text-neutral-900 shadow-sm'>
                 Soal {questionNumber}
               </div>
-              <div className='flex-1 rounded-lg border border-neutral-200 bg-white px-4 py-[14px] text-center text-[16px] font-bold text-neutral-900 shadow-sm'>
+              <div className='flex-1 rounded-lg border border-neutral-200 bg-white px-4 py-[14px] text-center text-[14px] md:text-[16px] font-bold text-neutral-900 shadow-sm'>
                 {currentSubtest.title}
               </div>
-              <div className='rounded-lg border border-neutral-200 bg-white px-[14px] py-[14px] text-[16px] font-bold text-[#FB3748] shadow-sm'>
+              <div className='rounded-lg border border-neutral-200 bg-white px-[14px] py-[14px] text-[14px] md:text-[16px] font-bold text-[#FB3748] shadow-sm'>
                 Sisa Waktu : 00:00:00
               </div>
             </header>
 
             <div className='grid grid-cols-1 gap-6 lg:grid-cols-12'>
               <article
-                className='rounded-lg border border-neutral-200 bg-white p-6 lg:col-span-7'
+                className='rounded-lg border border-neutral-200 bg-white py-6 px-3 md:p-6 lg:col-span-7'
               >
                 {isLoading ? (
                   <div className='rounded-md bg-neutral-100 p-6 text-center text-neutral-600'>
@@ -385,10 +409,10 @@ const TryoutQuestionScreen = ({
                         unoptimized
                       />
                     )}
-                    <p className='text-[16px] leading-relaxed text-neutral-800'>
+                    <p className='text-[14px] md:text-[16px] leading-relaxed text-neutral-800'>
                       {question.questionText}
                     </p>
-                    <p className='text-[15px] leading-relaxed text-neutral-700'>
+                    {/* <p className='text-[15px] leading-relaxed text-neutral-700'>
                       Lorem ipsum dolor sit amet, consectetur adipiscing elit.
                       Integer posuere erat a ante venenatis dapibus posuere
                       velit aliquet. Maecenas faucibus mollis interdum.
@@ -397,7 +421,7 @@ const TryoutQuestionScreen = ({
                       Cras mattis consectetur purus sit amet fermentum. Etiam
                       porta sem malesuada magna mollis euismod. Donec id elit
                       non mi porta gravida at eget metus.
-                    </p>
+                    </p> */}
                   </div>
                 ) : (
                   <div className='rounded-md bg-neutral-100 p-6 text-center text-neutral-600'>
