@@ -21,7 +21,7 @@ const AuthRightAlignedLayout = ({
       </section>
       <section className='z-10 flex flex-col items-center gap-10 rounded-t-2xl bg-white p-8 text-center md:overflow-y-auto md:rounded-tl-none md:rounded-r-2xl md:p-14'>
         <BackLink className='mx-auto flex w-full'>
-          <Button className='border-primary-900 bg-primary-900 hover:bg-primary-new-25 cursor-pointer items-center border-1 max-sm:text-sm'>
+          <Button className='border-primary-900 hover:bg-primary-new-25 cursor-pointer items-center border-1 max-sm:text-sm'>
             <ArrowLeft className='size-4' /> Kembali
           </Button>
         </BackLink>

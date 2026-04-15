@@ -134,7 +134,7 @@ const LoginForm = () => {
         <Button
           type='submit'
           disabled={loading}
-          className='bg-primary-900 hover:bg-primary-900/75 mt-1 w-full max-w-xs cursor-pointer self-center md:mt-6'
+          className='mt-1 w-full max-w-xs cursor-pointer self-center md:mt-6'
         >
           {loading ? (
             <>

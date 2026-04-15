@@ -92,7 +92,7 @@ const ForgotPasswordForm = () => {
         <Button
           type='submit'
           disabled={pending}
-          className='bg-primary-900 hover:bg-primary-900/75 mt-1 w-full max-w-xs cursor-pointer self-center md:mt-6'
+          className='hover:bg-primary-900/75 mt-1 w-full max-w-xs cursor-pointer self-center md:mt-6'
         >
           {pending ? (
             <>
