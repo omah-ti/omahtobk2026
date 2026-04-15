@@ -15,7 +15,6 @@ import Link from 'next/link'
 import Container from '../container'
 import { Button, buttonVariants } from '../ui/button'
 import Logo from './logo'
-import NavbarResolver from './navbar-resolver'
 import ProfileButton from './profile-button'
 import LogOutDialog from '../log-out-dialog'
 
@@ -56,7 +55,6 @@ const Navbar = async () => {
         </Container>
       </main>
 
-      <NavbarResolver />
     </>
   )
 }

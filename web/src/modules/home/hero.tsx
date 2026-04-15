@@ -6,37 +6,12 @@ import Container from '@/components/container'
 import Heading, { HeadingSpan } from '@/components/home/heading'
 import SoftCircle from '@/components/soft-circle'
 import StyledCard from '@/components/tryout/styled-card'
-import { buttonVariants } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { Book } from 'lucide-react'
 import { cookies } from 'next/headers'
 import Image from 'next/image'
-
-const CARD_ITEMS = [
-  {
-    title: (
-      <>
-        <Book className='bg-primary-100 mr-2 inline p-0.5' />
-        CSTryOuts
-      </>
-    ),
-    description:
-      'Jangan tunda lagi dan buktikan bahwa kamu siap menaklukkan tantangan UTBK!',
-    cta: 'Coba TryOut',
-    href: '/tryout',
-  },
-  {
-    title: (
-      <>
-        <Book className='bg-primary-100 mr-2 inline p-0.5' />
-        Career Match Up
-      </>
-    ),
-    description: 'Temukan Karier yang Tepat, Bangun Masa Depan Berkualitas!',
-    cta: 'Cari Kecocokan',
-    href: '/career-match-up',
-  },
-]
+import NavbarResolver from '@/components/home/navbar-resolver'
 
 const containerVariants = {
   hidden: {},
@@ -76,101 +51,73 @@ const Hero = async () => {
   const user = await fetchUserClient(accessToken)
 
   return (
-    <main className='bg-white'>
-      <Container className='flex flex-col gap-0 py-8 text-center text-black md:py-10 md:text-start'>
-        <section className='relative flex flex-col justify-between gap-8 md:mt-4 md:flex-row'>
+    <main className='bg-gradient-to-b md:relative from-primary-400/30 to-primary-100'>
+      <NavbarResolver />
+      <Container className='flex flex-col gap-0 pt-12 text-center text-black md:pt-35 md:text-center'>
+        <section className='flex flex-col justify-center items-center gap-8 md:mt-4'>
           <motion.div
             variants={containerVariants}
             initial='hidden'
             animate='visible'
-            className='z-10 flex w-full max-w-none flex-col gap-2 self-center pt-4 md:max-w-lg md:gap-6 md:py-0 md:pb-12'
+            className='z-10 flex w-full max-w-none flex-col gap-2 self-center pt-4 md:max-w-4xl items-center md:gap-6 md:pb-5'
           >
-            {user && (
-              <motion.h2 variants={childVariants} className='mb-1 sm:-mb-2 text-lg'>
-                Hello, <span className='font-bold'>{user.username}</span>!
-              </motion.h2>
-            )}
             <motion.div
               variants={childVariants}
-              className='text-2xl font-normal text-balance md:text-3xl'
+              className='text-2xl font-normal text-balance md:text-5xl flex flex-col items-center gap-3'
             >
-              <Heading className='text-balance'>
-                Saatnya kamu <HeadingSpan>uji kemampuan</HeadingSpan> & temukan
-                <HeadingSpan> bidang yang paling cocok </HeadingSpan>untukmu!
-              </Heading>
+              <div className="p-[1px] rounded-[100px] bg-gradient-to-r from-[rgba(231,5,24,0.44)] to-[rgba(37,99,235,0.44)] w-fit">
+                <div className="rounded-[100px] bg-[#DBE5F9] px-5 py-2 md:text-sm text-xs text-black">
+                  Roadmap Calon Mahasiswa IT Terbaik
+                </div>
+              </div>
+              <h1 className='italic text-neutral-1000 md:leading-17'>
+                Ubah Keraguanmu <span className='not-italic font-bold text-primary-500'>Jadi Kepastian, Pilih Bidangmu</span>,
+                <span className='not-italic font-bold'> Amankan Kursimu.</span>
+              </h1>
             </motion.div>
             <motion.p
               variants={childVariants}
-              className='mt-2 text-sm font-light text-balance text-neutral-700 md:mt-0 md:text-black'
+              className='mt-2 text-sm max-w-xl md:text-[20px] font-light text-center text-neutral-1000 md:mt-4'
             >
-              Jelajahi Karir Impian di Dunia Computer Science dan Taklukkan UTBK
-              2025 Bersama OmahTOBK
+              Validasi potensi melalui Analisis Minat, dominasi seleksi dengan Tryout Adaptif. Langkah presisi mengunci kursi Ilmu Komputer 2026.
             </motion.p>
           </motion.div>
-
-          {/* images */}
-          <div className='relative flex w-full items-center justify-center'>
-            {/* person */}
+          <motion.div
+            variants={containerVariants}
+            initial='hidden'
+            animate='visible'
+            className='z-10 flex w-full max-w-none md:flex-row flex-col gap-2 self-center pt-4 md:max-w-4xl justify-center md:gap-6 md:py-0 md:pb-5'
+          >
+            <Button variant='outline' size='lg' className='w-full md:w-50'>
+              <Link href='/career-match-up'>Tech Persona</Link>
+            </Button>
+            <Button variant='default' size='lg' className='w-full md:w-50'>
+              <Link href='/tryout'>Try out</Link>
+            </Button>
+          </motion.div>
+          <div className='md:h-101 h-full md:px-0 px-7 md:pb-0 pb-11 flex md:flex-row flex-col gap-5 md:gap-13 self-center w-full'>
             <Image
-              src={`/assets/hero.webp`}
-              alt='OmahTO Hero Image'
-              width={350}
-              height={250}
-              className='z-10 md:self-end'
+              src='/assets/career-match-up.webp'
+              alt='Hero Background'
+              width={400}
+              height={404}
+              className='top-0 left-0 w-auto h-full object-cover z-10 aspect-[85/97] rounded-[20px] shadow-[0_10px_20px_0_rgba(0,0,0,0.25)]'
             />
-
-            {/* bg */}
-            <SoftCircle />
+            <Image
+              src='/assets/dashboard.webp'
+              alt='Hero Background'
+              width={1920}
+              height={404}
+              className='top-0 left-0 w-auto h-full object-cover z-10 aspect-[223/126] rounded-[20px] shadow-[0_10px_20px_0_rgba(0,0,0,0.25)]'
+            />
           </div>
         </section>
 
-        <motion.section
-          variants={cardContainerVariants}
-          initial='hidden'
-          animate='visible'
-          className='relative z-10 grid w-full shrink-0 grid-cols-1 gap-4 md:grid-cols-2'
-        >
-          {CARD_ITEMS.map((card, i) => (
-            <motion.div key={i}>
-              <Card {...card} />
-            </motion.div>
-          ))}
-        </motion.section>
       </Container>
+      
+      <div className='h-38 w-full hidden md:block absolute z-0 md:bottom-0 bg-primary-200' />
     </main>
   )
 }
-
-const Card = ({
-  title,
-  description,
-  cta,
-  href,
-}: {
-  title: string | React.ReactNode
-  description: string
-  cta: string
-  href: string
-}) => (
-  <StyledCard
-    title={title}
-    variant='blue'
-    className='h-full w-full justify-between border-2 *:text-black!'
-  >
-    <section className='-mt-2 flex h-full flex-col justify-between gap-4 text-start'>
-      {/* text and cta */}
-      <p className='min-h-12 text-sm font-light'>{description}</p>
-      <Link
-        href={href}
-        className={cn(
-          buttonVariants({ variant: 'tertiary' }),
-          'self-end px-12 hover:cursor-pointer'
-        )}
-      >
-        {cta}
-      </Link>
-    </section>
-  </StyledCard>
-)
 
 export default Hero

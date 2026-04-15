@@ -13,7 +13,7 @@ export default function Home() {
   return (
     <>
       <Navbar />
-      {/* <Hero /> */}
+      <Hero />
       <section id='why-compsci' className='scroll-mt-32'>
         <WhyCompsci />
       </section>
