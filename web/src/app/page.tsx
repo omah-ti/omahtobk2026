@@ -16,19 +16,10 @@ export default function Home() {
       {/* <Navbar /> */}
       {/* <Hero /> */}
       <WhyCompsci />
-<<<<<<< HEAD
       {/* <CompsciDivisions /> */}
       {/* <Inspiration /> */}
       {/* <UtbkPerspective /> */}
       {/* <SubjectSemester /> */}
-=======
-      <CompsciDivisions />
-      <Statistic />
-      <Inspiration />
-      <Faq />
-      <UtbkPerspective />
-      <SubjectSemester />
->>>>>>> main
       <ReadyPath />
       {/* <TryoutResult /> ini buat ngetes */}
       {/* <Footer /> */}
