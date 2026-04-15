@@ -1,16 +1,7 @@
 import { PUBLIC_AUTH_URL } from '@/lib/types/url'
+import { ApiFetchError, fetchJson } from '@/lib/fetch/http'
 
 const AUTH_TIMEOUT_MS = 12000
-
-const getAuthBaseUrl = () => {
-  if (!PUBLIC_AUTH_URL) {
-    throw new AuthRequestError(
-      'Konfigurasi NEXT_PUBLIC_API_GATEWAY_URL belum diatur pada frontend.'
-    )
-  }
-
-  return PUBLIC_AUTH_URL
-}
 
 export class AuthRequestError extends Error {
   status: number
@@ -22,13 +13,6 @@ export class AuthRequestError extends Error {
     this.status = status
     this.isTimeout = isTimeout
   }
-}
-
-type AuthRequestOptions = {
-  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
-  body?: Record<string, unknown>
-  fallbackMessage: string
-  timeoutMs?: number
 }
 
 type LoginPayload = {
@@ -57,56 +41,14 @@ type AuthMessageResponse = {
   error?: string
 }
 
-const isRecord = (value: unknown): value is Record<string, unknown> => {
-  return typeof value === 'object' && value !== null
-}
-
-const readResponseBody = async (response: Response): Promise<unknown> => {
-  const contentType = response.headers.get('content-type') || ''
-
-  if (contentType.includes('application/json')) {
-    try {
-      return await response.json()
-    } catch {
-      return null
-    }
+const getAuthBaseUrl = () => {
+  if (!PUBLIC_AUTH_URL) {
+    throw new AuthRequestError(
+      'Konfigurasi NEXT_PUBLIC_API_GATEWAY_URL belum diatur pada frontend.'
+    )
   }
 
-  try {
-    const text = await response.text()
-    if (!text) {
-      return null
-    }
-    return { message: text }
-  } catch {
-    return null
-  }
-}
-
-const extractBackendMessage = (payload: unknown): string | undefined => {
-  if (typeof payload === 'string' && payload.trim()) {
-    return payload
-  }
-
-  if (!isRecord(payload)) {
-    return undefined
-  }
-
-  const message = payload.message
-  if (typeof message === 'string' && message.trim()) {
-    return message
-  }
-
-  const error = payload.error
-  if (typeof error === 'string' && error.trim()) {
-    return error
-  }
-
-  if (isRecord(error) && typeof error.message === 'string' && error.message.trim()) {
-    return error.message
-  }
-
-  return undefined
+  return PUBLIC_AUTH_URL
 }
 
 const mapAuthErrorMessage = (
@@ -116,9 +58,15 @@ const mapAuthErrorMessage = (
 ): string => {
   switch (status) {
     case 400:
-      return backendMessage || 'Permintaan tidak valid. Mohon cek kembali data yang kamu masukkan.'
+      return (
+        backendMessage ||
+        'Permintaan tidak valid. Mohon cek kembali data yang kamu masukkan.'
+      )
     case 401:
-      return backendMessage || 'Sesi atau kredensial tidak valid. Silakan login kembali.'
+      return (
+        backendMessage ||
+        'Sesi atau kredensial tidak valid. Silakan login kembali.'
+      )
     case 403:
       return backendMessage || 'Akses ditolak untuk operasi ini.'
     case 404:
@@ -126,71 +74,60 @@ const mapAuthErrorMessage = (
     case 409:
       return backendMessage || 'Data akun sudah terdaftar.'
     case 429:
-      return backendMessage || 'Terlalu banyak percobaan. Silakan tunggu sebentar lalu coba lagi.'
+      return (
+        backendMessage ||
+        'Terlalu banyak percobaan. Silakan tunggu sebentar lalu coba lagi.'
+      )
     default:
       if (status >= 500) {
-        return backendMessage || 'Server auth sedang bermasalah. Silakan coba lagi nanti.'
+        return (
+          backendMessage ||
+          'Server auth sedang bermasalah. Silakan coba lagi nanti.'
+        )
       }
+
       return backendMessage || fallbackMessage
   }
 }
 
+const mapAuthFetchError = (error: unknown, fallbackMessage: string) => {
+  if (error instanceof AuthRequestError) {
+    return error
+  }
+
+  if (error instanceof ApiFetchError) {
+    return new AuthRequestError(
+      mapAuthErrorMessage(error.status, error.message, fallbackMessage),
+      error.status,
+      error.isTimeout
+    )
+  }
+
+  if (error instanceof Error && error.message.trim()) {
+    return new AuthRequestError(error.message)
+  }
+
+  return new AuthRequestError(fallbackMessage)
+}
+
 const authRequest = async <T>(
   path: string,
-  { method, body, fallbackMessage, timeoutMs = AUTH_TIMEOUT_MS }: AuthRequestOptions
+  options: {
+    method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
+    body?: Record<string, unknown>
+    fallbackMessage: string
+    timeoutMs?: number
+  }
 ): Promise<T> => {
-  const controller = new AbortController()
-  const timeout = setTimeout(() => {
-    controller.abort()
-  }, timeoutMs)
-
   try {
-    const headers: Record<string, string> = {
-      Accept: 'application/json',
-    }
-
-    if (body) {
-      headers['Content-Type'] = 'application/json'
-    }
-
-    const response = await fetch(`${getAuthBaseUrl()}${path}`, {
-      method,
-      headers,
-      body: body ? JSON.stringify(body) : undefined,
-      credentials: 'include',
+    return await fetchJson<T>(`${getAuthBaseUrl()}${path}`, {
+      method: options.method,
+      body: options.body,
+      timeoutMs: options.timeoutMs || AUTH_TIMEOUT_MS,
       cache: 'no-store',
-      signal: controller.signal,
     })
-
-    const payload = await readResponseBody(response)
-
-    if (!response.ok) {
-      const backendMessage = extractBackendMessage(payload)
-      throw new AuthRequestError(
-        mapAuthErrorMessage(response.status, backendMessage, fallbackMessage),
-        response.status
-      )
-    }
-
-    return (payload ?? {}) as T
   } catch (error) {
-    if (error instanceof AuthRequestError) {
-      throw error
-    }
-
-    if (error instanceof DOMException && error.name === 'AbortError') {
-      throw new AuthRequestError(
-        'Permintaan ke server auth timeout. Silakan coba lagi.',
-        408,
-        true
-      )
-    }
-
-    throw new AuthRequestError(
-      'Terjadi gangguan jaringan saat menghubungi server auth. Silakan coba lagi.'
-    )
-  } finally {
-    clearTimeout(timeout)
+    throw mapAuthFetchError(error, options.fallbackMessage)
   }
 }
 
@@ -210,7 +147,9 @@ export const registerAuth = async (payload: RegisterPayload) => {
   })
 }
 
-export const requestPasswordResetAuth = async (payload: ForgotPasswordPayload) => {
+export const requestPasswordResetAuth = async (
+  payload: ForgotPasswordPayload
+) => {
   return authRequest<AuthMessageResponse>('/request-password-reset', {
     method: 'POST',
     body: payload,

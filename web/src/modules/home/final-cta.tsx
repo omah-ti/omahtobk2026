@@ -1,7 +1,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { fetchUser } from '@/app/fetch_user'
+import { fetchUser } from '@/lib/auth/fetch_user'
 import { User } from '@/lib/types/types'
 
 const ReadyPath = async () => {
