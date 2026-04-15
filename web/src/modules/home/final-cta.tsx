@@ -15,7 +15,7 @@ const ReadyPath = async () => {
 
       <div className='relative z-10 mx-auto flex max-w-[1700px] items-center justify-center px-6 lg:px-8'>
         <div className='relative w-25 h-30 md:w-[400px] md:h-[443px] shrink-0'>
-          <Image src='/assets/fullbody_2.webp' alt='Robot' fill className='object-contain' sizes='681px' priority />
+          <Image src='/assets/fullbody-love.webp' alt='Robot' fill className='object-contain' sizes='681px' priority />
         </div>
 
         <div className='w-[720px] text-center'>
