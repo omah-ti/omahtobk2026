@@ -1,47 +1,35 @@
-# # Build stage
-# FROM node:23-alpine3.21 AS base
+# syntax=docker/dockerfile:1.7
 
-# # Set the working directory inside the container
-# WORKDIR /app
-# RUN npm i -g pnpm
-
-# # Copy only the package.json and pnpm-lock.yaml first for efficient caching
-# COPY package.json pnpm-lock.yaml ./
-
-# # Install dependencies
-# RUN corepack enable && pnpm install --frozen-lockfile
-
-# # Copy the rest of the frontend code
-# COPY . .
-
-# # Production stage
-# FROM node:23-alpine3.21 AS release
-
-# WORKDIR /app
-# RUN npm i -g pnpm
-
-# # Copy from base stage
-# COPY --from=base /app/node_modules ./node_modules
-# COPY --from=base /app/package.json ./package.json
-# COPY --from=base /app/.next ./.next
-# COPY --from=base /app/src ./src
-# COPY --from=base /app .
-
-# # Expose the default Next.js dev server port (change if needed)
-# EXPOSE 3000
-
-# # Start the dev server
-# CMD ["pnpm", "dev"]
-
-FROM node:23-alpine3.21
-
+FROM node:20-alpine3.21 AS deps
 WORKDIR /app
 
 COPY package.json pnpm-lock.yaml ./
-RUN corepack enable pnpm && pnpm i --frozen-lockfile
+RUN corepack enable && pnpm i --frozen-lockfile
 
+FROM node:20-alpine3.21 AS builder
+WORKDIR /app
+
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-EXPOSE 3001
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN corepack enable && pnpm build
 
-CMD ["pnpm", "dev"]
+FROM node:20-alpine3.21 AS runner
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV HOSTNAME=0.0.0.0
+
+RUN addgroup -S nodejs && adduser -S nextjs -G nodejs
+
+COPY --from=builder /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+USER nextjs
+
+EXPOSE 3000
+
+CMD ["node", "server.js"]
