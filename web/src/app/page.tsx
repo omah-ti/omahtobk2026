@@ -23,8 +23,16 @@ export default function Home() {
       <UtbkPerspective />
       <SubjectSemester />
       <ReadyPath /> */}
+      {/* <Navbar /> */}
+      {/* <Hero /> */}
+      <WhyCompsci />
+      {/* <CompsciDivisions /> */}
+      {/* <Inspiration /> */}
+      {/* <UtbkPerspective /> */}
+      {/* <SubjectSemester /> */}
+      <ReadyPath />
       {/* <TryoutResult /> ini buat ngetes */}
-      <Footer />
+      {/* <Footer /> */}
     </>
   )
 }
