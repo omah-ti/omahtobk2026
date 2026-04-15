@@ -4,8 +4,8 @@ const statistic = () => {
   return (
     <section className='bg-primary-200 items-center'>
       <Container >
-        <main className='display-grid space-y-2 m-0 h-fit place-items-center py-[120px] max-sm:py-[60px]'>
-          <div className='flex h-full w-4/5 flex-col gap-8.5 rounded-[30px] bg-neutral-100/70 pt-[95px] pb-[120px] max-sm:w-19/20 max-sm:rounded-[15px] max-sm:px-2.5 max-sm:py-4'>
+        <main className='display-grid space-y-2 px-0 md:px-12 xl:px-30 m-0 h-fit place-items-center py-[120px] max-sm:py-[60px]'>
+          <div className='flex h-full px-8 md:px-12 xl:px-30 flex-col gap-8.5 rounded-[30px] bg-neutral-100/70 pt-[95px] pb-[120px] max-sm:w-19/20 max-sm:rounded-[15px] max-sm:px-2.5 max-sm:py-4'>
             <section className='mx-auto w-6/10 text-center opacity-100 max-sm:w-full [&_h4]:text-[34px] space-y-2 [&_h4]:font-bold max-sm:[&_h4]:text-[16px] max-sm:[&_p]:text-[12px]'>
               <h4>
                 Investasi Strategis pada Keahlian Teknologi untuk Karier di Era
@@ -18,7 +18,7 @@ const statistic = () => {
               </p>
             </section>
           </div>
-          <div className='mx-auto mt-[-6%] shadow-xl flex w-14/25 rounded-[30px] bg-neutral-100 py-[25px] text-center shadow-[0_4px_4px_0_rgb(var(--color-neutral-1000)/0.25)] *:w-1/3 *:px-[25px] *:py-[5px] max-sm:mx-0 max-sm:mt-0 max-sm:w-19/20 max-sm:rounded-[15px] max-sm:px-[15px] max-sm:*:px-0 [&_h4]:text-[34px] [&_h4]:font-bold max-sm:[&_h4]:text-[16px] max-sm:[&_p]:text-[10px]'>
+          <div className='mx-auto mt-[-6%] flex w-14/25 rounded-[30px] bg-neutral-100 py-3 md:py-[25px] text-center shadow-[0_4px_4px_0_rgb(var(--color-neutral-1000)/0.25)] *:w-1/3 *:px-[25px] *:py-[5px] max-sm:mx-0 max-sm:mt-0 max-sm:w-19/20 max-sm:rounded-[15px] max-sm:px-[12px] max-sm:*:px-0 [&_h4]:text-[34px] [&_h4]:font-bold max-sm:[&_h4]:text-[16px] max-sm:[&_p]:text-[10px]'>
             <section>
               <h4>12-25jt</h4>
               <p>Rata-rata pendapatan bulanan (entry-level)</p>

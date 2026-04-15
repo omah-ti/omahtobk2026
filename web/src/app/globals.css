@@ -18,14 +18,15 @@
   --color-neutral-800: #606060;
   --color-neutral-900: #4a4a4a;
   --color-neutral-1000: #333333;
+  --color-neutral-text: #848484;
 
-  --color-colours-text-primary: #454a53;
   --color-primary-100: #f5f7fb;
   --color-primary-200: #b6cbf8;
   --color-primary-300: #6e97f2;
   --color-primary-400: #2563eb;
   --color-primary-500: #1248c1;
   --color-primary-600: #0d3388;
+  --color-primary-text: #454A53;
 
   --color-secondary-100: #fff2cf;
   --color-secondary-200: #ffe59e;

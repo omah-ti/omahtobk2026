@@ -13,25 +13,13 @@ export default function Home() {
   return (
     <>
       {/* <Navbar />
-      <Hero />
-      <WhyCompsci /> */}
-      <CompsciDivisions />
-      {/* <Statistic />
-      <Inspiration />
-      <Testimony />
-      <SubjectSemester />
-      <FinalCta />
-      <Faq />
-      <UtbkPerspective />
-      <SubjectSemester />
-      <ReadyPath /> */}
-      {/* <Navbar /> */}
-      {/* <Hero /> */}
+      <Hero /> */}
       <WhyCompsci />
       <CompsciDivisions />
       <Statistic />
+      <Testimony />
+      {/* <FinalCta /> */}
       <Faq />
-      {/* <ReadyPath /> */}
       <Footer />
     </>
   )

@@ -22,9 +22,9 @@ const WhyCompsciCard = ({ icon, title, description }: Props) => {
           <LockKeyholeOpen className='h-[28px] w-[28px] md:h-[50px] md:w-[50px]' />
         )}
 
-        <h3 className='text-[16px] font-bold md:text-[20px]'>{title}</h3>
+        <h3 className='text-[16px] font-bold md:text-[24px]'>{title}</h3>
       </div>
-      <p className='text-[16px]'>{description}</p>
+      <p className='text-base'>{description}</p>
     </div>
   )
 }

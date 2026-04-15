@@ -114,24 +114,24 @@ const CompsciDivisions = () => {
   return (
     <Container>
       <section className='relative isolate w-full py-8 md:py-12'>
-        {!isMobile() &&
+
           <>
             <div
               aria-hidden='true'
-              className='pointer-events-none absolute left-0 top-0 z-0 h-[100px] w-[100px] -translate-x-1/3 -translate-y-1/3 rounded-full bg-primary-400 blur-[160px] min-[1000px]:h-[250px] min-[1000px]:w-[250px]'
+              className='pointer-events-none absolute top-1/2 left-1/3 md:left-0 md:top-0 z-0  -translate-x-1/3 -translate-y-1/3 rounded-full bg-primary-400 blur-[160px] h-[250px] w-[250px]'
             />
             <div
               aria-hidden='true'
-              className='pointer-events-none absolute right-0 bottom-0 z-0 h-[100px] w-[100px] translate-x-1/3 -translate-y-1/3 rounded-full bg-primary-400 blur-[200px] min-[1000px]:h-[250px] min-[1000px]:w-[250px]'
+              className='pointer-events-none hidden md:absolute right-0 bottom-0 z-0 h-[100px] w-[100px] translate-x-1/3 -translate-y-1/3 rounded-full bg-primary-400 blur-[200px] min-[1000px]:h-[250px] min-[1000px]:w-[250px]'
             />
           </>
-        }
+        
         <div className='relative z-10'>
           <div className='mb-8 text-center md:mb-10'>
-            <h2 className='text-[30px] font-bold leading-tight text-neutral-1100 xl:text-[36px]'>
+            <h2 className='text-center text-[20px] md:text-[34px] font-bold leading-tight text-neutral-1100'>
               Pilih Jalur Masa Depanmu
             </h2>
-            <p className='mx-auto mt-2 max-w-2xl text-[15px] text-neutral-900 xl:text-[17px]'>
+            <p className='mx-auto mt-1 md:mt-2 max-w-2xl text-[15px] text-neutral-900 xl:text-[17px]'>
               Kuasai Spesialisasi Karier Global Strategis
             </p>
           </div>
@@ -144,10 +144,10 @@ const CompsciDivisions = () => {
             onTouchEnd={onTouchEnd}
           >
             <div className='relative mx-auto flex w-full max-w-[430px] items-center justify-center overflow-visible px-4 py-5'>
-              <div className='pointer-events-none absolute left-1 top-1/2 h-[170px] w-10 -translate-y-1/2 rounded-r-xl bg-gradient-to-r from-white/95 to-transparent' />
-              <div className='pointer-events-none absolute right-1 top-1/2 h-[170px] w-10 -translate-y-1/2 rounded-l-xl bg-gradient-to-l from-white/95 to-transparent' />
+              <div className='pointer-events-none absolute left-0 top-1/2 h-[170px] shadow-[0_10px_26px_rgba(15,23,42,0.16)] w-5 -translate-y-1/2 rounded-r-xl bg-gradient-to-r from-white to-transparent' />
+              <div className='pointer-events-none absolute right-0 top-1/2 h-[170px] shadow-[0_10px_26px_rgba(15,23,42,0.16)] w-5 -translate-y-1/2 rounded-l-xl bg-gradient-to-l from-white to-transparent' />
 
-              <article className='relative z-10 h-[230px] w-[85%] rounded-2xl bg-[#F5F7FB] shadow-[0_14px_35px_rgba(15,23,42,0.2)] transition-all duration-500'>
+              <article className='relative z-10 h-[230px] w-[90%] rounded-2xl bg-[#F5F7FB] shadow-[0_4px_4px_0_rgba(0,0,0,0.25)] transition-all duration-500'>
                 <div className='flex h-full items-center gap-3 p-4'>
                   <div className='h-[96px] w-[96px] flex-shrink-0 overflow-hidden rounded-xl bg-neutral-100'>
                     <img
@@ -174,7 +174,7 @@ const CompsciDivisions = () => {
                 type='button'
                 aria-label='Slide sebelumnya'
                 onClick={goPrev}
-                className='absolute left-2 z-20 flex h-9 w-9 items-center justify-center text-[#008CFF] transition hover:scale-105'
+                className='absolute left-2 z-20 flex h-9 w-9 items-center justify-center text-neutral-1000 transition hover:scale-105'
               >
                 <ChevronLeft className='h-7 w-7' />
               </button>
@@ -182,7 +182,7 @@ const CompsciDivisions = () => {
                 type='button'
                 aria-label='Slide berikutnya'
                 onClick={goNext}
-                className='absolute right-2 z-20 flex h-9 w-9 items-center justify-center text-[#008CFF] transition hover:scale-105'
+                className='absolute right-2 z-20 flex h-9 w-9 items-center justify-center text-neutral-1000 transition hover:scale-105'
               >
                 <ChevronRight className='h-7 w-7' />
               </button>
