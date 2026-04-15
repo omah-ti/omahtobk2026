@@ -18,8 +18,8 @@ export default function Home() {
       <CompsciDivisions />
       <Statistic />
       <Testimony />
-      {/* <FinalCta /> */}
       <Faq />
+      <FinalCta />
       <Footer />
     </>
   )
