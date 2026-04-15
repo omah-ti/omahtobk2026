@@ -20,6 +20,8 @@ type SoalService interface {
 	GetMinatBakatSoal(c context.Context) ([]models.MinatBakatGabungan, error)
 	UploadSoalImage(c context.Context, kodeSoal string, raw []byte) (map[string]interface{}, error)
 	GetSoalImageObject(c context.Context, objectKey string) (io.ReadCloser, int64, string, error)
+	ImportSoalFromCSV(c context.Context, files CSVImportFiles) (*models.SoalCSVImportResult, error)
+	ImportSoalFromZIPBundle(c context.Context, zipData []byte) (*models.SoalCSVImportResult, error)
 }
 
 type soalService struct {

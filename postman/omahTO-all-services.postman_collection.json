@@ -22,6 +22,8 @@
     { "key": "asal_sekolah", "value": "SMA Negeri 1" },
     { "key": "reset_token", "value": "replace-with-reset-token" },
     { "key": "image_file_path", "value": "C:/tmp/soal-image.png" },
+    { "key": "soal_csv_file_path", "value": "E:/PROJECT/omah-to 2026/omahtobk2026/soal-service/db/csv-template/soal.csv" },
+    { "key": "soal_bundle_zip_path", "value": "E:/PROJECT/omah-to 2026/omahtobk2026/soal-service/db/csv-template/bundle-import.zip" },
     { "key": "mb_limit", "value": "10" },
     { "key": "mb_offset", "value": "0" }
   ],
@@ -175,6 +177,32 @@
           "request": {
             "method": "GET",
             "url": "{{gateway_url}}/api/soal/minat-bakat"
+          }
+        },
+        {
+          "name": "Import Soal CSV (Admin only, single file)",
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "soal_csv", "type": "file", "src": "{{soal_csv_file_path}}" }
+              ]
+            },
+            "url": "{{gateway_url}}/api/soal/import/csv"
+          }
+        },
+        {
+          "name": "Import Soal CSV Bundle ZIP (Admin only)",
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "bundle_zip", "type": "file", "src": "{{soal_bundle_zip_path}}" }
+              ]
+            },
+            "url": "{{gateway_url}}/api/soal/import/csv-bundle"
           }
         },
         {
@@ -460,6 +488,32 @@
           "request": {
             "method": "GET",
             "url": "{{soal_service_url}}/ping/"
+          }
+        },
+        {
+          "name": "Import Soal CSV (Admin only, single file)",
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "soal_csv", "type": "file", "src": "{{soal_csv_file_path}}" }
+              ]
+            },
+            "url": "{{soal_service_url}}/soal/import/csv"
+          }
+        },
+        {
+          "name": "Import Soal CSV Bundle ZIP (Admin only)",
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "bundle_zip", "type": "file", "src": "{{soal_bundle_zip_path}}" }
+              ]
+            },
+            "url": "{{soal_service_url}}/soal/import/csv-bundle"
           }
         },
         {
