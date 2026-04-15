@@ -24,10 +24,10 @@ func setupMock(t *testing.T) (repositories.AuthRepo, sqlmock.Sqlmock, *gin.Conte
 
 func TestCreateUser_Success(t *testing.T) {
 	repo, mock, c := setupMock(t)
-	user := &models.User{Email: "a@b.com", NamaUser: "Test", Password: "pwd", AsalSekolah: "School"}
+	user := &models.User{Email: "a@b.com", NamaUser: "Test", Password: "pwd", AsalSekolah: "School", Role: models.RoleUser}
 	rows := sqlmock.NewRows([]string{"user_id"}).AddRow(42)
 	mock.ExpectQuery(`INSERT INTO users`).
-		WithArgs(user.Email, user.NamaUser, user.Password, user.AsalSekolah).
+		WithArgs(user.Email, user.NamaUser, user.Password, user.AsalSekolah, user.Role).
 		WillReturnRows(rows)
 
 	err := repo.CreateUser(c, user)
@@ -48,9 +48,9 @@ func TestCreateUser_Error(t *testing.T) {
 
 func TestCreateUser_MissingField(t *testing.T) {
 	repo, mock, c := setupMock(t)
-	user := &models.User{Email: "oke@gmail.com", NamaUser: "Test", Password: "pwd", AsalSekolah: "School"}
+	user := &models.User{Email: "oke@gmail.com", NamaUser: "Test", Password: "pwd", AsalSekolah: "School", Role: models.RoleUser}
 	mock.ExpectQuery(`INSERT INTO users`).
-		WithArgs(user.Email, user.NamaUser, user.Password, user.AsalSekolah).
+		WithArgs(user.Email, user.NamaUser, user.Password, user.AsalSekolah, user.Role).
 		WillReturnError(fmt.Errorf("missing email"))
 	err := repo.CreateUser(c, user)
 	require.Error(t, err)
@@ -60,9 +60,9 @@ func TestCreateUser_MissingField(t *testing.T) {
 
 func TestGetUserByEmail_Success(t *testing.T) {
 	repo, mock, c := setupMock(t)
-	expected := models.User{UserID: 7, Email: "x@y.com", NamaUser: "X", AsalSekolah: "Z", Password: "p"}
-	rows := sqlmock.NewRows([]string{"user_id", "email", "nama_user", "asal_sekolah", "password"}).
-		AddRow(expected.UserID, expected.Email, expected.NamaUser, expected.AsalSekolah, expected.Password)
+	expected := models.User{UserID: 7, Email: "x@y.com", NamaUser: "X", AsalSekolah: "Z", Role: models.RoleUser, Password: "p"}
+	rows := sqlmock.NewRows([]string{"user_id", "email", "nama_user", "asal_sekolah", "role", "password"}).
+		AddRow(expected.UserID, expected.Email, expected.NamaUser, expected.AsalSekolah, expected.Role, expected.Password)
 	mock.ExpectQuery(`SELECT user_id, email`).
 		WithArgs(expected.Email).
 		WillReturnRows(rows)
@@ -84,9 +84,9 @@ func TestGetUserByEmail_Error(t *testing.T) {
 
 func TestGetUserByID_Success(t *testing.T) {
 	repo, mock, c := setupMock(t)
-	expected := models.User{UserID: 5, Email: "e@f.com", NamaUser: "E", AsalSekolah: "Y", Password: "pwd"}
-	rows := sqlmock.NewRows([]string{"user_id", "email", "nama_user", "asal_sekolah", "password"}).
-		AddRow(expected.UserID, expected.Email, expected.NamaUser, expected.AsalSekolah, expected.Password)
+	expected := models.User{UserID: 5, Email: "e@f.com", NamaUser: "E", AsalSekolah: "Y", Role: models.RoleAdmin, Password: "pwd"}
+	rows := sqlmock.NewRows([]string{"user_id", "email", "nama_user", "asal_sekolah", "role", "password"}).
+		AddRow(expected.UserID, expected.Email, expected.NamaUser, expected.AsalSekolah, expected.Role, expected.Password)
 	mock.ExpectQuery(`SELECT user_id, email`).
 		WithArgs(expected.UserID).
 		WillReturnRows(rows)

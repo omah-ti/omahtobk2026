@@ -7,20 +7,35 @@ import CompsciDivisions from '@/modules/home/compsci-divisions'
 import FinalCta from '@/modules/home/final-cta'
 import Testimony from '@/modules/home/testimony'
 import Inspiration from '@/modules/home/inspiration'
+import Statistic from '@/modules/home/statistic'
+import Faq from '@/modules/home/faq'
 
 export default function Home() {
   return (
     <>
-      <Navbar />
+      {/* <Navbar />
       <Hero />
-      <WhyCompsci />
+      <WhyCompsci /> */}
       <CompsciDivisions />
+      {/* <Statistic />
       <Inspiration />
       <Testimony />
       <SubjectSemester />
       <FinalCta />
+      <Faq />
+      <UtbkPerspective />
+      <SubjectSemester />
+      <ReadyPath /> */}
+      {/* <Navbar /> */}
+      {/* <Hero /> */}
+      <WhyCompsci />
+      {/* <CompsciDivisions /> */}
+      {/* <Inspiration /> */}
+      {/* <UtbkPerspective /> */}
+      {/* <SubjectSemester /> */}
+      <ReadyPath />
       {/* <TryoutResult /> ini buat ngetes */}
-      <Footer />
+      {/* <Footer /> */}
     </>
   )
 }

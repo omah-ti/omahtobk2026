@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"strings"
 	"time"
@@ -14,7 +15,7 @@ import (
 type TryoutRepo interface {
 	BeginTransaction(c context.Context) (*sqlx.Tx, error)
 	CreateTryoutAttemptTx(c context.Context, tx *sqlx.Tx, attempt *models.TryoutAttempt) error // Create a new tryout attempt
-	GetTryoutAttemptByUserIDTx(c context.Context, tx *sqlx.Tx, userID int) (string, error)     // Get the ongoing tryout attempt for a user
+	HasOngoingAttemptByUserIDTx(c context.Context, tx *sqlx.Tx, userID int) (bool, error)
 	GetOngoingAttemptByUserID(c context.Context, userID int) (*models.TryoutAttempt, error)
 	GetTryoutAttemptByUserIDAndPaket(c context.Context, userID int, paket string) (*models.TryoutAttempt, error)                        // Get the ongoing tryout attempt for a user
 	GetTryoutAttemptTx(c context.Context, tx *sqlx.Tx, attemptID int) (*models.TryoutAttempt, error)                                    // Get a tryout attempt by its ID, including the user's answers based on the current subtest also (for transactinos)
@@ -95,15 +96,15 @@ func (r *tryoutRepo) CreateTryoutAttemptTx(c context.Context, tx *sqlx.Tx, attem
 	return nil
 }
 
-func (r *tryoutRepo) GetTryoutAttemptByUserIDTx(c context.Context, tx *sqlx.Tx, userID int) (string, error) {
-	var status string
-	query := `SELECT status FROM tryout_attempt WHERE user_id = $1 AND status = 'ongoing'`
-	err := tx.Get(&status, query, userID)
+func (r *tryoutRepo) HasOngoingAttemptByUserIDTx(c context.Context, tx *sqlx.Tx, userID int) (bool, error) {
+	var exists bool
+	query := `SELECT EXISTS(SELECT 1 FROM tryout_attempt WHERE user_id = $1 AND status = 'ongoing')`
+	err := tx.Get(&exists, query, userID)
 	if err != nil {
-		logger.LogErrorCtx(c, err, "Failed to get ongoing tryout attempt", map[string]interface{}{"user_id": userID})
-		return "", err
+		logger.LogErrorCtx(c, err, "Failed to check ongoing tryout attempt", map[string]interface{}{"user_id": userID})
+		return false, err
 	}
-	return status, nil
+	return exists, nil
 }
 
 func (r *tryoutRepo) GetOngoingAttemptByUserID(c context.Context, userID int) (*models.TryoutAttempt, error) {
@@ -152,7 +153,7 @@ func (r *tryoutRepo) SaveAnswersTx(c context.Context, tx *sqlx.Tx, answers []mod
 func (r *tryoutRepo) ProgressTryoutTx(c context.Context, tx *sqlx.Tx, attemptID int, subtest string) (string, error) {
 	// Update the tryout attempt with end_time and next subtest (or NULL if last subtest)
 	var subtestUpdated string
-	updateQuery := `UPDATE tryout_attempt SET subtest_sekarang = $1 WHERE attempt_id = $2 RETURNING subtest_sekarang`
+	updateQuery := `UPDATE tryout_attempt SET subtest_sekarang = $1 WHERE attempt_id = $2 AND status = 'ongoing' RETURNING subtest_sekarang`
 	err := tx.QueryRow(updateQuery, subtest, attemptID).Scan(&subtestUpdated)
 	if err != nil {
 		logger.LogErrorCtx(c, err, "Failed to update tryout attempt", map[string]interface{}{"attempt_id": attemptID, "subtest": subtest})
@@ -168,14 +169,24 @@ func (r *tryoutRepo) ProgressTryoutTx(c context.Context, tx *sqlx.Tx, attemptID 
 }
 
 func (r *tryoutRepo) EndTryOutTx(c context.Context, tx *sqlx.Tx, attemptID int) error {
-	query := `UPDATE tryout_attempt SET end_time = $1, status = 'finished' WHERE attempt_id = $2`
-	_, err := tx.Exec(query, time.Now(), attemptID)
+	query := `UPDATE tryout_attempt SET end_time = $1, status = 'finished' WHERE attempt_id = $2 AND status = 'ongoing'`
+	result, err := tx.Exec(query, time.Now(), attemptID)
 	if err != nil {
 		logger.LogErrorCtx(c, err, "Failed to end tryout attempt", map[string]interface{}{
 			"attempt_id": attemptID,
 		})
 		return err
 	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		logger.LogErrorCtx(c, err, "Failed to check rows affected when ending tryout", map[string]interface{}{"attempt_id": attemptID})
+		return err
+	}
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+
 	logger.LogDebugCtx(c, "Tryout attempt ended", map[string]interface{}{
 		"attempt_id": attemptID,
 	})
@@ -186,7 +197,7 @@ func (r *tryoutRepo) EndTryOutTx(c context.Context, tx *sqlx.Tx, attemptID int) 
 func (r *tryoutRepo) GetTryoutAttemptTx(c context.Context, tx *sqlx.Tx, attemptID int) (*models.TryoutAttempt, error) {
 	var attempt models.TryoutAttempt
 
-	query := `SELECT * FROM tryout_attempt WHERE attempt_id = $1`
+	query := `SELECT * FROM tryout_attempt WHERE attempt_id = $1 FOR UPDATE`
 	err := tx.Get(&attempt, query, attemptID)
 	if err != nil {
 		logger.LogErrorCtx(c, err, "Failed to get tryout attempt", map[string]interface{}{

@@ -29,6 +29,13 @@ export const getRefreshToken = async () => {
   return cookieStore.get('refresh_token')?.value as string
 }
 
+const buildCookieHeader = (accessToken?: string, refreshToken?: string) => {
+  const cookieParts: string[] = []
+  if (accessToken) cookieParts.push(`access_token=${accessToken}`)
+  if (refreshToken) cookieParts.push(`refresh_token=${refreshToken}`)
+  return cookieParts.join('; ')
+}
+
 export async function fetchUser(): Promise<User> {
   // First try to get user from headers
   const headersList = await headers()
@@ -45,8 +52,9 @@ export async function fetchUser(): Promise<User> {
   // If headers don't have user data, try to fetch directly
   try {
     const accessToken = await getAccessToken()
-    if (accessToken) {
-      const userData = await fetchUserClient(accessToken)
+    const refreshToken = await getRefreshToken()
+    if (accessToken || refreshToken) {
+      const userData = await fetchUserClient(accessToken, refreshToken)
       if (userData) {
         return {
           username: userData.username,
@@ -64,12 +72,15 @@ export async function fetchUser(): Promise<User> {
   return null
 }
 
-export const fetchUserClient = async (accessToken?: string) => {
+export const fetchUserClient = async (
+  accessToken?: string,
+  refreshToken?: string
+) => {
   const res = await fetch(`${process.env.API_GATEWAY_URL}/api/me`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
-      Cookie: `access_token=${accessToken}`,
+      Cookie: buildCookieHeader(accessToken, refreshToken),
     },
     credentials: 'include',
   })

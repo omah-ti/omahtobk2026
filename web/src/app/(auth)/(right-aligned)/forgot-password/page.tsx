@@ -1,22 +1,24 @@
-import Link from "next/link"
-import ForgotPasswordForm from "./forgot-password-form"
+import Link from 'next/link'
+import ForgotPasswordForm from './forgot-password-form'
 
 const ForgotPasswordPage = () => {
   return (
     <>
-      <h1 className='text-2xl font-bold md:mb-6 md:text-4xl'>
-        Lupa Password
+      <h1 className='w-full rounded-lg! text-center text-3xl font-bold md:text-4xl'>
+        Lupa password
       </h1>
-      <ForgotPasswordForm />
-      <p className='text-xs font-bold'>
-        Sudah ganti password?{' '}
-        <Link
-          href={`/login`}
-          className='font-light underline underline-offset-2'
-        >
-          Login
-        </Link>
-      </p>
+      <div className='w-full'>
+        <ForgotPasswordForm />
+        <p className='text-center text-xs font-bold mt-4'>
+          Sudah punya akun?{' '}
+          <Link
+            href={`/login`}
+            className='font-light underline underline-offset-2'
+          >
+            Login
+          </Link>
+        </p>
+      </div>
     </>
   )
 }

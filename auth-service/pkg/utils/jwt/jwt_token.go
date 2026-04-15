@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v4"
@@ -16,6 +18,7 @@ type AccessTokenClaims struct {
 	Email       string `json:"email"`
 	NamaUser    string `json:"nama_user"`
 	AsalSekolah string `json:"asal_sekolah"`
+	Role        string `json:"role"`
 	jwt.RegisteredClaims
 }
 
@@ -28,22 +31,63 @@ func accessTokenSecret() ([]byte, error) {
 	return []byte(secret), nil
 }
 
-func CreateAccessToken(userID int, namaUser, asalSekolah, email string) (string, error) {
+func tokenIssuer() (string, error) {
+	issuer := strings.TrimSpace(os.Getenv("JWT_ISSUER"))
+	if issuer == "" {
+		return "", errors.New("JWT_ISSUER is not set")
+	}
+
+	return issuer, nil
+}
+
+func tokenAudience() string {
+	return strings.TrimSpace(os.Getenv("JWT_AUDIENCE"))
+}
+
+func accessTokenTTL() time.Duration {
+	const defaultMinutes = 60
+	raw := strings.TrimSpace(os.Getenv("ACCESS_TOKEN_TTL_MINUTES"))
+	if raw == "" {
+		return time.Duration(defaultMinutes) * time.Minute
+	}
+
+	minutes, err := strconv.Atoi(raw)
+	if err != nil || minutes <= 0 {
+		return time.Duration(defaultMinutes) * time.Minute
+	}
+
+	return time.Duration(minutes) * time.Minute
+}
+
+func CreateAccessToken(userID int, namaUser, asalSekolah, email, role string) (string, error) {
 	secret, err := accessTokenSecret()
 	if err != nil {
 		return "", err
 	}
 
-	expirationTime := time.Now().Add(15 * time.Minute)
+	issuer, err := tokenIssuer()
+	if err != nil {
+		return "", err
+	}
+
+	expirationTime := time.Now().Add(accessTokenTTL())
+	registeredClaims := jwt.RegisteredClaims{
+		ExpiresAt: jwt.NewNumericDate(expirationTime),
+		IssuedAt:  jwt.NewNumericDate(time.Now()),
+		Issuer:    issuer,
+	}
+
+	if audience := tokenAudience(); audience != "" {
+		registeredClaims.Audience = jwt.ClaimStrings{audience}
+	}
+
 	claims := AccessTokenClaims{
-		UserID:      userID,
-		Email:       email,
-		NamaUser:    namaUser,
-		AsalSekolah: asalSekolah,
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(expirationTime),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-		},
+		UserID:           userID,
+		Email:            email,
+		NamaUser:         namaUser,
+		AsalSekolah:      asalSekolah,
+		Role:             role,
+		RegisteredClaims: registeredClaims,
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -65,6 +109,11 @@ func ValidateAccessToken(accessToken string) (*AccessTokenClaims, error) {
 		return nil, err
 	}
 
+	issuer, err := tokenIssuer()
+	if err != nil {
+		return nil, err
+	}
+
 	token, err := jwt.ParseWithClaims(accessToken, &AccessTokenClaims{}, func(token *jwt.Token) (any, error) {
 		if token.Method != jwt.SigningMethodHS256 {
 			return nil, fmt.Errorf("unexpected signing method: %s", token.Method.Alg())
@@ -78,6 +127,15 @@ func ValidateAccessToken(accessToken string) (*AccessTokenClaims, error) {
 	}
 
 	if claims, ok := token.Claims.(*AccessTokenClaims); ok && token.Valid {
+		if !claims.VerifyIssuer(issuer, true) {
+			return nil, fmt.Errorf("invalid token issuer")
+		}
+
+		audience := tokenAudience()
+		if audience != "" && !claims.VerifyAudience(audience, true) {
+			return nil, fmt.Errorf("invalid token audience")
+		}
+
 		return claims, nil
 	}
 

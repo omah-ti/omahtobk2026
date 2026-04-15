@@ -101,6 +101,11 @@ func RedisAuthRateLimiter(config RedisRateLimiterConfig) fiber.Handler {
 	return RedisRateLimiter(config)
 }
 
+func RedisRefreshRateLimiter(config RedisRateLimiterConfig) fiber.Handler {
+	config.KeyPrefix = "auth_refresh"
+	return RedisRateLimiter(config)
+}
+
 func RedisAPIRateLimiter(config RedisRateLimiterConfig) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		ctx := c.Context()
