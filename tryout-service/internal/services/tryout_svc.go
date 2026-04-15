@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"sort"
 	"strings"
 	"time"
 	"tryout-service/internal/logger"
@@ -13,6 +14,9 @@ import (
 
 type TryoutService interface {
 	StartAttempt(c context.Context, userID int, username, paket string) (attempt *models.TryoutAttempt, retErr error)
+	StartSubtest(c context.Context, attemptID int, subtest string) (answersInDB []models.UserAnswer, timeLimit time.Time, retErr error)
+	SaveSubtestAnswers(c context.Context, answers []models.AnswerPayload, attemptID int, subtest string) (answersInDB []models.UserAnswer, timeLimit time.Time, retErr error)
+	SubmitSubtest(c context.Context, answers []models.AnswerPayload, attemptID, userID int, accessToken, subtest string) (updatedSubtest string, retErr error)
 	SyncWithDatabase(c context.Context, answers []models.AnswerPayload, attemptID int) (answersInDB []models.UserAnswer, timeLimit time.Time, err error)
 	SubmitCurrentSubtest(c context.Context, answers []models.AnswerPayload, attemptID, userID int, accessToken string) (updatedSubtest string, retErr error)
 	FinishTryoutNow(c context.Context, answers []models.AnswerPayload, attemptID, userID int, accessToken string) (updatedSubtest string, retErr error)
@@ -23,6 +27,8 @@ type tryoutService struct {
 	tryoutRepo   repositories.TryoutRepo
 	scoreService ScoreService
 }
+
+var orderedSubtests = []string{"subtest_pu", "subtest_ppu", "subtest_pbm", "subtest_pk", "subtest_lbi", "subtest_lbe", "subtest_pm"}
 
 func NewTryoutService(tryoutRepo repositories.TryoutRepo, scoreService ScoreService) TryoutService {
 	return &tryoutService{tryoutRepo: tryoutRepo, scoreService: scoreService}
@@ -114,11 +120,23 @@ func (s *tryoutService) StartAttempt(c context.Context, userID int, username, pa
 	return attempt, nil
 }
 
-// SyncWithDatabase is a service that syncs the answers from the user with the database
+func (s *tryoutService) StartSubtest(c context.Context, attemptID int, subtest string) (answersInDB []models.UserAnswer, timeLimit time.Time, retErr error) {
+	return s.syncSubtestAnswers(c, nil, attemptID, subtest)
+}
+
+func (s *tryoutService) SaveSubtestAnswers(c context.Context, answers []models.AnswerPayload, attemptID int, subtest string) (answersInDB []models.UserAnswer, timeLimit time.Time, retErr error) {
+	return s.syncSubtestAnswers(c, answers, attemptID, subtest)
+}
+
+// SyncWithDatabase is kept for backward compatibility with legacy /sync endpoints.
 func (s *tryoutService) SyncWithDatabase(c context.Context, answers []models.AnswerPayload, attemptID int) (answersInDB []models.UserAnswer, timeLimit time.Time, retErr error) {
+	return s.syncSubtestAnswers(c, answers, attemptID, "")
+}
+
+func (s *tryoutService) syncSubtestAnswers(c context.Context, answers []models.AnswerPayload, attemptID int, requestedSubtest string) (answersInDB []models.UserAnswer, timeLimit time.Time, retErr error) {
 	var committed bool
-	// EMPTY ANSWERS ARE OKAY, BUT IF THERE ARE ANSWERS, THEY MUST BE VALID
-	// Start transaction
+	requestedSubtest = strings.TrimSpace(requestedSubtest)
+
 	tx, err := s.tryoutRepo.BeginTransaction(c)
 	if err != nil {
 		logger.LogErrorCtx(c, err, "Failed to start transaction for syncing with database", map[string]interface{}{"attemptID": attemptID})
@@ -141,7 +159,6 @@ func (s *tryoutService) SyncWithDatabase(c context.Context, answers []models.Ans
 		}
 	}()
 
-	// Get and validate current attempt within transaction
 	attempt, err := s.tryoutRepo.GetTryoutAttemptTx(c, tx, attemptID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -168,20 +185,26 @@ func (s *tryoutService) SyncWithDatabase(c context.Context, answers []models.Ans
 		return nil, time.Time{}, retErr
 	}
 
-	// Get time limit within transaction
-	timeLimit, err = s.tryoutRepo.GetSubtestTimeTx(c, tx, attemptID, attempt.SubtestSekarang)
+	if requestedSubtest == "" {
+		requestedSubtest = attempt.SubtestSekarang
+	}
+
+	if requestedSubtest != attempt.SubtestSekarang {
+		retErr = ErrSubtestOutOfOrder
+		return nil, time.Time{}, retErr
+	}
+
+	timeLimit, err = s.tryoutRepo.GetSubtestTimeTx(c, tx, attemptID, requestedSubtest)
 	if err != nil {
 		retErr = err
 		logger.LogErrorCtx(c, err, "Failed to get time limit for subtest", map[string]interface{}{
 			"attemptID": attemptID,
-			"subtest":   attempt.SubtestSekarang,
+			"subtest":   requestedSubtest,
 		})
 		return nil, time.Time{}, retErr
 	}
 
-	// exceed time limit
 	if time.Now().After(timeLimit) {
-		// Delete attempt and answers if time limit has been reached
 		if err = s.tryoutRepo.DeleteAttempt(c, tx, attemptID); err != nil {
 			retErr = err
 			logger.LogErrorCtx(c, err, "Failed to delete attempt", map[string]interface{}{
@@ -189,24 +212,22 @@ func (s *tryoutService) SyncWithDatabase(c context.Context, answers []models.Ans
 			})
 			return nil, time.Time{}, retErr
 		}
-		// Commit transaction so that the attempt is deleted
+
 		if err = tx.Commit(); err != nil {
 			retErr = err
 			logger.LogErrorCtx(c, err, "Failed to commit transaction after deleting attempt", map[string]interface{}{
 				"attemptID": attemptID,
 			})
-
 			return nil, time.Time{}, retErr
 		}
-		// set committed to true so that the defer won't rollback the transaction
+
 		committed = true
 		retErr = ErrTimeLimitReached
 		return nil, time.Time{}, retErr
 	}
 
-	// Process and save new answers
 	if len(answers) > 0 {
-		userAnswers, err := buildUserAnswers(answers, attemptID, attempt.SubtestSekarang)
+		userAnswers, err := buildUserAnswers(answers, attemptID, requestedSubtest)
 		if err != nil {
 			retErr = err
 			return nil, timeLimit, retErr
@@ -221,13 +242,12 @@ func (s *tryoutService) SyncWithDatabase(c context.Context, answers []models.Ans
 		}
 	}
 
-	// Get updated answers within transaction
-	answersInDB, err = s.tryoutRepo.GetAnswerFromCurrentAttemptAndSubtestTx(c, tx, attemptID, attempt.SubtestSekarang)
+	answersInDB, err = s.tryoutRepo.GetAnswerFromCurrentAttemptAndSubtestTx(c, tx, attemptID, requestedSubtest)
 	if err != nil {
 		retErr = err
 		logger.LogErrorCtx(c, err, "Failed to fetch user answers", map[string]interface{}{
 			"attemptID": attemptID,
-			"subtest":   attempt.SubtestSekarang,
+			"subtest":   requestedSubtest,
 		})
 		return nil, timeLimit, retErr
 	}
@@ -240,30 +260,33 @@ func (s *tryoutService) SyncWithDatabase(c context.Context, answers []models.Ans
 		})
 		return nil, timeLimit, retErr
 	}
-	// set committed to true so that the defer won't rollback the transaction
 	committed = true
 
-	// will return answers that are stored in the db (for sync purpose) and the time limit also for the sync purpose
 	return answersInDB, timeLimit, nil
 }
 
+func (s *tryoutService) SubmitSubtest(c context.Context, answers []models.AnswerPayload, attemptID, userID int, accessToken, subtest string) (updatedSubtest string, retErr error) {
+	return s.submitAttempt(c, answers, attemptID, userID, accessToken, strings.TrimSpace(subtest), false)
+}
+
 func (s *tryoutService) SubmitCurrentSubtest(c context.Context, answers []models.AnswerPayload, attemptID, userID int, accessToken string) (updatedSubtest string, retErr error) {
-	return s.submitAttempt(c, answers, attemptID, userID, accessToken, false)
+	return s.submitAttempt(c, answers, attemptID, userID, accessToken, "", false)
 }
 
 func (s *tryoutService) FinishTryoutNow(c context.Context, answers []models.AnswerPayload, attemptID, userID int, accessToken string) (updatedSubtest string, retErr error) {
-	return s.submitAttempt(c, answers, attemptID, userID, accessToken, true)
+	return s.submitAttempt(c, answers, attemptID, userID, accessToken, "", true)
 }
 
-func (s *tryoutService) submitAttempt(c context.Context, answers []models.AnswerPayload, attemptID, userID int, accessToken string, forceFinish bool) (updatedSubtest string, retErr error) {
-	// begin a transaction
+func (s *tryoutService) submitAttempt(c context.Context, answers []models.AnswerPayload, attemptID, userID int, accessToken, requestedSubtest string, forceFinish bool) (updatedSubtest string, retErr error) {
 	var committed bool
+	requestedSubtest = strings.TrimSpace(requestedSubtest)
+
 	tx, err := s.tryoutRepo.BeginTransaction(c)
 	if err != nil {
 		logger.LogErrorCtx(c, err, "Failed to start transaction for submitting current subtest", map[string]interface{}{"attemptID": attemptID})
 		return "", err
 	}
-	// if something happened, rollback the transaction
+
 	defer func() {
 		if committed {
 			return
@@ -278,7 +301,6 @@ func (s *tryoutService) submitAttempt(c context.Context, answers []models.Answer
 		}
 	}()
 
-	// Get and validate current attempt
 	attempt, err := s.tryoutRepo.GetTryoutAttemptTx(c, tx, attemptID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -290,7 +312,6 @@ func (s *tryoutService) submitAttempt(c context.Context, answers []models.Answer
 		return "", retErr
 	}
 
-	// validate the attempt
 	if attempt.EndTime != nil {
 		retErr = ErrAttemptEnded
 		return "", retErr
@@ -306,20 +327,26 @@ func (s *tryoutService) submitAttempt(c context.Context, answers []models.Answer
 		return "", retErr
 	}
 
-	// Get time limit within transaction
-	timeLimit, err := s.tryoutRepo.GetSubtestTimeTx(c, tx, attemptID, attempt.SubtestSekarang)
+	if requestedSubtest == "" {
+		requestedSubtest = attempt.SubtestSekarang
+	}
+
+	if requestedSubtest != attempt.SubtestSekarang {
+		retErr = ErrSubtestOutOfOrder
+		return "", retErr
+	}
+
+	timeLimit, err := s.tryoutRepo.GetSubtestTimeTx(c, tx, attemptID, requestedSubtest)
 	if err != nil {
 		retErr = err
 		logger.LogErrorCtx(c, err, "Failed to get time limit", map[string]interface{}{
 			"attemptID": attemptID,
-			"subtest":   attempt.SubtestSekarang,
+			"subtest":   requestedSubtest,
 		})
 		return "", retErr
 	}
 
-	// exceed time limit
 	if time.Now().After(timeLimit) {
-		// Delete attempt and answers if time limit has been reached
 		if err = s.tryoutRepo.DeleteAttempt(c, tx, attemptID); err != nil {
 			retErr = err
 			logger.LogErrorCtx(c, err, "Failed to delete attempt", map[string]interface{}{
@@ -327,7 +354,6 @@ func (s *tryoutService) submitAttempt(c context.Context, answers []models.Answer
 			})
 			return "", retErr
 		}
-		// Commit transaction so that the attempt is deleted
 		if err = tx.Commit(); err != nil {
 			retErr = err
 			logger.LogErrorCtx(c, err, "Failed to commit transaction after deleting attempt", map[string]interface{}{
@@ -335,33 +361,25 @@ func (s *tryoutService) submitAttempt(c context.Context, answers []models.Answer
 			})
 			return "", retErr
 		}
-		// set committed to true so that the defer won't rollback the transaction
+
 		committed = true
 		retErr = ErrTimeLimitReached
 		return "", retErr
 	}
 
-	// Get the next subtest
-	currentSubtest := attempt.SubtestSekarang
-	subtests := []string{"subtest_pu", "subtest_ppu", "subtest_pbm", "subtest_pk", "subtest_lbi", "subtest_lbe", "subtest_pm"}
-	var nextSubtest *string
-	for i, sub := range subtests {
-		if sub == currentSubtest {
-			if i < len(subtests)-1 {
-				nextSubtest = &subtests[i+1]
-			}
-			break
-		}
+	nextSubtest, err := resolveNextSubtest(attempt.SubtestSekarang)
+	if err != nil {
+		retErr = err
+		return "", retErr
 	}
 
-	// Save final answers if any
 	if len(answers) > 0 {
-		userAnswers, err := buildUserAnswers(answers, attemptID, attempt.SubtestSekarang)
+		userAnswers, err := buildUserAnswers(answers, attemptID, requestedSubtest)
 		if err != nil {
 			retErr = err
 			return "", retErr
 		}
-		// Save the answers using the transaction
+
 		err = s.tryoutRepo.SaveAnswersTx(c, tx, userAnswers)
 		if err != nil {
 			logger.LogErrorCtx(c, err, "Failed to save final answers", map[string]interface{}{
@@ -372,9 +390,8 @@ func (s *tryoutService) submitAttempt(c context.Context, answers []models.Answer
 		}
 	}
 
-	// if forced finish or no next subtest, end the tryout
-	if forceFinish || nextSubtest == nil {
-		// end the tryout
+	shouldFinish := forceFinish || nextSubtest == nil
+	if shouldFinish {
 		err = s.tryoutRepo.EndTryOutTx(c, tx, attemptID)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
@@ -387,45 +404,17 @@ func (s *tryoutService) submitAttempt(c context.Context, answers []models.Answer
 			retErr = err
 			return "", retErr
 		}
-
-		// Phase 1: finalize attempt state and commit quickly.
-		if err := tx.Commit(); err != nil {
-			logger.LogErrorCtx(c, err, "Failed to commit transaction after finalizing tryout", map[string]interface{}{
+	} else {
+		updatedSubtest, err = s.tryoutRepo.ProgressTryoutTx(c, tx, attemptID, *nextSubtest)
+		if err != nil {
+			logger.LogErrorCtx(c, err, "Failed to end subtest", map[string]interface{}{
 				"attemptID": attemptID,
 			})
 			retErr = err
 			return "", retErr
 		}
-		// set committed to true so that the defer won't rollback the transaction
-		committed = true
-		tx = nil
-
-		// Phase 2: calculate and store scores in a dedicated transaction.
-		err = s.scoreService.CalculateAndStoreScores(c, attemptID, userID, attempt.Paket, accessToken)
-		if err != nil {
-			logger.LogErrorCtx(c, err, "Failed to calculate and store scores", map[string]interface{}{
-				"attemptID": attemptID,
-				"paket":     attempt.Paket,
-			})
-			retErr = ErrScoringFailed
-			return "", retErr
-		}
-
-		// return final indicating a final state
-		return "final", nil
 	}
 
-	// End current subtest and move to the next subtest
-	updatedSubtest, err = s.tryoutRepo.ProgressTryoutTx(c, tx, attemptID, *nextSubtest)
-	if err != nil {
-		logger.LogErrorCtx(c, err, "Failed to end subtest", map[string]interface{}{
-			"attemptID": attemptID,
-		})
-		retErr = err
-		return "", retErr
-	}
-
-	// commit the transactions if everything is successful
 	if err := tx.Commit(); err != nil {
 		logger.LogErrorCtx(c, err, "Failed to commit transaction after submitting current subtest", map[string]interface{}{
 			"attemptID": attemptID,
@@ -433,11 +422,24 @@ func (s *tryoutService) submitAttempt(c context.Context, answers []models.Answer
 		retErr = err
 		return "", retErr
 	}
-	// set committed to true so that the defer won't rollback the transaction
+
 	committed = true
 	tx = nil
 
-	// return updated so later the frontend can fetch the next subtest
+	err = s.scoreService.CalculateAndStoreScores(c, attemptID, userID, attempt.Paket, accessToken)
+	if err != nil {
+		logger.LogErrorCtx(c, err, "Failed to calculate and store scores", map[string]interface{}{
+			"attemptID": attemptID,
+			"paket":     attempt.Paket,
+		})
+		retErr = ErrScoringFailed
+		return "", retErr
+	}
+
+	if shouldFinish {
+		return "final", nil
+	}
+
 	return updatedSubtest, nil
 }
 
@@ -457,11 +459,23 @@ func buildUserAnswers(answers []models.AnswerPayload, attemptID int, subtest str
 	userAnswers := make([]models.UserAnswer, 0, len(answers))
 	for _, answer := range answers {
 		kodeSoal := strings.TrimSpace(answer.KodeSoal)
-		if kodeSoal == "" || answer.Jawaban == nil {
+		if kodeSoal == "" {
 			return nil, ErrInvalidAnswerPayload
 		}
 
-		jawaban := strings.TrimSpace(*answer.Jawaban)
+		jawaban := ""
+		if answer.Jawaban != nil {
+			jawaban = strings.TrimSpace(*answer.Jawaban)
+		}
+
+		if len(answer.JawabanList) > 0 {
+			joined, err := normalizeMultiAnswerList(answer.JawabanList)
+			if err != nil {
+				return nil, ErrInvalidAnswerPayload
+			}
+			jawaban = joined
+		}
+
 		if jawaban == "" {
 			return nil, ErrInvalidAnswerPayload
 		}
@@ -475,4 +489,47 @@ func buildUserAnswers(answers []models.AnswerPayload, attemptID int, subtest str
 	}
 
 	return userAnswers, nil
+}
+
+func normalizeMultiAnswerList(values []string) (string, error) {
+	seen := make(map[string]struct{}, len(values))
+	cleaned := make([]string, 0, len(values))
+
+	for _, value := range values {
+		token := strings.TrimSpace(value)
+		if token == "" {
+			continue
+		}
+		if strings.Contains(token, "|") {
+			return "", ErrInvalidAnswerPayload
+		}
+		if _, exists := seen[token]; exists {
+			continue
+		}
+		seen[token] = struct{}{}
+		cleaned = append(cleaned, token)
+	}
+
+	if len(cleaned) == 0 {
+		return "", ErrInvalidAnswerPayload
+	}
+
+	sort.Strings(cleaned)
+	return strings.Join(cleaned, "|"), nil
+}
+
+func resolveNextSubtest(currentSubtest string) (*string, error) {
+	for i, sub := range orderedSubtests {
+		if sub != currentSubtest {
+			continue
+		}
+		if i == len(orderedSubtests)-1 {
+			return nil, nil
+		}
+
+		next := orderedSubtests[i+1]
+		return &next, nil
+	}
+
+	return nil, ErrNoActiveSubtest
 }

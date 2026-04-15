@@ -8,11 +8,14 @@ import (
 	"fmt"
 	"io"
 	"path"
+	"regexp"
 	"soal-service/internal/models"
 	"soal-service/internal/storage"
 	"soal-service/internal/utils"
+	"sort"
 	"strconv"
 	"strings"
+	"unicode"
 )
 
 const (
@@ -21,6 +24,8 @@ const (
 	maxZIPBundleSizeBytes = int64(30 * 1024 * 1024)
 	maxZIPBundleFiles     = 2000
 )
+
+var inlineImageTokenPattern = regexp.MustCompile(`(?i)\[img:([^\]\r\n]+)\]`)
 
 type CSVImportFiles struct {
 	SoalCSV []byte
@@ -68,17 +73,67 @@ func (s *soalService) ImportSoalFromZIPBundle(c context.Context, zipData []byte)
 	}
 
 	requiredImagePaths := make(map[string]string)
-	for _, soal := range input.Soals {
-		if soal.PathGambarSoal == nil || strings.TrimSpace(*soal.PathGambarSoal) == "" {
-			continue
+	addRequiredImagePath := func(rawPath, source string) error {
+		normPath, err := normalizeBundleImagePath(rawPath)
+		if err != nil {
+			return fmt.Errorf("%s: %w", source, err)
 		}
-		normPath := normalizeZIPPath(*soal.PathGambarSoal)
-		requiredImagePaths[soal.KodeSoal] = normPath
+		if _, exists := requiredImagePaths[normPath]; !exists {
+			requiredImagePaths[normPath] = source
+		}
+		return nil
+	}
+	collectRequiredFromText := func(value, source string) error {
+		if strings.TrimSpace(value) == "" {
+			return nil
+		}
+		_, err := rewriteInlineImageTokens(value, func(normPath string) (string, error) {
+			if _, exists := requiredImagePaths[normPath]; !exists {
+				requiredImagePaths[normPath] = source
+			}
+			return normPath, nil
+		})
+		if err != nil {
+			return fmt.Errorf("%s: %w", source, err)
+		}
+		return nil
 	}
 
-	for kodeSoal, imagePath := range requiredImagePaths {
+	for _, soal := range input.Soals {
+		if soal.PathGambarSoal != nil && strings.TrimSpace(*soal.PathGambarSoal) != "" {
+			if err := addRequiredImagePath(*soal.PathGambarSoal, fmt.Sprintf("kode_soal %q image_path", soal.KodeSoal)); err != nil {
+				return nil, err
+			}
+		}
+		if err := collectRequiredFromText(soal.TextSoal, fmt.Sprintf("kode_soal %q text_soal", soal.KodeSoal)); err != nil {
+			return nil, err
+		}
+		if soal.Pembahasan != nil {
+			if err := collectRequiredFromText(*soal.Pembahasan, fmt.Sprintf("kode_soal %q pembahasan", soal.KodeSoal)); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	for _, pilihan := range input.PilihanGandas {
+		if err := collectRequiredFromText(pilihan.Pilihan, fmt.Sprintf("kode_soal %q pilihan_pilihan_ganda", pilihan.KodeSoal)); err != nil {
+			return nil, err
+		}
+	}
+	for _, tf := range input.TrueFalses {
+		if err := collectRequiredFromText(tf.PilihanTf, fmt.Sprintf("kode_soal %q pilihan_true_false", tf.KodeSoal)); err != nil {
+			return nil, err
+		}
+	}
+	for _, uraian := range input.Uraians {
+		if err := collectRequiredFromText(uraian.Jawaban, fmt.Sprintf("kode_soal %q jawaban_uraian", uraian.KodeSoal)); err != nil {
+			return nil, err
+		}
+	}
+
+	for imagePath, source := range requiredImagePaths {
 		if _, ok := imageMap[imagePath]; !ok {
-			return nil, fmt.Errorf("missing image file for kode_soal %q at path %q", kodeSoal, imagePath)
+			return nil, fmt.Errorf("missing image file %q referenced by %s", imagePath, source)
 		}
 	}
 
@@ -86,32 +141,106 @@ func (s *soalService) ImportSoalFromZIPBundle(c context.Context, zipData []byte)
 		return nil, fmt.Errorf("image storage is not configured")
 	}
 
-	uploadedObjectKeys := make([]string, 0, len(requiredImagePaths))
-	for i := range input.Soals {
-		if input.Soals[i].PathGambarSoal == nil || strings.TrimSpace(*input.Soals[i].PathGambarSoal) == "" {
-			continue
-		}
+	pathsToUpload := make([]string, 0, len(requiredImagePaths))
+	for p := range requiredImagePaths {
+		pathsToUpload = append(pathsToUpload, p)
+	}
+	sort.Strings(pathsToUpload)
 
-		rawPath := normalizeZIPPath(*input.Soals[i].PathGambarSoal)
-		rawImage, ok := imageMap[rawPath]
-		if !ok {
-			return nil, fmt.Errorf("missing image file for kode_soal %q", input.Soals[i].KodeSoal)
-		}
+	uploadedObjectKeys := make([]string, 0, len(pathsToUpload))
+	uploadedObjectByPath := make(map[string]string, len(pathsToUpload))
+
+	for _, normPath := range pathsToUpload {
+		rawImage := imageMap[normPath]
 
 		converted, err := utils.ValidateAndConvertToWebP(rawImage, s.webpQuality, s.maxImageDim)
 		if err != nil {
 			cleanupUploadedObjects(c, s.imageStore, uploadedObjectKeys)
-			return nil, fmt.Errorf("failed to process image for kode_soal %q: %w", input.Soals[i].KodeSoal, err)
+			return nil, fmt.Errorf("failed to process image %q referenced by %s: %w", normPath, requiredImagePaths[normPath], err)
 		}
 
-		objectKey := storage.NewObjectKey(input.Soals[i].KodeSoal)
+		hint := strings.TrimSuffix(path.Base(normPath), path.Ext(normPath))
+		objectKey := storage.NewObjectKey(hint)
 		if err := s.imageStore.UploadObject(c, objectKey, bytes.NewReader(converted.Data), int64(len(converted.Data)), converted.ContentType); err != nil {
 			cleanupUploadedObjects(c, s.imageStore, uploadedObjectKeys)
-			return nil, fmt.Errorf("failed to upload image for kode_soal %q: %w", input.Soals[i].KodeSoal, err)
+			return nil, fmt.Errorf("failed to upload image %q referenced by %s: %w", normPath, requiredImagePaths[normPath], err)
 		}
 
 		uploadedObjectKeys = append(uploadedObjectKeys, objectKey)
-		input.Soals[i].PathGambarSoal = &objectKey
+		uploadedObjectByPath[normPath] = objectKey
+	}
+
+	rewriteTextWithUploadedKeys := func(value, source string) (string, error) {
+		rewritten, err := rewriteInlineImageTokens(value, func(normPath string) (string, error) {
+			objectKey, ok := uploadedObjectByPath[normPath]
+			if !ok {
+				return "", fmt.Errorf("missing uploaded image mapping for %q", normPath)
+			}
+			return objectKey, nil
+		})
+		if err != nil {
+			return "", fmt.Errorf("%s: %w", source, err)
+		}
+		return rewritten, nil
+	}
+
+	for i := range input.Soals {
+		if input.Soals[i].PathGambarSoal != nil && strings.TrimSpace(*input.Soals[i].PathGambarSoal) != "" {
+			normPath, err := normalizeBundleImagePath(*input.Soals[i].PathGambarSoal)
+			if err != nil {
+				cleanupUploadedObjects(c, s.imageStore, uploadedObjectKeys)
+				return nil, fmt.Errorf("kode_soal %q image_path: %w", input.Soals[i].KodeSoal, err)
+			}
+			objectKey, ok := uploadedObjectByPath[normPath]
+			if !ok {
+				cleanupUploadedObjects(c, s.imageStore, uploadedObjectKeys)
+				return nil, fmt.Errorf("missing uploaded image for kode_soal %q at path %q", input.Soals[i].KodeSoal, normPath)
+			}
+			input.Soals[i].PathGambarSoal = &objectKey
+		}
+
+		rewrittenText, err := rewriteTextWithUploadedKeys(input.Soals[i].TextSoal, fmt.Sprintf("kode_soal %q text_soal", input.Soals[i].KodeSoal))
+		if err != nil {
+			cleanupUploadedObjects(c, s.imageStore, uploadedObjectKeys)
+			return nil, err
+		}
+		input.Soals[i].TextSoal = rewrittenText
+
+		if input.Soals[i].Pembahasan != nil {
+			rewrittenPembahasan, err := rewriteTextWithUploadedKeys(*input.Soals[i].Pembahasan, fmt.Sprintf("kode_soal %q pembahasan", input.Soals[i].KodeSoal))
+			if err != nil {
+				cleanupUploadedObjects(c, s.imageStore, uploadedObjectKeys)
+				return nil, err
+			}
+			input.Soals[i].Pembahasan = &rewrittenPembahasan
+		}
+	}
+
+	for i := range input.PilihanGandas {
+		rewrittenPilihan, err := rewriteTextWithUploadedKeys(input.PilihanGandas[i].Pilihan, fmt.Sprintf("kode_soal %q pilihan_pilihan_ganda", input.PilihanGandas[i].KodeSoal))
+		if err != nil {
+			cleanupUploadedObjects(c, s.imageStore, uploadedObjectKeys)
+			return nil, err
+		}
+		input.PilihanGandas[i].Pilihan = rewrittenPilihan
+	}
+
+	for i := range input.TrueFalses {
+		rewrittenPilihanTF, err := rewriteTextWithUploadedKeys(input.TrueFalses[i].PilihanTf, fmt.Sprintf("kode_soal %q pilihan_true_false", input.TrueFalses[i].KodeSoal))
+		if err != nil {
+			cleanupUploadedObjects(c, s.imageStore, uploadedObjectKeys)
+			return nil, err
+		}
+		input.TrueFalses[i].PilihanTf = rewrittenPilihanTF
+	}
+
+	for i := range input.Uraians {
+		rewrittenJawaban, err := rewriteTextWithUploadedKeys(input.Uraians[i].Jawaban, fmt.Sprintf("kode_soal %q jawaban_uraian", input.Uraians[i].KodeSoal))
+		if err != nil {
+			cleanupUploadedObjects(c, s.imageStore, uploadedObjectKeys)
+			return nil, err
+		}
+		input.Uraians[i].Jawaban = rewrittenJawaban
 	}
 
 	result, err := s.soalRepo.ImportSoalCSV(c, input)
@@ -168,7 +297,14 @@ func extractZIPBundle(zipData []byte) ([]byte, map[string][]byte, error) {
 			if err != nil {
 				return nil, nil, fmt.Errorf("failed reading image %q from zip: %w", normName, err)
 			}
-			imageMap[normName] = content
+			normImagePath, err := normalizeBundleImagePath(normName)
+			if err != nil {
+				return nil, nil, fmt.Errorf("invalid image path in zip %q: %w", normName, err)
+			}
+			if _, exists := imageMap[normImagePath]; exists {
+				return nil, nil, fmt.Errorf("zip contains duplicate image path (case-insensitive): %q", normName)
+			}
+			imageMap[normImagePath] = content
 		default:
 			return nil, nil, fmt.Errorf("zip contains unsupported file type: %q", normName)
 		}
@@ -289,7 +425,7 @@ func buildImportInput(files CSVImportFiles) (*models.SoalCSVImportInput, []strin
 		pilihanC := normalizeCell(row["pilihan_c"])
 		pilihanD := normalizeCell(row["pilihan_d"])
 		pilihanE := normalizeCell(row["pilihan_e"])
-		kunciPG := strings.ToUpper(normalizeCell(row["kunci_pg"]))
+		kunciPGRaw := strings.ToUpper(normalizeCell(row["kunci_pg"]))
 		pilihanTF := normalizeCell(row["pilihan_tf"])
 		jawabanTFRaw := normalizeCell(row["jawaban_tf"])
 		jawabanUraian := normalizeCell(row["jawaban_uraian"])
@@ -355,12 +491,22 @@ func buildImportInput(files CSVImportFiles) (*models.SoalCSVImportInput, []strin
 			if filledCount < 2 {
 				return nil, nil, fmt.Errorf("soal_csv row %d: multiple_choice must contain at least 2 pilihan", i+2)
 			}
-			if kunciPG == "" {
+			if kunciPGRaw == "" {
 				return nil, nil, fmt.Errorf("soal_csv row %d: kunci_pg is required for multiple_choice", i+2)
 			}
-			selectedOption, ok := options[kunciPG]
-			if !ok || selectedOption == "" {
-				return nil, nil, fmt.Errorf("soal_csv row %d: kunci_pg must point to a non-empty pilihan (A-E)", i+2)
+
+			selectedLabels, err := parseMultipleChoiceKeys(kunciPGRaw)
+			if err != nil {
+				return nil, nil, fmt.Errorf("soal_csv row %d: invalid kunci_pg: %v", i+2, err)
+			}
+
+			correctByLabel := make(map[string]struct{}, len(selectedLabels))
+			for _, label := range selectedLabels {
+				selectedOption := options[label]
+				if selectedOption == "" {
+					return nil, nil, fmt.Errorf("soal_csv row %d: kunci_pg must point to a non-empty pilihan (A-E)", i+2)
+				}
+				correctByLabel[label] = struct{}{}
 			}
 
 			labels := []string{"A", "B", "C", "D", "E"}
@@ -369,10 +515,11 @@ func buildImportInput(files CSVImportFiles) (*models.SoalCSVImportInput, []strin
 				if text == "" {
 					continue
 				}
+				_, isCorrect := correctByLabel[label]
 				input.PilihanGandas = append(input.PilihanGandas, models.PilihanGandaImportRow{
 					KodeSoal:  kodeSoal,
 					Pilihan:   text,
-					IsCorrect: label == kunciPG,
+					IsCorrect: isCorrect,
 				})
 			}
 		case "true_false":
@@ -398,7 +545,7 @@ func buildImportInput(files CSVImportFiles) (*models.SoalCSVImportInput, []strin
 			input.Uraians = append(input.Uraians, models.UraianImportRow{KodeSoal: kodeSoal, Jawaban: jawabanUraian})
 		}
 
-		if tipeSoal != "multiple_choice" && (pilihanA != "" || pilihanB != "" || pilihanC != "" || pilihanD != "" || pilihanE != "" || kunciPG != "") {
+		if tipeSoal != "multiple_choice" && (pilihanA != "" || pilihanB != "" || pilihanC != "" || pilihanD != "" || pilihanE != "" || kunciPGRaw != "") {
 			warnings = append(warnings, fmt.Sprintf("soal_csv row %d: pilihan_a..e/kunci_pg ignored for tipe_soal=%s", i+2, tipeSoal))
 		}
 		if tipeSoal != "true_false" && (jawabanTFRaw != "" || pilihanTF != "") {
@@ -536,4 +683,83 @@ func parseBoolCell(value string) (bool, error) {
 	default:
 		return false, fmt.Errorf("boolean value must be one of true,false,1,0,yes,no")
 	}
+}
+
+func parseMultipleChoiceKeys(value string) ([]string, error) {
+	tokens := strings.FieldsFunc(strings.ToUpper(strings.TrimSpace(value)), func(r rune) bool {
+		return r == '|' || r == ',' || r == ';' || r == '/' || unicode.IsSpace(r)
+	})
+
+	if len(tokens) == 0 {
+		return nil, fmt.Errorf("must contain at least one key")
+	}
+
+	seen := make(map[string]struct{}, len(tokens))
+	keys := make([]string, 0, len(tokens))
+	for _, token := range tokens {
+		t := strings.TrimSpace(token)
+		if t == "" {
+			continue
+		}
+		if len(t) != 1 || t[0] < 'A' || t[0] > 'E' {
+			return nil, fmt.Errorf("key %q must be A-E", t)
+		}
+		if _, exists := seen[t]; exists {
+			continue
+		}
+		seen[t] = struct{}{}
+		keys = append(keys, t)
+	}
+
+	if len(keys) == 0 {
+		return nil, fmt.Errorf("must contain at least one key")
+	}
+
+	return keys, nil
+}
+
+func normalizeBundleImagePath(raw string) (string, error) {
+	normPath := normalizeZIPPath(raw)
+	if normPath == "" {
+		return "", fmt.Errorf("invalid image path %q", strings.TrimSpace(raw))
+	}
+	return strings.ToLower(normPath), nil
+}
+
+func rewriteInlineImageTokens(value string, replacer func(normalizedPath string) (string, error)) (string, error) {
+	if !strings.Contains(strings.ToLower(value), "[img:") {
+		return value, nil
+	}
+
+	var rewriteErr error
+	rewritten := inlineImageTokenPattern.ReplaceAllStringFunc(value, func(token string) string {
+		if rewriteErr != nil {
+			return token
+		}
+
+		match := inlineImageTokenPattern.FindStringSubmatch(token)
+		if len(match) < 2 {
+			return token
+		}
+
+		normPath, err := normalizeBundleImagePath(match[1])
+		if err != nil {
+			rewriteErr = err
+			return token
+		}
+
+		replacement, err := replacer(normPath)
+		if err != nil {
+			rewriteErr = err
+			return token
+		}
+
+		return "[img:" + replacement + "]"
+	})
+
+	if rewriteErr != nil {
+		return "", rewriteErr
+	}
+
+	return rewritten, nil
 }

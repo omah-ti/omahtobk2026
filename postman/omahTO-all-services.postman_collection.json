@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "OmahTO - All Services",
-    "description": "Collection untuk testing semua service OmahTO (gateway + direct service).\n\nUrutan cepat testing via gateway:\n1) Auth > Register (optional)\n2) Auth > Login (cookie access_token + refresh_token tersimpan di Postman Cookie Jar)\n3) Protected endpoint lain di /api/*\n\nCatatan:\n- Endpoint protected di gateway memerlukan cookie session valid.\n- Upload image soal pakai form-data (kode_soal + file) dan membutuhkan role admin.\n- Login via request Auth > Login Admin sebelum mencoba endpoint admin-only.\n- Untuk endpoint image object, isi object_key dari response upload.\n- Minat Bakat sekarang mendukung multi-attempt: user bisa submit tes berkali-kali.",
+    "description": "Collection untuk testing semua service OmahTO (gateway + direct service).\n\nUrutan cepat testing via gateway:\n1) Auth > Register (optional)\n2) Auth > Login (cookie access_token + refresh_token tersimpan di Postman Cookie Jar)\n3) Protected endpoint lain di /api/*\n\nFlow Tryout terbaru (per subtest):\n1) Start Attempt\n2) Get Current Attempt\n3) Start Subtest\n4) Save Subtest Answers\n5) Submit Subtest (otomatis selesai saat subtest terakhir)\n\nCatatan:\n- Endpoint protected di gateway memerlukan cookie session valid.\n- Upload image soal pakai form-data (kode_soal + file) dan membutuhkan role admin.\n- Login via request Auth > Login Admin sebelum mencoba endpoint admin-only.\n- Untuk endpoint image object, isi object_key dari response upload.\n- Minat Bakat sekarang mendukung multi-attempt: user bisa submit tes berkali-kali.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -242,13 +242,20 @@
           "name": "Get Current Attempt",
           "request": {
             "method": "GET",
-            "url": "{{gateway_url}}/api/tryout/sync/current"
+            "url": "{{gateway_url}}/api/tryout/current"
           }
         },
         {
-          "name": "Sync Answers",
+          "name": "Start Subtest",
           "request": {
             "method": "POST",
+            "url": "{{gateway_url}}/api/tryout/{{subtest}}/start"
+          }
+        },
+        {
+          "name": "Save Subtest Answers",
+          "request": {
+            "method": "PUT",
             "header": [
               { "key": "Content-Type", "value": "application/json" }
             ],
@@ -256,11 +263,11 @@
               "mode": "raw",
               "raw": "{\n  \"answers\": [\n    { \"kode_soal\": \"pu-001\", \"jawaban\": \"A\" },\n    { \"kode_soal\": \"pu-002\", \"jawaban\": \"B\" }\n  ]\n}"
             },
-            "url": "{{gateway_url}}/api/tryout/sync"
+            "url": "{{gateway_url}}/api/tryout/{{subtest}}/answers"
           }
         },
         {
-          "name": "Progress Tryout",
+          "name": "Submit Subtest",
           "request": {
             "method": "POST",
             "header": [
@@ -270,21 +277,7 @@
               "mode": "raw",
               "raw": "{\n  \"answers\": [\n    { \"kode_soal\": \"pu-001\", \"jawaban\": \"A\" }\n  ]\n}"
             },
-            "url": "{{gateway_url}}/api/tryout/sync/progress"
-          }
-        },
-        {
-          "name": "Finish Tryout",
-          "request": {
-            "method": "POST",
-            "header": [
-              { "key": "Content-Type", "value": "application/json" }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"answers\": [\n    { \"kode_soal\": \"pu-001\", \"jawaban\": \"A\" }\n  ]\n}"
-            },
-            "url": "{{gateway_url}}/api/tryout/sync/finish"
+            "url": "{{gateway_url}}/api/tryout/{{subtest}}/submit"
           }
         },
         {
