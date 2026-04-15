@@ -1,41 +1,53 @@
 import Link from 'next/link'
-import { buttonVariants } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
 import Container from '@/components/container'
-import Navbar from '@/components/home/navbar'
 import Footer from '@/modules/home/footer'
+import { ArrowLeft } from 'lucide-react'
+import Image from 'next/image'
 
 const NotFound = () => {
   return (
     <>
-      <main className='flex min-h-screen items-center bg-white'>
+      <main className='flex min-h-screen items-center justify-center bg-white py-10'>
         <Container>
-          <Navbar />
-          <div className='flex flex-col items-center justify-center gap-6 text-center'>
-          <h1 className='from-primary-100 font-lora bg-gradient-to-r to-blue-600 bg-clip-text text-8xl font-bold text-transparent'>
-            404
-          </h1>
+          <div className='flex w-full flex-col items-center gap-10 md:flex-row md:items-center md:justify-center md:gap-10'>
+            <div className='flex justify-center md:w-[180px]'>
+              <Image
+                src='/assets/fullbody_sad.webp'
+                alt='404 Not Found'
+                width={180}
+                height={180}
+                className='h-auto w-full max-w-[160px] object-contain md:max-w-[180px]'
+                priority
+              />
+            </div>
 
-          <p className='text-2xl font-light  text-neutral-700'>
-            Oops! Halaman yang kamu cari tidak ditemukan
-          </p>
+            <div className='flex w-full flex-col items-center gap-5 text-center md:w-[520px] md:items-start md:text-left md:gap-6'>
+              <h1
+                className='text-6xl font-bold text-[#0D3388] md:text-8xl'
+                style={{
+                  textShadow:
+                    '0 4px 4px rgba(0, 0, 0, 0.25)',
+                }}
+              >
+                404
+              </h1>
 
-          <div>
-            <Link
-              href='/'
-              className={cn(
-                buttonVariants({ variant: 'tertiary' }),
-                'px-8 hover:cursor-pointer'
-              )}
-            >
-              Kembali ke Beranda
-            </Link>
+              <p className='max-w-xl text-center text-lg text-neutral-700 md:text-left md:text-2xl'>
+                Maafkan kami, <span className='font-bold'>masalah atau eror terjadi dalam tryout</span>, kamu dapat kembali ke halaman dashboard.
+              </p>
+
+              <Link href='/' className='inline-flex'>
+                <div className='flex items-center gap-2 rounded-[8px] bg-[#0D3388] px-[18px] py-3 font-bold text-white'>
+                  <ArrowLeft size={16} />
+                  Kembali
+                </div>
+              </Link>
+            </div>
           </div>
-        </div>
-      </Container>
-    </main>
+        </Container>
+      </main>
       <Footer />
-      </>
+    </>
   )
 }
 
