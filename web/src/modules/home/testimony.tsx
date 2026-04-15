@@ -13,42 +13,46 @@ type TestimonyType = {
 
 const TESTIMONIES: TestimonyType[] = [
   {
-    name: 'Devid Warner',
-    role: 'Founder @xyz company',
-    image: '/assets/dummy.webp',
-    description: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praesent condimentum dictum euismod malesuada lacus, non consequat quam',
+    name: 'Desthalia',
+    role: "Data Division Lead | CS'15",
+    image: '/assets/alumni/placeholder.webp',
+    description: 'Seorang ahli data di Widya Analytic yang berfokus pada transformasi data menjadi wawasan bisnis yang strategis. Ia memiliki peran krusial dalam merancang model pembelajaran mesin serta algoritma cerdas guna meningkatkan akurasi dan efisiensi dalam pengolahan informasi perusahaan.',
   },
   {
-    name: 'Ayasha Rahmadinni',
-    role: 'Founder OmahTI',
-    image: '/assets/dummy.webp',
-    description: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praesent condimentum dictum euismod malesuada lacus, non consequat quam pulvinar eu mauris sit amet, pretium scelerisque eros',
+    name: 'Doni Tan Hero',
+    role: "Game Programmer | CS'18",
+    image: '/assets/alumni/placeholder.webp',
+    description: 'Sebagai pengembang di Niji Games Studio, ia bertanggung jawab merancang logika mekanik permainan serta menyempurnakan struktur kode di balik layar. Fokus utamanya adalah memastikan setiap baris program berjalan seefisien mungkin guna menghadirkan performa permainan yang mulus dan bebas hambatan bagi para pemain.',
   },
   {
-    name: 'Hanna Dokidis',
-    role: 'Founder @xyz company',
-    image: '/assets/dummy.webp',
-    description: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praesent condimentum dictum euismod malesuada lacus, non consequat quam pulvinar eu mauris sit amet, pretium scelerisque eros',
+    name: 'Prabowo Wahyu Sudarno',
+    role: "Mobile Android Developer | CS'14",
+    image: '/assets/alumni/placeholder.webp',
+    description: 'Memiliki rekam jejak yang solid di Mamikos dan Astra, ia mendedikasikan keahliannya dalam merakit aplikasi berbasis Android. Fokus utamanya adalah merancang fitur-fitur baru serta terus mengasah performa aplikasi agar interaksi pengguna menjadi lebih lancar dan memuaskan.',
   },
   {
-    name: 'Gustavo Vaccaro',
-    role: 'Founder @xyz company',
-    image: '/assets/dummy.webp',
-    description: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praesent condimentum dictum euismod malesuada lacus, non consequat quam',
+    name: 'Patrick Aura Wibawa',
+    role: "Backend Developer | CS'16",
+    image: '/assets/alumni/placeholder.webp',
+    description: 'Alumni tim teknis Tokopedia yang memiliki spesialisasi dalam menyusun serta merawat arsitektur di balik layar untuk trafik tinggi. Ia berfokus pada penguatan performa server guna menjamin layanan tetap responsif dan kokoh meskipun diakses oleh jutaan pengguna secara bersamaan.',
   },
   {
-    name: 'Phillip Bator',
-    role: 'Founder @xyz company',
-    image: '/assets/dummy.webp',
-    description: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praesent condimentum dictum euismod malesuada lacus, non consequat quam',
+    name: 'Alvin Januar Ramadan',
+    role: "Software Engineer | CS'18",
+    image: '/assets/alumni/placeholder.webp',
+    description: 'Bagian dari tim inti di Gojek yang berperan dalam memperkokoh fondasi sistem untuk layanan mobilitas, transaksi finansial, hingga pengiriman barang. Melalui kode yang ia susun, ia memastikan platform tetap tangguh, aman, dan mampu melayani kebutuhan jutaan orang dengan kecepatan tinggi setiap harinya.',
   },
   {
-    name: 'Dulce George',
-    role: 'Founder @xyz company',
-    image: '/assets/dummy.webp',
-    description: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praesent condimentum dictum euismod malesuada lacus, non consequat quam pulvinar eu mauris sit amet, pretium scelerisque eros',
+    name: 'Gabriella Christina Kandinata',
+    role: "Product Designer | CS'19",
+    image: '/assets/alumni/placeholder.webp',
+    description: 'Saat ini mendedikasikan keahliannya di Fairatmos, setelah sebelumnya memperkuat tim Momentree. Ia memiliki spesialisasi dalam menciptakan ekosistem digital yang humanis, di mana setiap elemen visual dan fungsionalitas produk dibangun berdasarkan hasil analisis serta riset yang mendalam.',
   },
 ]
+
+
+
+
 
 export default function Testimony() {
   return (

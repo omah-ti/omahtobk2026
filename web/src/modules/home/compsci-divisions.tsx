@@ -15,34 +15,46 @@ type CompsciItem = {
 
 const compsciItems: CompsciItem[] = [
   {
-    imageUrl: '/assets/divisions/uiux.webp',
-    title: 'UI/UX Engineering',
-    category: 'KREATIF',
-    desc: 'Rancang pengalaman digital yang intuitif dari riset pengguna, wireframe, hingga desain high-fidelity dan prototyping interaktif untuk produk skala global.',
-  },
-  {
-    imageUrl: '/assets/divisions/cysec.webp',
-    title: 'Cybersecurity',
-    category: 'Teknis',
-    desc: 'Pelajari strategi pertahanan sistem modern, ethical hacking, dan monitoring ancaman untuk menjaga infrastruktur digital tetap aman serta compliance-ready.',
-  },
-  {
-    imageUrl: '/assets/divisions/dsai.webp',
-    title: 'Data Science & AI',
-    category: 'ANALITIK',
-    desc: 'Ubah data mentah menjadi insight bernilai bisnis dengan statistik terapan, machine learning, dan visualisasi data untuk pengambilan keputusan strategis.',
-  },
-  {
     imageUrl: '/assets/divisions/backend.webp',
     title: 'Backend Engineering',
-    category: 'Teknis',
-    desc: 'Bangun dan kelola arsitektur cloud yang scalable dengan prinsip DevOps, containerization, dan otomasi deployment agar layanan cepat dan reliabel.',
+    category: 'TEKNIS',
+    desc: 'Bangun logika server dan arsitektur basis data yang kokoh dengan API yang efisien, sistem data yang aman, serta infrastruktur stabil agar aplikasi berjalan tanpa hambatan.',
   },
   {
     imageUrl: '/assets/divisions/frontend.webp',
     title: 'Frontend Engineering',
     category: 'INOVASI',
-    desc: 'Kembangkan antarmuka modern yang cepat, aksesibel, dan responsif dengan arsitektur komponen yang rapi untuk pengalaman pengguna terbaik.',
+    desc: 'Kembangkan antarmuka digital interaktif dan responsif dengan HTML, CSS, dan JavaScript, serta optimalkan performa untuk pengalaman pengguna yang maksimal di berbagai perangkat.',
+  },
+  {
+    imageUrl: '/assets/divisions/uiux.webp',
+    title: 'UI/UX Design',
+    category: 'KREATIF',
+    desc: 'Rancang pengalaman pengguna yang intuitif dan antarmuka visual yang estetis melalui riset, wireframe interaktif, dan prototipe fungsional di berbagai ukuran layar.',
+  },
+  {
+    imageUrl: '/assets/divisions/cysec.webp',
+    title: 'Cyber Security',
+    category: 'TEKNIS',
+    desc: 'Lindungi sistem dan data dari ancaman digital dengan analisis kerentanan, pemantauan aktivitas mencurigakan, serta perancangan protokol keamanan berlapis.',
+  },
+  {
+    imageUrl: '/assets/divisions/dsai.webp',
+    title: 'Data Science & AI',
+    category: 'ANALITIK',
+    desc: 'Bangun dan latih model kecerdasan buatan untuk mengotomatisasi sistem kompleks melalui machine learning, NLP, dan optimasi algoritma berbasis data.',
+  },
+  {
+    imageUrl: '/assets/divisions/mobapps.webp',
+    title: 'Mobile Development',
+    category: 'INOVASI',
+    desc: 'Kembangkan aplikasi mobile yang efisien dan konsisten di iOS maupun Android dengan integrasi fitur perangkat serta performa optimal di berbagai ukuran layar.',
+  },
+  {
+    imageUrl: '/assets/divisions/gamedev.webp',
+    title: 'Game Development',
+    category: 'KREATIF',
+    desc: 'Ciptakan pengalaman interaktif yang imersif melalui pengembangan logika permainan, optimalisasi gameplay, dan performa tinggi dengan game engine modern.',
   },
 ]
 
@@ -233,7 +245,7 @@ const CompsciDivisions = () => {
                 </div>
                 <div className='flex min-w-0 flex-1 flex-col justify-center gap-3 xl:gap-4'>
                   <p className='text-right text-[15px] font-bold uppercase tracking-[0.16em] text-neutral-1100'>
-                    {activeItem.category}
+                    Kategori: {activeItem.category}
                   </p>
                   <h3 className='text-[30px] font-bold leading-tight text-neutral-1100 xl:text-[36px]'>
                     {activeItem.title}
