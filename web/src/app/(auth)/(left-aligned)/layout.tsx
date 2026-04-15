@@ -15,7 +15,7 @@ const AuthLeftAlignedLayout = ({ children }: { children: React.ReactNode }) => {
           className='z-0 aspect-4/5 translate-y-14 max-md:w-7/10 max-md:translate-y-18'
         />
       </section>
-      <section className='z-10 flex flex-col items-center justify-center gap-10 rounded-t-2xl bg-white p-14! text-center md:overflow-y-auto md:rounded-tl-none md:rounded-r-2xl md:p-8'>
+      <section className='z-10 flex flex-col items-center justify-center gap-10 rounded-t-2xl bg-white md:p-14 text-center md:overflow-y-auto md:rounded-tl-none md:rounded-r-2xl p-8'>
         <BackLink className='mx-auto flex w-full'>
           <Button className='border-primary-900 bg-primary-900 hover:bg-primary-new-25 cursor-pointer items-center border-1 max-sm:text-sm'>
             <ArrowLeft className='size-4' /> Kembali

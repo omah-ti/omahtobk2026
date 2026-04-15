@@ -9,7 +9,7 @@ const LoginPage = () => {
       </h1>
       <div className='w-full'>
         <LoginForm />
-        <p className='text-center text-xs font-bold'>
+        <p className='text-center text-xs font-bold mt-4'>
           Belum punya akun?{' '}
           <Link
             href={`/register`}

@@ -73,7 +73,7 @@ const ForgotPasswordForm = () => {
     <Form {...form}>
       <form
         onSubmit={form.handleSubmit(handleLogin)}
-        className='flex w-full flex-col gap-4 p-4 text-left'
+        className='flex w-full flex-col gap-4 text-left'
       >
         <FormField
           control={form.control}

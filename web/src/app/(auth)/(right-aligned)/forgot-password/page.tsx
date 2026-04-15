@@ -9,7 +9,7 @@ const ForgotPasswordPage = () => {
       </h1>
       <div className='w-full'>
         <ForgotPasswordForm />
-        <p className='text-center text-xs font-bold'>
+        <p className='text-center text-xs font-bold mt-4'>
           Sudah punya akun?{' '}
           <Link
             href={`/login`}
