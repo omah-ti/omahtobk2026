@@ -21,12 +21,24 @@ import LogOutDialog from '../log-out-dialog'
 
 const NAV_ITEMS = [
   {
-    name: 'CSTryOuts',
-    href: '/tryout',
+    name: 'Impact',
+    href: '/#why-compsci',
   },
   {
-    name: 'Career Match Up',
-    href: '/career-match-up',
+    name: 'Spesialisasi',
+    href: '/#compsci-division',
+  },
+  {
+    name: 'Prospek',
+    href: '/#statistics',
+  },
+  {
+    name: 'Alumni',
+    href: '/#testimony',
+  },
+  {
+    name: 'FAQs',
+    href: '/#faq',
   },
 ]
 
@@ -36,9 +48,8 @@ const Navbar = async () => {
 
   return (
     <>
-      <main className='border-primary-100 fixed inset-x-0 top-0 z-50 border-b-2 bg-white/60 backdrop-blur-md'>
-        <Container className='h-20 flex-row items-center justify-between gap-8'>
-          <Logo />
+      <main className='md:mt-6 md:mx-6 max-w-7xl fixed inset-x-0 top-0 z-50 border-b-2 shadow-[0_4px_9px_0_rgba(18,72,193,0.90)] bg-white rounded-b-[20px] md:rounded-[40px]'>
+        <Container className='h-20 flex-row items-center w-full justify-between gap-8'>
 
           <DesktopNavigation signedIn={isSignedIn} user={user} />
           <MobileNavigation signedIn={isSignedIn} user={user} />
@@ -57,24 +68,37 @@ const DesktopNavigation = ({
   signedIn: boolean
   user?: User
 }) => (
-  <main className='hidden gap-8 md:flex'>
-    {NAV_ITEMS.map((nav, i) => (
-      <Link href={nav.href} key={i}>
-        <Button variant={`link`} className='px-0 font-normal'>
-          {nav.name}
-        </Button>
-      </Link>
-    ))}
+  <main className='hidden gap-8 md:flex justify-between w-full'>
+    <Logo />
 
-    {signedIn ? (
-      <ProfileButton />
-    ) : (
-      <Link href={`/register`}>
-        <Button variant={`tertiary`} className='px-8 hover:cursor-pointer'>
-          Daftar Sekarang
-        </Button>
-      </Link>
-    )}
+    <div className='flex justify-between gap-10'>
+      {NAV_ITEMS.map((nav, i) => (
+        <Link href={nav.href} key={i}>
+          <Button variant={`link`} className='px-0 font-normal'>
+            {nav.name}
+          </Button>
+        </Link>
+      ))}
+    </div>
+
+    <div className='flex justify-between gap-2'>
+      {signedIn ? (
+        <ProfileButton />
+      ) : (
+        <>
+          <Link href={`/login`}>
+            <Button variant="outline" className='px-8 hover:cursor-pointer'>
+              Login
+            </Button>
+          </Link>
+          <Link href={`/register`}>
+            <Button className='px-8 hover:cursor-pointer'>
+              Sign Up
+            </Button>
+          </Link>
+        </>
+      )}
+    </div>
   </main>
 )
 
@@ -84,8 +108,9 @@ const MobileNavigation = ({
   signedIn: boolean
   user?: User
 }) => (
-  <main className='flex md:hidden'>
+  <main className='flex md:hidden justify-between w-full'>
     <Sheet>
+      <Logo />
       <SheetTrigger asChild>
         <Button variant={`ghost`}>
           <Menu className='text-primary' />
@@ -121,23 +146,22 @@ const MobileNavigation = ({
             ) : (
               <>
                 <SheetClose asChild>
-                  <Link
-                    href={`/register`}
-                    className={buttonVariants({ variant: 'tertiary' })}
+                  <Button variant='outline' size='lg' className='w-full'>
+                    <Link
+                    href='/login'
                   >
-                    Daftar
+                    Login
                   </Link>
+                  </Button>
                 </SheetClose>
                 <SheetClose asChild>
-                  <Link
-                    href={'/login'}
-                    className={cn(
-                      buttonVariants({ variant: 'blur' }),
-                      'text-primary-700 shadow-none'
-                    )}
-                  >
-                    Masuk
-                  </Link>
+                  <Button variant='default' size='lg' className='w-full'>
+                    <Link
+                      href='/register'
+                    >
+                      Sign Up
+                    </Link>
+                  </Button>
                 </SheetClose>
               </>
             )}

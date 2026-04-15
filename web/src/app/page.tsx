@@ -12,13 +12,23 @@ import Footer from '@/modules/home/footer'
 export default function Home() {
   return (
     <>
-      {/* <Navbar />
-      <Hero /> */}
-      <WhyCompsci />
-      <CompsciDivisions />
-      <Statistic />
-      <Testimony />
-      <Faq />
+      <Navbar />
+      {/* <Hero /> */}
+      <section id='why-compsci' className='scroll-mt-32'>
+        <WhyCompsci />
+      </section>
+      <section id='compsci-division' className='scroll-mt-32'>
+        <CompsciDivisions />
+      </section>
+      <section id='statistics' className='scroll-mt-32'>
+        <Statistic />
+      </section>
+      <section id='testimony' className='scroll-mt-32'>
+        <Testimony />
+      </section>
+      <section id='faq' className='scroll-mt-32'>
+        <Faq />
+      </section>
       <FinalCta />
       <Footer />
     </>
