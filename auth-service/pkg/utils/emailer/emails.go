@@ -7,7 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/mail"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -33,10 +35,26 @@ type mailtrapPayload struct {
 	Category string            `json:"category,omitempty"`
 }
 
-func SendPasswordResetEmail(to, resetLink string) error {
+type mailtrapConfig struct {
+	apiToken    string
+	apiURL      string
+	senderEmail string
+	senderName  string
+	category    string
+}
+
+var mailtrapHTTPClient = &http.Client{
+	Timeout: 10 * time.Second,
+	CheckRedirect: func(req *http.Request, via []*http.Request) error {
+		// Do not forward auth headers across redirects.
+		return http.ErrUseLastResponse
+	},
+}
+
+func loadMailtrapConfig() (mailtrapConfig, error) {
 	apiToken := strings.TrimSpace(os.Getenv("MAILTRAP_API_TOKEN"))
 	if apiToken == "" {
-		return errors.New("MAILTRAP_API_TOKEN is missing")
+		return mailtrapConfig{}, errors.New("MAILTRAP_API_TOKEN is missing")
 	}
 
 	apiURL := strings.TrimSpace(os.Getenv("MAILTRAP_API_URL"))
@@ -44,9 +62,20 @@ func SendPasswordResetEmail(to, resetLink string) error {
 		apiURL = defaultMailtrapAPIURL
 	}
 
+	parsedURL, err := url.ParseRequestURI(apiURL)
+	if err != nil {
+		return mailtrapConfig{}, errors.New("MAILTRAP_API_URL is invalid")
+	}
+	if parsedURL.Scheme != "https" {
+		return mailtrapConfig{}, errors.New("MAILTRAP_API_URL must use https")
+	}
+
 	senderEmail := strings.TrimSpace(os.Getenv("MAILTRAP_SENDER_EMAIL"))
 	if senderEmail == "" {
-		return errors.New("MAILTRAP_SENDER_EMAIL is missing")
+		return mailtrapConfig{}, errors.New("MAILTRAP_SENDER_EMAIL is missing")
+	}
+	if _, err := mail.ParseAddress(senderEmail); err != nil {
+		return mailtrapConfig{}, errors.New("MAILTRAP_SENDER_EMAIL is invalid")
 	}
 
 	senderName := strings.TrimSpace(os.Getenv("MAILTRAP_SENDER_NAME"))
@@ -59,11 +88,48 @@ func SendPasswordResetEmail(to, resetLink string) error {
 		category = defaultMailtrapCategory
 	}
 
-	if strings.TrimSpace(to) == "" {
+	return mailtrapConfig{
+		apiToken:    apiToken,
+		apiURL:      apiURL,
+		senderEmail: senderEmail,
+		senderName:  senderName,
+		category:    category,
+	}, nil
+}
+
+func validateRecipientAndResetLink(to, resetLink string) error {
+	to = strings.TrimSpace(to)
+	if to == "" {
 		return errors.New("recipient email is required")
 	}
-	if strings.TrimSpace(resetLink) == "" {
+	if _, err := mail.ParseAddress(to); err != nil {
+		return errors.New("recipient email is invalid")
+	}
+
+	resetLink = strings.TrimSpace(resetLink)
+	if resetLink == "" {
 		return errors.New("reset link is required")
+	}
+
+	parsedResetLink, err := url.ParseRequestURI(resetLink)
+	if err != nil {
+		return errors.New("reset link is invalid")
+	}
+	if parsedResetLink.Scheme != "http" && parsedResetLink.Scheme != "https" {
+		return errors.New("reset link must use http or https")
+	}
+
+	return nil
+}
+
+func SendPasswordResetEmail(to, resetLink string) error {
+	cfg, err := loadMailtrapConfig()
+	if err != nil {
+		return err
+	}
+
+	if err := validateRecipientAndResetLink(to, resetLink); err != nil {
+		return err
 	}
 
 	htmlBody := fmt.Sprintf(`
@@ -113,14 +179,14 @@ func SendPasswordResetEmail(to, resetLink string) error {
 		</html>`, resetLink)
 
 	payload := mailtrapPayload{
-		From: mailtrapAddress{Email: senderEmail, Name: senderName},
+		From: mailtrapAddress{Email: cfg.senderEmail, Name: cfg.senderName},
 		To: []mailtrapAddress{
 			{Email: to},
 		},
 		Subject:  "Password Reset Request - OmahTryOut",
 		Text:     fmt.Sprintf("Click this link to reset your password: %s", resetLink),
 		HTML:     htmlBody,
-		Category: category,
+		Category: cfg.category,
 	}
 
 	bodyBytes, err := json.Marshal(payload)
@@ -131,14 +197,15 @@ func SendPasswordResetEmail(to, resetLink string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, apiURL, bytes.NewReader(bodyBytes))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, cfg.apiURL, bytes.NewReader(bodyBytes))
 	if err != nil {
 		return errors.New("failed to create mail request")
 	}
-	req.Header.Set("Authorization", "Bearer "+apiToken)
+	req.Header.Set("Authorization", "Bearer "+cfg.apiToken)
+	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := mailtrapHTTPClient.Do(req)
 	if err != nil {
 		if ctx.Err() != nil {
 			return errors.New("timeout reached while sending email")
