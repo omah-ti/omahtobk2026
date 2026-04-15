@@ -1,15 +1,8 @@
 import * as motion from 'motion/react-client'
 import Link from 'next/link'
 
-import { fetchUserClient } from '@/app/fetch_user'
 import Container from '@/components/container'
-import Heading, { HeadingSpan } from '@/components/home/heading'
-import SoftCircle from '@/components/soft-circle'
-import StyledCard from '@/components/tryout/styled-card'
 import { Button, buttonVariants } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
-import { Book } from 'lucide-react'
-import { cookies } from 'next/headers'
 import Image from 'next/image'
 import NavbarResolver from '@/components/home/navbar-resolver'
 
@@ -27,29 +20,7 @@ const childVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.5 } },
 }
 
-const cardContainerVariants = {
-  hidden: {},
-  visible: {},
-}
-
-// const cardVariants = {
-//   hidden: {
-//     scale: 0.9,
-//   },
-//   visible: {
-//     scale: 1,
-//     transition: {
-//       type: 'tween',
-//       duration: 1,
-//     },
-//   },
-// }
-
-const Hero = async () => {
-  const cookieStore = await cookies()
-  const accessToken = cookieStore.get('access_token')?.value
-  const user = await fetchUserClient(accessToken)
-
+const Hero = () => {
   return (
     <main className='bg-gradient-to-b md:relative from-primary-400/30 to-primary-100'>
       <NavbarResolver />
@@ -95,7 +66,9 @@ const Hero = async () => {
               <Link href='/tryout'>Try out</Link>
             </Button>
           </motion.div>
-          <div className='md:h-101 h-full md:px-0 px-7 md:pb-0 pb-11 flex md:flex-row flex-col gap-5 md:gap-13 self-center w-full'>
+          <motion.div
+            variants={childVariants}
+            className='md:h-101 h-full md:px-0 px-7 md:pb-0 pb-11 flex md:flex-row flex-col gap-5 md:gap-13 justify-center w-full'>
             <Image
               src='/assets/career-match-up.webp'
               alt='Hero Background'
@@ -110,11 +83,11 @@ const Hero = async () => {
               height={404}
               className='top-0 left-0 w-auto h-full object-cover z-10 aspect-[223/126] rounded-[20px] shadow-[0_10px_20px_0_rgba(0,0,0,0.25)]'
             />
-          </div>
+          </motion.div>
         </section>
 
       </Container>
-      
+
       <div className='h-38 w-full hidden md:block absolute z-0 md:bottom-0 bg-primary-200' />
     </main>
   )
