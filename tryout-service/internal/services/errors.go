@@ -9,6 +9,7 @@ var (
 	ErrAttemptEnded          = errors.New("tryout attempt has ended")
 	ErrAttemptNotOngoing     = errors.New("tryout attempt is not ongoing")
 	ErrNoActiveSubtest       = errors.New("no active subtest found")
+	ErrSubtestOutOfOrder     = errors.New("subtest is not active yet")
 	ErrTimeLimitReached      = errors.New("time limit has been reached for this subtest")
 	ErrInvalidAnswerPayload  = errors.New("invalid answer payload")
 	ErrScoringFailed         = errors.New("failed to calculate or store score")

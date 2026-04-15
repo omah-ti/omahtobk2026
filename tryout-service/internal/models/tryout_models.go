@@ -36,8 +36,9 @@ type TimeLimit struct {
 	TimeLimit       int    `db:"time_limit" json:"time_limit" binding:"required"`
 }
 type AnswerPayload struct {
-	KodeSoal string  `json:"kode_soal" binding:"required"`
-	Jawaban  *string `json:"jawaban" binding:"omitempty"`
+	KodeSoal    string   `json:"kode_soal" binding:"required"`
+	Jawaban     *string  `json:"jawaban" binding:"omitempty"`
+	JawabanList []string `json:"jawaban_list" binding:"omitempty"`
 }
 
 type AnswerKeys struct {

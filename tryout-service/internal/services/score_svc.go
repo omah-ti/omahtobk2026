@@ -11,6 +11,7 @@ import (
 	"tryout-service/internal/logger"
 	"tryout-service/internal/models"
 	"tryout-service/internal/repositories"
+	"unicode"
 )
 
 type ScoreService interface {
@@ -172,14 +173,29 @@ func (s *scoreService) CalculateScore(userAnswers []models.UserAnswer, answerKey
 		kodeSoal := userAnswer.KodeSoal
 		// check pilgan
 		if pilihanGandaChoice, exists := answerKeys.PilihanGandaAnswers[kodeSoal]; exists {
-			if correctChoice, exists := pilihanGandaChoice[userAnswer.Jawaban]; exists && correctChoice.IsCorrect {
-				totalScore += float64(correctChoice.Bobot)
+			correctIDs := make(map[string]struct{})
+			bobot := 0
+			for pilihanID, pilihan := range pilihanGandaChoice {
+				if !pilihan.IsCorrect {
+					continue
+				}
+				correctIDs[pilihanID] = struct{}{}
+				if bobot == 0 {
+					bobot = pilihan.Bobot
+				}
+			}
+
+			if len(correctIDs) > 0 {
+				userIDs := parseMultipleChoiceAnswerIDs(userAnswer.Jawaban)
+				if equalStringSets(userIDs, correctIDs) {
+					totalScore += float64(bobot)
+				}
 			}
 		}
 
 		//check true false
 		if tfAnswer, exists := answerKeys.TrueFalseAnswers[kodeSoal]; exists {
-			if userAnswer.Jawaban == tfAnswer.Jawaban {
+			if isEquivalentTrueFalseAnswer(userAnswer.Jawaban, tfAnswer.Jawaban) {
 				totalScore += float64(tfAnswer.Bobot)
 			}
 		}
@@ -192,4 +208,61 @@ func (s *scoreService) CalculateScore(userAnswers []models.UserAnswer, answerKey
 		}
 	}
 	return totalScore
+}
+
+func parseMultipleChoiceAnswerIDs(raw string) map[string]struct{} {
+	return parseAnswerIDSet(raw)
+}
+
+func parseAnswerIDSet(raw string) map[string]struct{} {
+	set := make(map[string]struct{})
+	for _, token := range strings.FieldsFunc(raw, func(r rune) bool {
+		return r == '|' || r == ',' || r == ';' || r == '/' || unicode.IsSpace(r)
+	}) {
+		clean := strings.TrimSpace(token)
+		if clean == "" {
+			continue
+		}
+		set[clean] = struct{}{}
+	}
+	return set
+}
+
+func parseLooseBool(raw string) (bool, bool) {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "true", "1", "yes", "y", "benar":
+		return true, true
+	case "false", "0", "no", "n", "salah":
+		return false, true
+	default:
+		return false, false
+	}
+}
+
+func isEquivalentTrueFalseAnswer(userRaw, keyRaw string) bool {
+	keyBool, keyIsBool := parseLooseBool(keyRaw)
+	if keyIsBool {
+		userBool, userIsBool := parseLooseBool(userRaw)
+		return userIsBool && userBool == keyBool
+	}
+
+	keySet := parseAnswerIDSet(keyRaw)
+	if len(keySet) == 0 {
+		return false
+	}
+
+	userSet := parseAnswerIDSet(userRaw)
+	return equalStringSets(userSet, keySet)
+}
+
+func equalStringSets(left, right map[string]struct{}) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for key := range left {
+		if _, exists := right[key]; !exists {
+			return false
+		}
+	}
+	return true
 }

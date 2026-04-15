@@ -30,60 +30,51 @@ func NewMinatBakatService(minatBakatRepo repositories.MbRepo) MinatBakatService 
 
 const (
 	defaultAssessmentVersion = "dna-it-v1"
-	defaultScoringVersion    = "scoring-v1"
+	defaultScoringVersion    = "scoring-v2"
 )
 
 var roleWeights = map[string]map[string]float64{
-	"frontend_engineer": {
-		"creative":      0.35,
-		"communication": 0.25,
-		"system":        0.15,
-		"analytical":    0.15,
-		"detail":        0.10,
-	},
-	"backend_engineer": {
-		"analytical": 0.35,
-		"system":     0.30,
-		"detail":     0.20,
-		"security":   0.15,
-	},
-	"cyber_security": {
-		"security":   0.45,
-		"analytical": 0.25,
-		"detail":     0.20,
-		"system":     0.10,
-	},
-	"data_engineer": {
+	"Data Engineer / Big Data Architect": {
 		"analytical":    0.35,
 		"detail":        0.25,
 		"system":        0.25,
 		"security":      0.10,
 		"communication": 0.05,
 	},
-	"devops_engineer": {
-		"system":        0.35,
-		"security":      0.20,
-		"analytical":    0.20,
-		"detail":        0.15,
-		"communication": 0.10,
+	"AI & Machine Learning Engineer": {
+		"analytical":    0.40,
+		"creative":      0.25,
+		"system":        0.20,
+		"detail":        0.10,
+		"communication": 0.05,
 	},
-	"qa_engineer": {
-		"detail":        0.35,
+	"Product Manager / Tech Leadership": {
+		"communication": 0.35,
 		"analytical":    0.25,
-		"communication": 0.20,
 		"system":        0.20,
+		"creative":      0.10,
+		"detail":        0.10,
 	},
-	"uiux_designer": {
-		"creative":      0.45,
-		"communication": 0.30,
+	"UI/UX Designer or Front-End Engineer": {
+		"creative":      0.35,
+		"communication": 0.25,
+		"system":        0.20,
 		"detail":        0.15,
-		"analytical":    0.10,
+		"analytical":    0.05,
 	},
-	"product_manager": {
-		"communication": 0.40,
-		"analytical":    0.20,
+	"Developer Advocate / Tech Consultant": {
+		"communication": 0.45,
 		"creative":      0.20,
-		"system":        0.20,
+		"analytical":    0.15,
+		"system":        0.10,
+		"detail":        0.10,
+	},
+	"Backend Engineer": {
+		"analytical":    0.30,
+		"system":        0.30,
+		"detail":        0.20,
+		"security":      0.15,
+		"communication": 0.05,
 	},
 }
 

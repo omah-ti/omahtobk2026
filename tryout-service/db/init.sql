@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS user_answers (
     subtest VARCHAR(36) NOT NULL,
     kode_soal VARCHAR(36) NOT NULL,
     jawaban TEXT NOT NULL,
-    PRIMARY KEY(attempt_id, kode_soal),
+    PRIMARY KEY(attempt_id, subtest, kode_soal),
     FOREIGN KEY (attempt_id) REFERENCES tryout_attempt(attempt_id) ON DELETE CASCADE
 );
 
