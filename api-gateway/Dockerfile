@@ -11,13 +11,10 @@ ENV CGO_ENABLED=0 \
 WORKDIR /app
 
 COPY go.mod go.sum ./
-RUN --mount=type=cache,target=/go/pkg/mod,sharing=locked \
-    go mod download
+RUN go mod download
 
 COPY . .
-RUN --mount=type=cache,target=/go/pkg/mod,sharing=locked \
-    --mount=type=cache,target=/root/.cache/go-build,sharing=locked \
-    go build -trimpath -ldflags='-s -w' -o /out/api-gateway .
+RUN go build -trimpath -ldflags='-s -w' -o /out/api-gateway .
 
 FROM alpine:3.21
 
