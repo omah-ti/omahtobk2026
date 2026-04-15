@@ -53,6 +53,106 @@ func (h *TryoutHandler) StartAttempt(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Successfully started attempt", "data": attempt})
 }
 
+func (h *TryoutHandler) StartSubtestHandler(c *gin.Context) {
+	attempt, ok := h.getOngoingAttempt(c)
+	if !ok {
+		return
+	}
+
+	subtest := c.Param("subtest")
+	answersInDB, timeLimit, err := h.tryoutService.StartSubtest(c, attempt.TryoutAttemptID, subtest)
+	if err != nil {
+		logger.LogErrorCtx(c, err, "Failed to start subtest", map[string]interface{}{"subtest": subtest, "attempt_id": attempt.TryoutAttemptID})
+		writeTryoutError(c, err, "Failed to start subtest")
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Successfully started subtest",
+		"data": gin.H{
+			"subtest":    subtest,
+			"answers":    answersInDB,
+			"time_limit": timeLimit,
+		},
+	})
+}
+
+func (h *TryoutHandler) SaveSubtestAnswersHandler(c *gin.Context) {
+	attempt, ok := h.getOngoingAttempt(c)
+	if !ok {
+		return
+	}
+
+	subtest := c.Param("subtest")
+	var payload struct {
+		Answers []models.AnswerPayload `json:"answers" binding:"required,dive"`
+	}
+
+	if err := c.ShouldBindJSON(&payload); err != nil {
+		logger.LogErrorCtx(c, err, "Invalid input for save subtest answers")
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid input", "error": err.Error()})
+		return
+	}
+
+	answersInDB, timeLimit, err := h.tryoutService.SaveSubtestAnswers(c, payload.Answers, attempt.TryoutAttemptID, subtest)
+	if err != nil {
+		logger.LogErrorCtx(c, err, "Failed to save subtest answers", map[string]interface{}{"subtest": subtest, "attempt_id": attempt.TryoutAttemptID})
+		writeTryoutError(c, err, "Failed to save subtest answers")
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Successfully saved subtest answers",
+		"data": gin.H{
+			"subtest":    subtest,
+			"answers":    answersInDB,
+			"time_limit": timeLimit,
+		},
+	})
+}
+
+func (h *TryoutHandler) SubmitSubtestHandler(c *gin.Context) {
+	userID, ok := getAuthUserID(c)
+	if !ok {
+		return
+	}
+	attempt, ok := h.getOngoingAttempt(c)
+	if !ok {
+		return
+	}
+
+	accessToken, err := c.Cookie("access_token")
+	if err != nil || accessToken == "" {
+		logger.LogErrorCtx(c, err, "Failed to get access token")
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "Access token is required"})
+		return
+	}
+
+	subtest := c.Param("subtest")
+	var payload struct {
+		Answers []models.AnswerPayload `json:"answers" binding:"required,dive"`
+	}
+
+	if err := c.ShouldBindJSON(&payload); err != nil {
+		logger.LogErrorCtx(c, err, "Invalid input for submit subtest")
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid input", "error": err.Error()})
+		return
+	}
+
+	updatedSubtest, err := h.tryoutService.SubmitSubtest(c, payload.Answers, attempt.TryoutAttemptID, userID, accessToken, subtest)
+	if err != nil {
+		logger.LogErrorCtx(c, err, "Failed to submit subtest", map[string]interface{}{"subtest": subtest, "attempt_id": attempt.TryoutAttemptID})
+		writeTryoutError(c, err, "Failed to submit subtest")
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":         "Successfully submitted subtest",
+		"updated_subtest": updatedSubtest,
+		"next_action":     "return_dashboard",
+	})
+}
+
 func (h *TryoutHandler) SyncHandler(c *gin.Context) {
 	userID, ok := getAuthUserID(c)
 	if !ok {
@@ -206,6 +306,9 @@ func writeTryoutError(c *gin.Context, err error, fallbackMessage string) {
 	case errors.Is(err, services.ErrScoringFailed):
 		status = http.StatusServiceUnavailable
 		message = "Tryout finalized but scoring is not available yet"
+	case errors.Is(err, services.ErrSubtestOutOfOrder):
+		status = http.StatusConflict
+		message = "Subtest is not active yet"
 	}
 
 	c.JSON(status, gin.H{"message": message, "error": err.Error()})

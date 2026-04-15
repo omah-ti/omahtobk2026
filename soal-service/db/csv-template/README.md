@@ -65,7 +65,7 @@ Optional headers:
 
 Per tipe soal:
 
-- `multiple_choice`: minimal 2 pilihan terisi dari `pilihan_a..pilihan_e`, `kunci_pg` wajib valid (`A-E`) dan menunjuk pilihan terisi
+- `multiple_choice`: minimal 2 pilihan terisi dari `pilihan_a..pilihan_e`, `kunci_pg` wajib valid dan menunjuk pilihan terisi. Bisa single (`B`) atau multi (`B|D`) dengan pemisah `|`, `,`, `;`, `/`, atau spasi.
 - `true_false`: `jawaban_tf` wajib (`true/false`), `pilihan_tf` opsional (kalau kosong akan pakai `text_soal`)
 - `short_answer`: `jawaban_uraian` wajib
 

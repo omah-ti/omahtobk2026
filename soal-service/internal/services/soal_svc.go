@@ -48,6 +48,20 @@ func (s *soalService) GetSoalByPaketAndSubtest(c context.Context, paketSoal, sub
 	}
 
 	for i := range soalGabungans {
+		soalGabungans[i].TextSoal = rewriteInlineImageTokensToProxyURL(soalGabungans[i].TextSoal, s.imageStore)
+
+		for j := range soalGabungans[i].PilihanGanda {
+			soalGabungans[i].PilihanGanda[j].Pilihan = rewriteInlineImageTokensToProxyURL(soalGabungans[i].PilihanGanda[j].Pilihan, s.imageStore)
+		}
+
+		for j := range soalGabungans[i].TrueFalse {
+			soalGabungans[i].TrueFalse[j].PilihanTf = rewriteInlineImageTokensToProxyURL(soalGabungans[i].TrueFalse[j].PilihanTf, s.imageStore)
+		}
+
+		if soalGabungans[i].Uraian != nil {
+			soalGabungans[i].Uraian.Jawaban = rewriteInlineImageTokensToProxyURL(soalGabungans[i].Uraian.Jawaban, s.imageStore)
+		}
+
 		if soalGabungans[i].PathGambarSoal == nil || strings.TrimSpace(*soalGabungans[i].PathGambarSoal) == "" {
 			continue
 		}
@@ -160,4 +174,25 @@ func (s *soalService) GetSoalImageObject(c context.Context, objectKey string) (i
 func isAbsoluteURL(path string) bool {
 	trimmed := strings.TrimSpace(strings.ToLower(path))
 	return strings.HasPrefix(trimmed, "http://") || strings.HasPrefix(trimmed, "https://")
+}
+
+func rewriteInlineImageTokensToProxyURL(value string, imageStore storage.ObjectStorage) string {
+	if imageStore == nil || !strings.Contains(strings.ToLower(value), "[img:") {
+		return value
+	}
+
+	return inlineImageTokenPattern.ReplaceAllStringFunc(value, func(token string) string {
+		match := inlineImageTokenPattern.FindStringSubmatch(token)
+		if len(match) < 2 {
+			return token
+		}
+
+		imgPath := strings.TrimSpace(match[1])
+		if imgPath == "" || isAbsoluteURL(imgPath) {
+			return token
+		}
+
+		proxyURL := imageStore.BuildProxyURL(strings.TrimLeft(imgPath, "/"))
+		return "[img:" + proxyURL + "]"
+	})
 }

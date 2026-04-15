@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"soal-service/internal/logger"
 	"soal-service/internal/models"
+	"sort"
+	"strings"
+	"unicode"
 
 	"database/sql"
 
@@ -191,12 +194,24 @@ func (r *soalRepo) GetAnswerKeyByPaketAndSubtest(c context.Context, paketSoal, s
 			return nil, err
 		}
 
+		normalizedJawaban, err := normalizeAnswerKeyValue(jawaban)
+		if err != nil {
+			return nil, fmt.Errorf("invalid true_false key for kode_soal %s: %w", kodeSoal, err)
+		}
+
+		if existing, exists := answers.TrueFalseAnswers[kodeSoal]; exists {
+			if existing.Jawaban != normalizedJawaban || existing.Bobot != bobot {
+				return nil, fmt.Errorf("inconsistent true_false answer key for kode_soal %s", kodeSoal)
+			}
+			continue
+		}
+
 		// Store by kodeSoal
 		answers.TrueFalseAnswers[kodeSoal] = struct {
 			Jawaban     string
 			Bobot       int
 			TextPilihan string
-		}{Jawaban: jawaban, Bobot: bobot, TextPilihan: textPilihan}
+		}{Jawaban: normalizedJawaban, Bobot: bobot, TextPilihan: textPilihan}
 	}
 
 	// 🔹 Uraian
@@ -482,4 +497,58 @@ func execDeleteIn(c context.Context, tx *sqlx.Tx, query string, values []string)
 	}
 
 	return nil
+}
+
+func normalizeAnswerKeyValue(raw string) (string, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return "", fmt.Errorf("empty answer key")
+	}
+
+	if parsedBool, isBool := parseLooseBool(trimmed); isBool {
+		if parsedBool {
+			return "true", nil
+		}
+		return "false", nil
+	}
+
+	set := parseAnswerKeySet(trimmed)
+	if len(set) == 0 {
+		return "", fmt.Errorf("empty answer key")
+	}
+
+	tokens := make([]string, 0, len(set))
+	for token := range set {
+		tokens = append(tokens, token)
+	}
+	sort.Strings(tokens)
+
+	return strings.Join(tokens, "|"), nil
+}
+
+func parseAnswerKeySet(raw string) map[string]struct{} {
+	set := make(map[string]struct{})
+
+	for _, token := range strings.FieldsFunc(raw, func(r rune) bool {
+		return r == '|' || r == ',' || r == ';' || r == '/' || unicode.IsSpace(r)
+	}) {
+		clean := strings.TrimSpace(token)
+		if clean == "" {
+			continue
+		}
+		set[clean] = struct{}{}
+	}
+
+	return set
+}
+
+func parseLooseBool(raw string) (bool, bool) {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "true", "1", "yes", "y", "benar":
+		return true, true
+	case "false", "0", "no", "n", "salah":
+		return false, true
+	default:
+		return false, false
+	}
 }

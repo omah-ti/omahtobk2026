@@ -136,7 +136,7 @@ func (r *scoreRepo) GetUserScoreFromAttemptIDAndSubtestTx(c context.Context, tx 
 
 func (r *scoreRepo) CalculateAverageScoreForAttempt(c context.Context, tx *sqlx.Tx, attemptID int) (float64, error) {
 	var avgScore float64
-	query := `SELECT AVG(score) FROM user_scores WHERE attempt_id = $1`
+	query := `SELECT COALESCE(SUM(score), 0) / 7.0 FROM user_scores WHERE attempt_id = $1`
 	err := tx.Get(&avgScore, query, attemptID)
 	if err != nil {
 		logger.LogErrorCtx(c, err, "Failed to calculate average score", map[string]interface{}{

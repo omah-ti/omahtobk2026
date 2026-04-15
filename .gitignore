@@ -4,6 +4,8 @@
 *.app
 
 scripts
+csv-template
+soal
 
 # Build cache
 /vendor/
