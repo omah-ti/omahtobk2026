@@ -52,6 +52,7 @@ func (a *AuthController) Me(c *fiber.Ctx) error {
 		"email":        c.Locals("user_email"),
 		"username":     c.Locals("user_username"),
 		"asal_sekolah": c.Locals("user_asal_sekolah"),
+		"role":         c.Locals("user_role"),
 	})
 }
 
@@ -93,7 +94,7 @@ func (a *AuthController) proxy(c *fiber.Ctx, method, upstreamPath string) error 
 	for key, values := range resp.Header {
 		if key == "Set-Cookie" {
 			for _, value := range values {
-				c.Append("Set-Cookie", value)
+				c.Context().Response.Header.Add("Set-Cookie", value)
 			}
 			continue
 		}

@@ -13,7 +13,6 @@ type Soal struct {
 	TextSoal       string  `json:"text_soal" db:"text_soal" binding:"required"`
 	PathGambarSoal *string `json:"path_gambar_soal" db:"path_gambar_soal"`
 	BobotSoal      int     `json:"bobot_soal" db:"bobot_soal" binding:"required"`
-	Pembahasan     string  `json:"pembahasan" db:"pembahasan" binding:"required"`
 }
 
 type PilihanPilihanGanda struct {
@@ -48,20 +47,17 @@ type AnswerKeys struct {
 		IsCorrect   bool
 		Bobot       int
 		TextPilihan string
-		Pembahasan  string
 	} `json:"pilihan_ganda,omitempty"`
 
 	TrueFalseAnswers map[string]struct { // Now groups by KodeSoal
 		Jawaban     string
 		Bobot       int
 		TextPilihan string
-		Pembahasan  string
 	} `json:"true_false,omitempty"`
 
 	UraianAnswers map[string]struct { // Now groups by KodeSoal
-		Jawaban    string
-		Bobot      int
-		Pembahasan string
+		Jawaban string
+		Bobot   int
 	} `json:"uraian,omitempty"`
 }
 

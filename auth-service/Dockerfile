@@ -4,7 +4,7 @@ FROM golang:1.24.4-alpine3.21 AS builder
 
 ENV CGO_ENABLED=0 \
     GOOS=linux \
-    GOARCH=amd64 \
+    # GOARCH=amd64 \
     GOPROXY=https://proxy.golang.org,direct \
     GONOSUMDB=*
 

@@ -1,52 +1,71 @@
 package emailer
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
-	"strconv"
+	"strings"
 	"time"
-
-	"github.com/wneessen/go-mail"
 )
 
+const (
+	defaultMailtrapAPIURL     = "https://send.api.mailtrap.io/api/send"
+	defaultMailtrapSenderName = "OmahTryOut"
+	defaultMailtrapCategory   = "Password Reset"
+)
+
+type mailtrapAddress struct {
+	Email string `json:"email"`
+	Name  string `json:"name,omitempty"`
+}
+
+type mailtrapPayload struct {
+	From     mailtrapAddress   `json:"from"`
+	To       []mailtrapAddress `json:"to"`
+	Subject  string            `json:"subject"`
+	Text     string            `json:"text"`
+	HTML     string            `json:"html"`
+	Category string            `json:"category,omitempty"`
+}
+
 func SendPasswordResetEmail(to, resetLink string) error {
-	// Validate SMTP credentials
-	smtpUser := os.Getenv("BREVO_SMTP_USER")
-	smtpPass := os.Getenv("BREVO_SMTP_PASS")
-	smtpHost := os.Getenv("BREVO_SMTP_HOST")
-	smtpPort := getSMTPPort()
-
-	if smtpUser == "" || smtpPass == "" || smtpHost == "" {
-		return errors.New("SMTP credentials are missing")
+	apiToken := strings.TrimSpace(os.Getenv("MAILTRAP_API_TOKEN"))
+	if apiToken == "" {
+		return errors.New("MAILTRAP_API_TOKEN is missing")
 	}
 
-	// create a new mailer
-	mailer, err := mail.NewClient(
-		smtpHost,
-		mail.WithPort(smtpPort),
-		mail.WithSMTPAuth(mail.SMTPAuthPlain),
-		mail.WithUsername(smtpUser),
-		mail.WithPassword(smtpPass),
-		mail.WithTLSPortPolicy(mail.TLSMandatory),
-	)
-	if err != nil {
-		return err
+	apiURL := strings.TrimSpace(os.Getenv("MAILTRAP_API_URL"))
+	if apiURL == "" {
+		apiURL = defaultMailtrapAPIURL
 	}
 
-	msg := mail.NewMsg()
-	if err := msg.From(`OmahTryOut <noreply-password-reset@omahti.web.id>`); err != nil {
-		return err
-	}
-	if err := msg.To(to); err != nil {
-		return err
+	senderEmail := strings.TrimSpace(os.Getenv("MAILTRAP_SENDER_EMAIL"))
+	if senderEmail == "" {
+		return errors.New("MAILTRAP_SENDER_EMAIL is missing")
 	}
 
-	msg.Subject("Password Reset Request - OmahTryOut")
+	senderName := strings.TrimSpace(os.Getenv("MAILTRAP_SENDER_NAME"))
+	if senderName == "" {
+		senderName = defaultMailtrapSenderName
+	}
 
-	// Create a formatted HTML body
-	// Create a formatted HTML body
+	category := strings.TrimSpace(os.Getenv("MAILTRAP_CATEGORY"))
+	if category == "" {
+		category = defaultMailtrapCategory
+	}
+
+	if strings.TrimSpace(to) == "" {
+		return errors.New("recipient email is required")
+	}
+	if strings.TrimSpace(resetLink) == "" {
+		return errors.New("reset link is required")
+	}
+
 	htmlBody := fmt.Sprintf(`
 		<!DOCTYPE html>
 		<html>
@@ -93,42 +112,45 @@ func SendPasswordResetEmail(to, resetLink string) error {
 		</body>
 		</html>`, resetLink)
 
-	msg.SetBodyString(mail.TypeTextPlain, fmt.Sprintf("Click this link to reset your password: %s", resetLink))
-	msg.SetBodyString(mail.TypeTextHTML, htmlBody)
+	payload := mailtrapPayload{
+		From: mailtrapAddress{Email: senderEmail, Name: senderName},
+		To: []mailtrapAddress{
+			{Email: to},
+		},
+		Subject:  "Password Reset Request - OmahTryOut",
+		Text:     fmt.Sprintf("Click this link to reset your password: %s", resetLink),
+		HTML:     htmlBody,
+		Category: category,
+	}
+
+	bodyBytes, err := json.Marshal(payload)
+	if err != nil {
+		return errors.New("failed to marshal email payload")
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	// make channel to wait for the email to be sent, the channel will accept an error
-	done := make(chan error, 1)
-	// make a goroutine to send the email
-	go func() {
-		// send the email and send the result to the done channel
-		done <- mailer.DialAndSend(msg)
-	}()
 
-	// wait for the email to be sent or for a timeout
-	select {
-	// if an error is received from the done channel, return the error
-	case err := <-done:
-		if err != nil {
-			return errors.New("failed to send email")
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, apiURL, bytes.NewReader(bodyBytes))
+	if err != nil {
+		return errors.New("failed to create mail request")
+	}
+	req.Header.Set("Authorization", "Bearer "+apiToken)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		if ctx.Err() != nil {
+			return errors.New("timeout reached while sending email")
 		}
-		// timeout reached, send an error
-	case <-ctx.Done():
-		return errors.New("timeout reached while sending email")
+		return errors.New("failed to send email")
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		responseBody, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
+		return fmt.Errorf("mailtrap request failed: status=%d body=%s", resp.StatusCode, strings.TrimSpace(string(responseBody)))
 	}
 
 	return nil
-}
-
-func getSMTPPort() int {
-	port := os.Getenv("BREVO_SMTP_PORT")
-	if port == "" {
-		return 587
-	}
-	parsedPort, err := strconv.Atoi(port)
-	if err != nil {
-		return 587
-	}
-	return parsedPort
 }

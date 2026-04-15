@@ -109,10 +109,8 @@ const AnswerCard = ({
       if (timerRef.current) clearInterval(timerRef.current)
       if (currentSubtest === 'subtest_pm') {
         router.push('/tryout')
-        router.refresh()
       } else {
         router.push('/tryout/intro')
-        router.refresh()
       }
       toast.success('Jawaban berhasil dikumpulkan!', {
         position: 'bottom-left',
@@ -128,7 +126,6 @@ const AnswerCard = ({
         }
       )
       router.push('/tryout')
-      router.refresh()
     } finally {
       setSubmitting(false)
       setSyncStatus('idle')
@@ -386,13 +383,26 @@ const AnswerCard = ({
               </button>
             ) : isLastQuestion ? (
               <button
-                disabled={true}
+                onClick={submitAllAnswers}
+                disabled={submitting || syncStatus === 'syncing'}
                 className={cn(
                   buttonVariants({ variant: 'secondary' }),
-                  'flex cursor-not-allowed items-center justify-center gap-2'
+                  'flex items-center justify-center gap-2'
                 )}
               >
-                <Clock size={16} />
+                {submitting ? (
+                  <>
+                    <LoaderCircle className='animate-spin' />
+                    Memproses...
+                  </>
+                ) : (
+                  <>
+                    {currentSubtest === 'subtest_pm'
+                      ? 'Akhiri Tryout'
+                      : 'Lanjut Subtes'}
+                    <Check size={16} />
+                  </>
+                )}
               </button>
             ) : (
               <Link

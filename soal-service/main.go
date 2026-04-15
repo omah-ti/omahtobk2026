@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
@@ -10,7 +11,9 @@ import (
 	"soal-service/internal/repositories"
 	"soal-service/internal/routes"
 	"soal-service/internal/services"
+	"soal-service/internal/storage"
 	"soal-service/internal/utils"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -67,7 +70,12 @@ func main() {
 
 	// Setup repositories and services
 	soalRepo := repositories.NewSoalRepo(db)
-	soalService := services.NewSoalService(soalRepo)
+	imageStorage, err := storage.NewMinIOStorageFromEnv(context.Background())
+	if err != nil {
+		logger.Log.Fatal().Err(err).Msg("Failed to initialize image storage")
+	}
+
+	soalService := services.NewSoalService(soalRepo, imageStorage)
 	soalHandler := handlers.NewSoalHandler(soalService)
 
 	// Gin router setup
@@ -95,7 +103,7 @@ func main() {
 	}))
 
 	r.Use(rateLimiterMiddleware())
-	r.Use(requestSizeLimitMiddleware(2 << 20))
+	r.Use(requestSizeLimitMiddleware(getRequestBodyLimitBytes()))
 	r.Use(timeoutMiddleware(20 * time.Second))
 
 	routes.InitializeRoutes(r, soalHandler)
@@ -213,4 +221,21 @@ func trustedProxiesFromEnv() []string {
 	}
 
 	return proxies
+}
+
+func getRequestBodyLimitBytes() int64 {
+	limitMB := int64(10)
+	raw := strings.TrimSpace(os.Getenv("REQUEST_BODY_LIMIT_MB"))
+	if raw != "" {
+		if parsed, err := strconv.ParseInt(raw, 10, 64); err == nil && parsed > 0 {
+			limitMB = parsed
+		}
+	}
+
+	if limitMB > 200 {
+		limitMB = 200
+	}
+
+	logger.Log.Info().Msg(fmt.Sprintf("Request body limit configured to %d MB", limitMB))
+	return limitMB * 1024 * 1024
 }

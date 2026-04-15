@@ -9,11 +9,13 @@ CREATE TABLE IF NOT EXISTS soal (
     subtest VARCHAR(20) CHECK (subtest IN ('subtest_pu', 'subtest_ppu', 'subtest_pbm', 'subtest_pk', 'subtest_lbi', 'subtest_lbe', 'subtest_pm')),
     tipe_soal VARCHAR(20) CHECK (tipe_soal IN ('multiple_choice', 'true_false', 'short_answer')),
     text_soal TEXT NOT NULL,
-    path_gambar_soal VARCHAR(255),
+    path_gambar_soal TEXT,
     bobot_soal INT NOT NULL CHECK (bobot_soal > 0 AND bobot_soal <= 100),
-    pembahasan TEXT NOT NULL,
+    pembahasan TEXT,
     FOREIGN KEY (paket_soal_id) REFERENCES paket_soal(paket_soal_id) ON DELETE CASCADE
 );
+
+ALTER TABLE soal ALTER COLUMN pembahasan DROP NOT NULL;
 
 CREATE TABLE IF NOT EXISTS pilihan_pilihan_ganda (
     pilihan_pilihan_ganda_id VARCHAR(36) PRIMARY KEY,

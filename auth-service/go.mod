@@ -14,7 +14,6 @@ require (
 	github.com/rs/zerolog v1.33.0
 	github.com/stretchr/testify v1.10.0
 	github.com/ulule/limiter/v3 v3.11.2
-	github.com/wneessen/go-mail v0.6.2
 	golang.org/x/crypto v0.39.0
 	golang.org/x/sync v0.15.0
 )
