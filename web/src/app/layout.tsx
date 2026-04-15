@@ -17,7 +17,7 @@ export default function RootLayout({
   return (
     <html lang='en'>
       <body
-        className={`${plusJakartaSans.className} ${lora.variable} antialiased`}
+        className={`${plusJakartaSans.className} ${lora.variable} antialiased overflow-x-hidden`}
       >
         {children}
         <Toaster />

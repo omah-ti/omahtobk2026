@@ -1,29 +1,25 @@
 import Navbar from '@/components/home/navbar'
 import Hero from '@/modules/home/hero'
 import WhyCompsci from '@/modules/home/why-compsci'
-import SubjectSemester from '@/modules/home/subject-semester'
-import Footer from '@/modules/home/footer'
 import CompsciDivisions from '@/modules/home/compsci-divisions'
-import ReadyPath from '@/modules/home/ready-path'
-import UtbkPerspective from '@/modules/home/utbk-perspective'
+import FinalCta from '@/modules/home/final-cta'
+import Testimony from '@/modules/home/testimony'
 import Inspiration from '@/modules/home/inspiration'
 import Statistic from '@/modules/home/statistic'
 import Faq from '@/modules/home/faq'
+import Footer from '@/modules/home/footer'
 
 export default function Home() {
   return (
     <>
-      <Navbar />
-      <Hero />
+      {/* <Navbar />
+      <Hero /> */}
       <WhyCompsci />
       <CompsciDivisions />
       <Statistic />
-      <Inspiration />
+      <Testimony />
       <Faq />
-      <UtbkPerspective />
-      <SubjectSemester />
-      <ReadyPath />
-      {/* <TryoutResult /> ini buat ngetes */}
+      <FinalCta />
       <Footer />
     </>
   )

@@ -26,7 +26,7 @@ const CONTACTS = [
 
 const Footer = () => {
   return (
-    <main className='bg-primary-100 mt-8'>
+    <main className='bg-primary-200'>
       <Container className='py-8'>
         <section className='grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-8'>
           <InfoSection />
@@ -78,7 +78,7 @@ const InfoSection = () => {
           OmahTI - Organisasi Mahasiswa Ahli Teknologi Informasi. Berkomitmen membantu calon mahasiswa dalam persiapan seleksi masuk kampus. Mari wujudkan masa depanmu bersama kami!
         </p>
 
-        <p>@ 2025 OmahTI UGM</p>
+        <p>@ 2026 OmahTI UGM</p>
       </div>
     </main>
   )

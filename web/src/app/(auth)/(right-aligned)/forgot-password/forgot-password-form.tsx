@@ -73,7 +73,7 @@ const ForgotPasswordForm = () => {
     <Form {...form}>
       <form
         onSubmit={form.handleSubmit(handleLogin)}
-        className='flex w-full max-w-lg flex-col gap-4 text-left'
+        className='flex w-full flex-col gap-4 text-left'
       >
         <FormField
           control={form.control}
@@ -91,9 +91,8 @@ const ForgotPasswordForm = () => {
 
         <Button
           type='submit'
-          variant={`tertiary`}
           disabled={pending}
-          className='mt-8 w-full max-w-xs items-center self-center'
+          className='hover:bg-primary-900/75 mt-1 w-full max-w-xs cursor-pointer self-center md:mt-6'
         >
           {pending ? (
             <>
