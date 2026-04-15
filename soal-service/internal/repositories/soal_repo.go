@@ -2,11 +2,13 @@ package repositories
 
 import (
 	"context"
+	"fmt"
 	"soal-service/internal/logger"
 	"soal-service/internal/models"
 
 	"database/sql"
 
+	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -16,6 +18,7 @@ type SoalRepo interface {
 	GetMinatBakatSoal(c context.Context) ([]models.MinatBakatGabungan, error)
 	GetSoalImagePathByKodeSoal(c context.Context, kodeSoal string) (*string, error)
 	UpdateSoalImagePath(c context.Context, kodeSoal, objectKey string) error
+	ImportSoalCSV(c context.Context, input *models.SoalCSVImportInput) (*models.SoalCSVImportResult, error)
 }
 
 type soalRepo struct {
@@ -327,6 +330,155 @@ func (r *soalRepo) UpdateSoalImagePath(c context.Context, kodeSoal, objectKey st
 
 	if rowsAffected == 0 {
 		return sql.ErrNoRows
+	}
+
+	return nil
+}
+
+func (r *soalRepo) ImportSoalCSV(c context.Context, input *models.SoalCSVImportInput) (*models.SoalCSVImportResult, error) {
+	if input == nil {
+		return nil, fmt.Errorf("import input is required")
+	}
+
+	tx, err := r.db.BeginTxx(c, nil)
+	if err != nil {
+		logger.LogErrorCtx(c, err, "Failed to start CSV import transaction")
+		return nil, err
+	}
+
+	defer func() {
+		_ = tx.Rollback()
+	}()
+
+	_, err = tx.ExecContext(c, `
+		INSERT INTO paket_soal (paket_soal_id, nama_paket)
+		VALUES ($1, $2)
+		ON CONFLICT (paket_soal_id)
+		DO UPDATE SET nama_paket = EXCLUDED.nama_paket
+	`, input.PaketSoalID, input.NamaPaket)
+	if err != nil {
+		logger.LogErrorCtx(c, err, "Failed to upsert paket_soal", map[string]interface{}{"paket_soal_id": input.PaketSoalID})
+		return nil, err
+	}
+
+	for _, soal := range input.Soals {
+		_, err := tx.ExecContext(c, `
+			INSERT INTO soal (
+				kode_soal, paket_soal_id, subtest, tipe_soal, text_soal, path_gambar_soal, bobot_soal, pembahasan
+			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+			ON CONFLICT (kode_soal)
+			DO UPDATE SET
+				paket_soal_id = EXCLUDED.paket_soal_id,
+				subtest = EXCLUDED.subtest,
+				tipe_soal = EXCLUDED.tipe_soal,
+				text_soal = EXCLUDED.text_soal,
+				path_gambar_soal = EXCLUDED.path_gambar_soal,
+				bobot_soal = EXCLUDED.bobot_soal,
+				pembahasan = EXCLUDED.pembahasan
+		`, soal.KodeSoal, input.PaketSoalID, soal.Subtest, soal.TipeSoal, soal.TextSoal, soal.PathGambarSoal, soal.BobotSoal, soal.Pembahasan)
+		if err != nil {
+			logger.LogErrorCtx(c, err, "Failed to upsert soal", map[string]interface{}{"kode_soal": soal.KodeSoal})
+			return nil, err
+		}
+	}
+
+	if err := deleteExistingAnswersByType(c, tx, input.Soals); err != nil {
+		logger.LogErrorCtx(c, err, "Failed to clean previous answers before CSV import")
+		return nil, err
+	}
+
+	for _, item := range input.PilihanGandas {
+		_, err := tx.ExecContext(c, `
+			INSERT INTO pilihan_pilihan_ganda (pilihan_pilihan_ganda_id, kode_soal, pilihan, is_correct)
+			VALUES ($1, $2, $3, $4)
+		`, uuid.NewString(), item.KodeSoal, item.Pilihan, item.IsCorrect)
+		if err != nil {
+			logger.LogErrorCtx(c, err, "Failed to insert pilihan ganda", map[string]interface{}{"kode_soal": item.KodeSoal})
+			return nil, err
+		}
+	}
+
+	for _, item := range input.TrueFalses {
+		_, err := tx.ExecContext(c, `
+			INSERT INTO pilihan_true_false (pilihan_true_false_id, kode_soal, pilihan_tf, jawaban)
+			VALUES ($1, $2, $3, $4)
+		`, uuid.NewString(), item.KodeSoal, item.PilihanTf, item.Jawaban)
+		if err != nil {
+			logger.LogErrorCtx(c, err, "Failed to insert true false", map[string]interface{}{"kode_soal": item.KodeSoal})
+			return nil, err
+		}
+	}
+
+	for _, item := range input.Uraians {
+		_, err := tx.ExecContext(c, `
+			INSERT INTO uraian (uraian_id, kode_soal, jawaban)
+			VALUES ($1, $2, $3)
+		`, uuid.NewString(), item.KodeSoal, item.Jawaban)
+		if err != nil {
+			logger.LogErrorCtx(c, err, "Failed to insert uraian", map[string]interface{}{"kode_soal": item.KodeSoal})
+			return nil, err
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		logger.LogErrorCtx(c, err, "Failed to commit CSV import transaction")
+		return nil, err
+	}
+
+	return &models.SoalCSVImportResult{
+		PaketSoalID:       input.PaketSoalID,
+		SoalCount:         len(input.Soals),
+		PilihanGandaCount: len(input.PilihanGandas),
+		TrueFalseCount:    len(input.TrueFalses),
+		UraianCount:       len(input.Uraians),
+	}, nil
+}
+
+func deleteExistingAnswersByType(c context.Context, tx *sqlx.Tx, soals []models.SoalImportRow) error {
+	pgCodes := make([]string, 0)
+	tfCodes := make([]string, 0)
+	uraianCodes := make([]string, 0)
+
+	for _, soal := range soals {
+		switch soal.TipeSoal {
+		case "multiple_choice":
+			pgCodes = append(pgCodes, soal.KodeSoal)
+		case "true_false":
+			tfCodes = append(tfCodes, soal.KodeSoal)
+		case "short_answer":
+			uraianCodes = append(uraianCodes, soal.KodeSoal)
+		}
+	}
+
+	if err := execDeleteIn(c, tx, `DELETE FROM pilihan_pilihan_ganda WHERE kode_soal IN (?)`, pgCodes); err != nil {
+		return err
+	}
+	if err := execDeleteIn(c, tx, `DELETE FROM pilihan_true_false WHERE kode_soal IN (?)`, tfCodes); err != nil {
+		return err
+	}
+	if err := execDeleteIn(c, tx, `DELETE FROM uraian WHERE kode_soal IN (?)`, uraianCodes); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func execDeleteIn(c context.Context, tx *sqlx.Tx, query string, values []string) error {
+	if len(values) == 0 {
+		return nil
+	}
+
+	queryIn, args, err := sqlx.In(query, values)
+	if err != nil {
+		logger.LogErrorCtx(c, err, "Failed to build IN query for CSV import cleanup")
+		return err
+	}
+
+	queryIn = tx.Rebind(queryIn)
+	_, err = tx.ExecContext(c, queryIn, args...)
+	if err != nil {
+		logger.LogErrorCtx(c, err, "Failed to execute cleanup query for CSV import")
+		return err
 	}
 
 	return nil

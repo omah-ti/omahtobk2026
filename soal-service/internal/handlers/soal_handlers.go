@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"strings"
@@ -16,6 +18,11 @@ import (
 type SoalHandler struct {
 	soalService services.SoalService
 }
+
+const (
+	maxCSVImportPartSize int64 = 5 * 1024 * 1024
+	maxZIPImportPartSize int64 = 30 * 1024 * 1024
+)
 
 func NewSoalHandler(soalService services.SoalService) *SoalHandler {
 	return &SoalHandler{soalService: soalService}
@@ -139,4 +146,102 @@ func (h *SoalHandler) GetSoalImageObject(c *gin.Context) {
 
 	c.Header("Cache-Control", "private, max-age=300")
 	c.DataFromReader(http.StatusOK, size, contentType, reader, nil)
+}
+
+func (h *SoalHandler) ImportSoalCSV(c *gin.Context) {
+	soalCSV, err := readOptionalCSVFile(c, "soal_csv")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if len(soalCSV) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "soal_csv is required"})
+		return
+	}
+
+	result, err := h.soalService.ImportSoalFromCSV(c, services.CSVImportFiles{
+		SoalCSV: soalCSV,
+	})
+	if err != nil {
+		logger.LogErrorCtx(c, err, "Failed to import soal CSV")
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "CSV import completed",
+		"result":  result,
+	})
+}
+
+func (h *SoalHandler) ImportSoalCSVBundle(c *gin.Context) {
+	zipData, err := readOptionalFileByExt(c, "bundle_zip", maxZIPImportPartSize, ".zip")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if len(zipData) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bundle_zip is required"})
+		return
+	}
+
+	result, err := h.soalService.ImportSoalFromZIPBundle(c, zipData)
+	if err != nil {
+		logger.LogErrorCtx(c, err, "Failed to import soal ZIP bundle")
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "ZIP bundle import completed",
+		"result":  result,
+	})
+}
+
+func readOptionalCSVFile(c *gin.Context, field string) ([]byte, error) {
+	return readOptionalFileByExt(c, field, maxCSVImportPartSize, ".csv")
+}
+
+func readOptionalFileByExt(c *gin.Context, field string, maxSize int64, requiredExt string) ([]byte, error) {
+	fileHeader, err := c.FormFile(field)
+	if err != nil {
+		if err == http.ErrMissingFile {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	if fileHeader.Size > maxSize {
+		return nil, fmt.Errorf("%s exceeds %d bytes", field, maxSize)
+	}
+
+	if !strings.HasSuffix(strings.ToLower(fileHeader.Filename), strings.ToLower(requiredExt)) {
+		return nil, fmt.Errorf("%s must be a %s file", field, requiredExt)
+	}
+
+	content, err := readFileHeaderBytes(fileHeader, maxSize)
+	if err != nil {
+		return nil, err
+	}
+
+	return content, nil
+}
+
+func readFileHeaderBytes(fileHeader *multipart.FileHeader, maxSize int64) ([]byte, error) {
+	file, err := fileHeader.Open()
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	raw, err := io.ReadAll(io.LimitReader(file, maxSize+1))
+	if err != nil {
+		return nil, err
+	}
+
+	if int64(len(raw)) > maxSize {
+		return nil, fmt.Errorf("csv file exceeds %d bytes", maxSize)
+	}
+
+	return raw, nil
 }

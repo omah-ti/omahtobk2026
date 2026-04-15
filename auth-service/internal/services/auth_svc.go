@@ -11,6 +11,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"strings"
 
 	"golang.org/x/sync/errgroup"
 )
@@ -96,8 +97,9 @@ func (s *authService) RequestPasswordReset(c context.Context, email string) erro
 		return errors.New("failed to get user by email")
 	}
 	if user == nil {
-		logger.LogErrorCtx(c, errors.New("user not found"), "User not found", map[string]interface{}{"email": email})
-		return errors.New("user not found")
+		// Keep response generic to avoid leaking whether an email exists.
+		logger.LogDebugCtx(c, "Password reset requested for non-existing email")
+		return nil
 	}
 	// create the reset token and expirtion time using the utils
 	resetToken, resetTokenExpiredAt, err := jwt.CreateResetToken()
@@ -106,12 +108,15 @@ func (s *authService) RequestPasswordReset(c context.Context, email string) erro
 		return errors.New("failed to generate reset tokens")
 	}
 	// generate resetLink using resetToken
-	var resetLink string
-	if os.Getenv("ENVIRONMENT") == "production" {
-		resetLink = "https://tryout.omahti.web.id/forgot-password/" + resetToken
-	} else {
-		resetLink = "http://localhost:3000/forgot-password/" + resetToken
+	resetBaseURL := strings.TrimSpace(os.Getenv("PASSWORD_RESET_URL_BASE"))
+	if resetBaseURL == "" {
+		if os.Getenv("ENVIRONMENT") == "production" {
+			resetBaseURL = "https://tryout.omahti.web.id"
+		} else {
+			resetBaseURL = "http://localhost:3000"
+		}
 	}
+	resetLink := strings.TrimRight(resetBaseURL, "/") + "/forgot-password/" + resetToken
 
 	// run the goroutines concurrently
 	// blacklist the token that is associated with the email, so that when user is requesting password reset, the token is blacklisted
@@ -135,7 +140,7 @@ func (s *authService) RequestPasswordReset(c context.Context, email string) erro
 	// email the user the reset link, using the email utils
 	g.Go(func() error {
 		if err := emailer.SendPasswordResetEmail(email, resetLink); err != nil {
-			logger.LogErrorCtx(c, err, "Failed to send password reset email", map[string]interface{}{"email": email, "reset_link": resetLink})
+			logger.LogErrorCtx(c, err, "Failed to send password reset email", map[string]interface{}{"email": email})
 			return errors.New("failed to send password reset email")
 		}
 		return nil
