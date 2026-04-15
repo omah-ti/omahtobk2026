@@ -1,6 +1,6 @@
 import BackLink from '@/components/back-link'
 import { Button } from '@/components/ui/button'
-import { ChevronLeft } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import Image from 'next/image'
 
 const AuthRightAlignedLayout = ({
@@ -10,24 +10,22 @@ const AuthRightAlignedLayout = ({
 }) => {
   return (
     <main className='grid h-full grid-cols-1 md:grid-cols-2'>
-      <section className='flex overflow-clip h-[40vh] items-end justify-center md:h-auto'>
-          <Image
-            src={`/assets/fullbody_2.webp`}
-            alt='Robot'
-            width={450}
-            height={450}
-            className='translate-y-14 max-[768px]:size-60  md:translate-y-12 z-0 px-8'
-          />
+      <section className='flex items-end justify-center overflow-clip'>
+        <Image
+          src={`/assets/Fullbody 2new.webp`}
+          alt='Robot'
+          width={530}
+          height={660}
+          className='z-0 aspect-4/5 translate-y-14 max-md:w-7/10 max-md:translate-y-18'
+        />
       </section>
-      <section className='flex h-full z-10 flex-col items-center justify-center gap-6 rounded-t-2xl bg-white p-6  text-center md:overflow-y-auto md:rounded-l-2xl md:rounded-tr-none md:p-8'>
-        <BackLink className='w-full max-w-lg mx-auto mb-auto flex justify-start'>
-          <Button variant='outline' className='border-primary-200 items-center'>
-            <ChevronLeft className='size-4' /> Kembali
+      <section className='z-10 flex flex-col items-center gap-10 rounded-t-2xl bg-white p-14! text-center md:overflow-y-auto md:rounded-tl-none md:rounded-r-2xl md:p-8'>
+        <BackLink className='mx-auto flex w-full'>
+          <Button className='border-primary-900 bg-primary-900 hover:bg-primary-new-25 cursor-pointer items-center border-1 max-sm:text-sm'>
+            <ArrowLeft className='size-4' /> Kembali
           </Button>
         </BackLink>
         {children}
-        {/* stupid thing that makes the layout work DONT DELETE  */}
-        <div className='mb-auto' />
       </section>
     </main>
   )
