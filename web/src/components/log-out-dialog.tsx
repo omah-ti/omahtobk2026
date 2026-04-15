@@ -11,6 +11,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
+import { getAuthErrorMessage, logoutAuth } from '@/lib/fetch/auth'
 import { X } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
@@ -22,23 +23,20 @@ const LogOutDialog = ({ children }: { children: React.ReactNode }) => {
   const handleLogout = async () => {
     const toastId = toast.loading('Memproses logout...')
     try {
-  		const res = await fetch(`${process.env.NEXT_PUBLIC_API_GATEWAY_URL}/api/auth/logout`, {
-        method: 'POST',
-        credentials: 'include', // Ensure cookies are sent
-      })
-  
-      if (!res.ok) {
-        throw new Error('Failed to logout from the backend.')
-      }
-  
+      await logoutAuth()
+
       toast.dismiss(toastId)
       toast.success('Berhasil keluar dari akun.')
       router.push('/')
       router.refresh()
-    } catch (error) {
+    } catch (error: unknown) {
       toast.dismiss(toastId)
-      console.error('Logout error: ', error)
-      toast.error('Gagal keluar dari akun. Silahkan coba lagi.')
+      toast.error('Gagal keluar dari akun.', {
+        description: getAuthErrorMessage(
+          error,
+          'Silahkan coba lagi beberapa saat lagi.'
+        ),
+      })
     }
   }
 
