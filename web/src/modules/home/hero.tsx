@@ -24,7 +24,7 @@ const Hero = () => {
   return (
     <main className='bg-gradient-to-b md:relative from-primary-400/30 to-primary-100'>
       <NavbarResolver />
-      <Container className='flex flex-col gap-0 pt-12 text-center text-black md:pt-35 md:text-center'>
+      <Container className='flex flex-col gap-0 pt-12 text-center text-black md:pt-30 md:text-center'>
         <section className='flex flex-col justify-center items-center gap-8 md:mt-4'>
           <motion.div
             variants={containerVariants}
@@ -54,9 +54,8 @@ const Hero = () => {
             </motion.p>
           </motion.div>
           <motion.div
-            variants={containerVariants}
-            initial='hidden'
-            animate='visible'
+            initial={{ opacity: 0, y: 5, zIndex: 10 }}
+            animate={{ opacity: 1, y: 0, zIndex: 10, transition: { duration: 0.5 } }}
             className='z-10 flex w-full max-w-none md:flex-row flex-col gap-2 self-center pt-4 md:max-w-4xl justify-center md:gap-6 md:py-0 md:pb-5'
           >
             <Button variant='outline' size='lg' className='w-full md:w-50'>
@@ -67,7 +66,8 @@ const Hero = () => {
             </Button>
           </motion.div>
           <motion.div
-            variants={childVariants}
+            initial={{ opacity: 0, y: 5, zIndex: 10 }}
+            animate={{ opacity: 1, y: 0, zIndex: 10, transition: { duration: 0.5 } }}
             className='md:h-101 h-full md:px-0 px-7 md:pb-0 pb-11 flex md:flex-row flex-col gap-5 md:gap-13 justify-center w-full'>
             <Image
               src='/assets/career-match-up.webp'
@@ -85,9 +85,7 @@ const Hero = () => {
             />
           </motion.div>
         </section>
-
       </Container>
-
       <div className='h-38 w-full hidden md:block absolute z-0 md:bottom-0 bg-primary-200' />
     </main>
   )
