@@ -1,8 +1,6 @@
 import Link from 'next/link'
-import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import Image from 'next/image'
-import React from 'react'
 import { getMbAttempt } from '@/lib/fetch/mb-fetch'
 import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
@@ -37,6 +35,7 @@ async function careerMatchUpPage() {
       </Link>
       <Image src='/assets/fullbody-love.webp' alt='Career Match-Up Hero' height={360} width={350} className='rotate-35 h-88 w-auto absolute object-contain xl:scale-130 lg:scale-110 md:scale-100 scale-70 -bottom-30 md:-bottom-20 -left-20 md:-left-10 pointer-events-none' priority />
       <Image src='/assets/fullbody-flipped.webp' alt='Career Match-Up Hero' height={360} width={350} className='rotate-325 h-88 w-auto absolute object-contain xl:scale-130 lg:scale-110 md:scale-100 scale-70 -bottom-20 md:-bottom-10 -right-20 md:-right-10 pointer-events-none' priority />
+      
     </section>
   )
 }

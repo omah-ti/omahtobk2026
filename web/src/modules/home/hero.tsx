@@ -24,7 +24,7 @@ const Hero = () => {
   return (
     <main className='bg-gradient-to-b md:relative from-primary-400/30 to-primary-100'>
       <NavbarResolver />
-      <Container className='flex flex-col gap-0 pt-12 text-center text-black md:pt-30 md:text-center'>
+      <Container className='flex flex-col gap-0 pt-8 text-center text-black md:pt-20 md:text-center'>
         <section className='flex flex-col justify-center items-center gap-8 md:mt-4'>
           <motion.div
             variants={containerVariants}

@@ -23,7 +23,7 @@ const CareerMatchUpLayout = async ({
   }
 
   return (
-    <main className='overflow-hidden'>
+    <main className=''>
       <Navbar />
       {children}
     </main>
