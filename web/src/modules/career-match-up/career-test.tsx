@@ -1,42 +1,20 @@
 // CareerMatchUpTest.tsx
 'use client'
-import React, { useState, useEffect } from 'react'
-import { cn } from '@/lib/utils'
-import Image from 'next/image'
-import { useRouter } from 'next/navigation'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
-import { submitMbAnswers } from '@/lib/fetch/mb-fetch'
-
-// Define Question and Answer interfaces
-interface Answer {
-  pilihan_id: string
-  text_pilihan: string
-  divisi: string
-}
+import { Button } from '@/components/ui/button'
+import { isMobile } from '@/lib/utils'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
+import Link from 'next/link'
+import React, { useState } from 'react'
 
 interface Question {
   kode_soal: string
   text_soal: string
-  pilihan: Answer[]
 }
 
 interface CareerMatchUpTestProps {
-  questions: Question[]
+  questions: Question[] | null | undefined
   loading?: boolean
   error?: string
-}
-
-interface AnswerState {
-  jawaban: string
-  divisi: string
 }
 
 const CareerMatchUpTest = ({
@@ -44,130 +22,40 @@ const CareerMatchUpTest = ({
   loading = false,
   error = '',
 }: CareerMatchUpTestProps) => {
-  const [currentQuestion, setCurrentQuestion] = useState(0)
-  const [answers, setAnswers] = useState<Record<string, AnswerState>>({})
-  const [showDialog, setShowDialog] = useState(false)
-  const router = useRouter()
-
-  // Load answers from localStorage
-  useEffect(() => {
-    const savedAnswers = localStorage.getItem('careerMatchAnswers')
-    if (savedAnswers) {
-      setAnswers(JSON.parse(savedAnswers))
-    }
-  }, [])
-
-  // This useEffect might be causing issues - it only runs if answers have length > 0
-  useEffect(() => {
-    if (Object.keys(answers).length > 0) {
-      localStorage.setItem('careerMatchAnswers', JSON.stringify(answers))
-    }
-  }, [answers])
-
-  const handleAnswer = (answerId: string) => {
-    const question = questions[currentQuestion]
-    const selectedAnswer = question.pilihan.find(
-      (p) => p.pilihan_id === answerId
-    )
-
-    if (!selectedAnswer) return
-
-    // Try using a different approach to update state to ensure it's properly tracked
-    setAnswers((prevAnswers) => {
-      const newAnswers = {
-        ...prevAnswers,
-        [question.kode_soal]: {
-          jawaban: selectedAnswer.divisi, // Store divisi instead of pilihan_id
-          divisi: selectedAnswer.divisi,
-        },
-      }
-
-      // Save immediately to localStorage
-      localStorage.setItem('careerMatchAnswers', JSON.stringify(newAnswers))
-      return newAnswers
-    })
-
-    if (currentQuestion < questions.length - 1) {
-      setCurrentQuestion((prev) => prev + 1)
-    } else {
-      // Show completion dialog when all questions are answered
-      setShowDialog(true)
-    }
-  }
-
-  const handleContinue = async () => {
-    try {
-      // Format the data for submission
-      const submissionData = Object.entries(answers).map(
-        ([kode_soal, answer]) => ({
-          kode_soal,
-          jawaban: answer.jawaban,
-        })
-      )
-
-      // Submit to the backend
-      const result = await submitMbAnswers(submissionData, true)
-
-      if (!result) {
-        throw new Error('Failed to submit answers')
-      }
-
-      // Clear local storage
-      localStorage.removeItem('careerMatchAnswers')
-
-      // Redirect to result page
-      router.push('/career-match-up/result')
-      router.refresh()
-    } catch (error) {
-      console.error('Submission error:', error)
-      // Still attempt to redirect
-      router.push('/career-match-up/result')
-    }
-  }
+  const safeQuestions = Array.isArray(questions) ? questions : []
 
   if (loading)
     return <div className='text-center text-black'>Memuat pertanyaan...</div>
   if (error) return <div className='text-center text-black'>{error}</div>
-  if (!questions.length)
+  if (!safeQuestions.length)
     return (
       <div className='text-center text-black'>
         Tidak ada pertanyaan tersedia
       </div>
     )
 
-  const question = questions[currentQuestion]
-
   return (
-    <div className='mx-auto flex w-full max-w-3xl flex-col items-center gap-6 px-4 py-8 md:max-w-5xl'>
-      <h1 className='text-center text-2xl font-medium text-black md:text-3xl'>
-        {question.text_soal}
-      </h1>
-      <ProgressBar current={currentQuestion + 1} total={questions.length} />
-      <div className='grid w-full grid-cols-1 gap-4 md:grid-cols-2 md:gap-8'>
-        {question.pilihan.map((answer) => (
-          <AnswerCard
-            key={answer.pilihan_id}
-            answer={answer}
-            selected={answers[question.kode_soal]?.divisi === answer.divisi}
-            onSelect={handleAnswer}
-          />
+    <div className='mx-auto flex w-full max-w-3xl flex-col items-center gap-9 px-4 py-8 md:max-w-5xl'>
+      <ProgressBar current={1} total={safeQuestions.length} />
+      <div className='w-full flex flex-col gap-9'>
+        {safeQuestions.map((question, index) => (
+          <QuestionCard key={question.kode_soal} question={question} index={index + 1} />
         ))}
       </div>
-      <AlertDialog open={showDialog} onOpenChange={setShowDialog}>
-        <AlertDialogContent className='bg-secondary-new-500/80'>
-          <AlertDialogHeader>
-            <AlertDialogTitle className='text-white'>SELAMAT!</AlertDialogTitle>
-            <AlertDialogDescription className='text-white'>
-              Kamu telah menyelesaikan test Career Match Up
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogAction onClick={handleContinue}>
-              Lihat Hasil Test
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <div className='flex flex-row gap-3'>
+        <Link href='/career-match-up'>
+          <Button variant="outline" size="lg" className='w-full'>
+            <ChevronLeft />
+            Kembali
+          </Button>
+        </Link>
+        <Link href='/career-match-up/result'>
+          <Button size="lg" className='w-full'>
+            Selanjutnya
+            <ChevronRight />
+          </Button>
+        </Link>
+      </div>
     </div>
   )
 }
@@ -179,45 +67,127 @@ interface ProgressBarProps {
 }
 
 const ProgressBar = ({ current, total }: ProgressBarProps) => (
-  <div className='relative mx-auto mb-4 w-full max-w-3xl'>
-    <div className='h-6 w-full rounded-full bg-gray-200'>
-      <div
-        className='h-6 rounded-full bg-blue-600 transition-all duration-300'
-        style={{ width: `${(current / total) * 100}%` }}
-      />
+  <>
+    <div className='relative mx-auto w-full flex flex-row justify-center items-center gap-2'>
+      <div className='h-4  w-full rounded-full bg-transparent border border-neutral-1000  max-w-3xl'>
+        <div
+          className='h-4 rounded-full bg-gradient-to-r from-primary-200 to-primary-500 from-0% to-134% transition-all duration-300'
+          style={{ width: `${(current / total) * 100}%` }}
+        />
+      </div>
+      <span className='text-sm font-medium text-gray-700'>
+        {(current / total) * 100}%
+      </span>
     </div>
-    <div className='mt-6 text-center text-sm text-gray-600'>
-      Pertanyaan {current} dari {total}
-    </div>
-  </div>
+    {current < total && (
+      <div className='w-full bg-gradient-to-r from-primary-400 p-3 font-bold to-primary-600 rounded-[10px] text-center md:text-base text-sm text-white'>
+        Awali tes dengan merespons pertanyaan di bawah ini
+      </div>
+    )}
+  </>
 )
 
-// AnswerCard component (same as before)
-interface AnswerCardProps {
-  answer: Answer
-  selected: boolean
-  onSelect: (answerId: string) => void
+interface QuestionCardProps {
+  question: Question
+  index: number
 }
 
-const AnswerCard = ({ answer, selected, onSelect }: AnswerCardProps) => (
-  <button
-    onClick={() => onSelect(answer.pilihan_id)}
-    className={cn(
-      'flex w-full cursor-pointer items-center gap-4 overflow-hidden rounded-xl border border-gray-200 bg-white p-4 text-start transition-all',
-      selected && 'bg-blue-50 ring-2 ring-blue-500'
-    )}
-  >
-    <div className='flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-blue-100'>
-      {/* Gunakan icon yang sesuai berdasarkan divisi atau custom icon */}
-      <Image
-        src={`/assets/divisions/${answer.divisi || 'dsai'}.webp`}
-        alt=''
-        width={48}
-        height={48}
-        className='object-contain'
-      />
+const QuestionCard = ({ question, index }: QuestionCardProps) => {
+  const [selectedChoice, setSelectedChoice] = useState<
+    'strongYes' | 'yes' | 'neutral' | 'no' | 'strongNo' | null
+  >(null)
+
+  return (
+    <div className='w-full rounded-lg border border-neutral-1000 bg-white p-5 pb-10 shadow-md text-center'>
+      <h2 className='mb-4 text-lg font-semibold text-gray-800'>
+        {index}. {question.text_soal}
+      </h2>
+      <div className='flex flex-row justify-between items-center'>
+        {!isMobile() && (
+          <span className='text-green-200 font-bold'>Setuju</span>
+        )}
+        <div className='rounded-full md:w-31.75 w-13 md:h-31.75 h-13 p-0.75 bg-green-200 relative'>
+          <button
+            type='button'
+            aria-pressed={selectedChoice === 'strongYes'}
+            onClick={() => setSelectedChoice('strongYes')}
+            className='rounded-full w-full h-full bg-white transition-all duration-200'
+            style={
+              selectedChoice === 'strongYes'
+                ? {
+                  background:
+                    'radial-gradient(60.91% 60.91% at 50% 50%, #FFF 0%, #1FC16B 100%)',
+                }
+                : undefined
+            }
+          />
+        </div>
+
+        <div className='rounded-full md:w-21.75 w-10.5 md:h-21.75 h-10.5 p-0.75 bg-green-200 relative'>
+          <button
+            type='button'
+            aria-pressed={selectedChoice === 'yes'}
+            onClick={() => setSelectedChoice('yes')}
+            className='rounded-full w-full h-full bg-white transition-all duration-200'
+            style={
+              selectedChoice === 'yes'
+                ? {
+                  background:
+                    'radial-gradient(60.91% 60.91% at 50% 50%, #FFF 0%, #1FC16B 100%)',
+                }
+                : undefined
+            }
+          />
+        </div>
+
+        <div className='rounded-full md:w-14.25 w-8 md:h-14.25 h-8 p-0.75 bg-gradient-to-r from-green-200 to-red-400 relative'>
+          <button
+            type='button'
+            aria-pressed={selectedChoice === 'neutral'}
+            onClick={() => setSelectedChoice('neutral')}
+            className={`rounded-full w-full h-full transition-all duration-200 ${selectedChoice === 'neutral' ? 'bg-white/70' : 'bg-white'
+              }`}
+          />
+        </div>
+
+        <div className='rounded-full md:w-21.75 w-10.5 md:h-21.75 h-10.5 p-0.75 bg-red-400 relative'>
+          <button
+            type='button'
+            aria-pressed={selectedChoice === 'no'}
+            onClick={() => setSelectedChoice('no')}
+            className='rounded-full w-full h-full bg-white transition-all duration-200'
+            style={
+              selectedChoice === 'no'
+                ? {
+                  background:
+                    'radial-gradient(50% 50% at 50% 50%, #FFF 0%, #E70518 100%)',
+                }
+                : undefined
+            }
+          />
+        </div>
+
+        <div className='rounded-full md:w-31.75 w-13 md:h-31.75 h-13 p-0.75 bg-red-400 relative'>
+          <button
+            type='button'
+            aria-pressed={selectedChoice === 'strongNo'}
+            onClick={() => setSelectedChoice('strongNo')}
+            className='rounded-full w-full h-full bg-white transition-all duration-200'
+            style={
+              selectedChoice === 'strongNo'
+                ? {
+                  background:
+                    'radial-gradient(50% 50% at 50% 50%, #FFF 0%, #E70518 100%)',
+                }
+                : undefined
+            }
+          />
+        </div>
+        {!isMobile() && (
+          <span className='text-red-400 font-bold'>Tidak Setuju</span>
+        )}
+      </div>
     </div>
-    <span className='font-medium text-gray-800'>{answer.text_pilihan}</span>
-  </button>
-)
+  )
+}
 export default CareerMatchUpTest

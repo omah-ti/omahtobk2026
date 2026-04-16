@@ -9,12 +9,32 @@ import Enthusiasts from '@/modules/career-match-up/enthusiasts'
 import { DIVISIONS } from '@/lib/helpers/divisions'
 import Container from '@/components/container'
 import Image from 'next/image'
+import NavbarResolver from '@/components/home/navbar-resolver'
+import Link from 'next/dist/client/link'
+import { Button } from '@/components/ui/button'
+
+const UI_ONLY_TEST_MODE = process.env.NEXT_PUBLIC_CMU_UI_ONLY === 'true'
+
+const MOCK_ATTEMPT_DATA = {
+  bakat_user: 'dsai',
+  dominantCareer: 'dsai',
+  careerScores: {
+    dsai: 0.87,
+    frontend: 0.74,
+    backend: 0.69,
+    uiux: 0.58,
+  },
+}
 
 export default async function CareerMatchUpResult() {
   try {
-    const cookieStore = await cookies()
-    const accessToken = cookieStore.get('access_token')?.value
-    const attemptData = await getMbAttempt(accessToken, false)
+    const attemptData = UI_ONLY_TEST_MODE
+      ? MOCK_ATTEMPT_DATA
+      : await (async () => {
+        const cookieStore = await cookies()
+        const accessToken = cookieStore.get('access_token')?.value
+        return getMbAttempt(accessToken, false)
+      })()
 
     if (!attemptData) {
       return (
@@ -40,81 +60,76 @@ export default async function CareerMatchUpResult() {
     const results = {
       ...attemptData,
       dominantCareerTitle: careerDivision?.name || dominantCareer,
-      shortDescription:
-        careerDivision?.career.description ||
+      firstDescription:
+        careerDivision?.career.firstDescription ||
         `You show great potential in the ${dominantCareer} field.`,
-      fullDescription:
-        careerDivision?.career.fullDescription ||
+      secondDescription:
+        careerDivision?.career.secondDescription ||
         `Continue exploring opportunities in this area to develop your skills further.`,
     }
 
     return (
-      <Container>
-        <div className='flex flex-col items-center justify-center gap-8 lg:flex-row'>
-          <div className='h-auto w-full lg:w-[4320px] items-center justify-center overflow-hidden rounded-lg md:w-[600px]'>
-            <Image
-              src={`/assets/divisions/${dominantCareer || 'dsai'}.webp`}
-              alt=''
-              width={1080}
-              height={1080}
-              className='h-auto w-full object-cover'
-              priority // Tambahkan ini untuk memuat gambar lebih cepat
-            />
-          </div>
-          <div className='text-center lg:text-left'>
-            <h1 className='mb-6 text-3xl font-bold '>
-              Your Career Match Result
-            </h1>
-            <h2 className='mb-4 text-2xl font-semibold'>
-              Your dominant career path is:{' '}
-              <span className='text-primary text-blue-600'>
-                {results.dominantCareerTitle || results.dominantCareer}
-              </span>
-            </h2>
-            <p className='mb-4'>{results.fullDescription}</p>
-            <div className='mt-6'>
-              <h3 className='mb-2 text-xl font-medium'>
-                What this means for you:
-              </h3>
-              <p>{results.shortDescription}</p>
-            </div>
-            {results.careerScores && (
-              <div className='mt-8'>
-                <h3 className='mb-3 text-xl font-medium'>
-                  Your Career Compatibility:
-                </h3>
-                <div className='space-y-3'>
-                  {Object.entries(results.careerScores).map(
-                    ([career, score]: [string, any]) => {
-                      const divisionInfo = DIVISIONS.find(
-                        (div) => div.slug === career.toLowerCase()
-                      )
-                      return (
-                        <div key={career} className='flex items-center'>
-                          <div className='w-1/3 font-medium'>
-                            {divisionInfo?.name || career}:
-                          </div>
-                          <div className='w-2/3'>
-                            <div className='h-4 w-full rounded-full bg-gray-200'>
-                              <div
-                                className='bg-primary h-4 rounded-full'
-                                style={{ width: `${Math.round(score * 100)}%` }}
-                              ></div>
-                            </div>
-                          </div>
-                        </div>
-                      )
-                    }
-                  )}
-                </div>
+      <>
+        <NavbarResolver />
+        <Container className='bg-white gap-9'>
+          <div className='flex p-0 md:p-10 md:bg-[#e9effd] rounded-[10px] flex-col items-center justify-center gap-8 '>
+            <div className='flex flex-col-reverse md:flex-row justify-between items-start gap-8 w-full'>
+              <div className='text-center lg:text-left w-full justify-between'>
+                <p className='text-base md:text-2xl font-bold'>
+                  Role yang cocok untukmu
+                </p>
+                <h2 className='text-[34px] md:text-[48px] font-bold'>
+                  {results.dominantCareerTitle || results.dominantCareer}
+                </h2>
               </div>
-            )}
+              <div className='h-auto w-full md:w-[205px] px-10 md:px-0 items-center justify-center overflow-hidden md:mr-15'>
+                <Image
+                  src={`/assets/divisions/${dominantCareer || 'dsai'}.webp`}
+                  alt=''
+                  width={205}
+                  height={300}
+                  className='h-auto w-full object-contain'
+                  priority // Tambahkan ini untuk memuat gambar lebih cepat
+                />
+              </div>
+            </div>
+            <div className='text-left space-y-3'>
+              <p className='text-left md:text-left text-xl font-medium text-gray-700 hidden md:block'>Deskripsi:</p>
+              <div className='space-y-7 md:text-base text-xs'>
+                <p className='text-justify md:text-left text-gray-600'>
+                  {results.firstDescription}
+                </p>
+                <p className='text-justify md:text-left text-gray-600'>
+                  {results.secondDescription}
+                </p>
+              </div>
+            </div>
           </div>
-        </div>
-        <div>
-          <Enthusiasts dominantCareer={dominantCareer.toUpperCase()} />
-        </div>
-      </Container>
+
+          {/* alumni */}
+          <div className='flex p-10 md:bg-[#e9effd] rounded-[10px] flex-col items-center justify-center gap-8'>
+
+          </div>
+
+          {/* cta */}
+          <div className='flex p-0 md:p-10 md:bg-[#e9effd] rounded-[10px] flex-row items-center gap-2.5 justify-between'>
+            <Image src='/assets/cstryouts.webp' alt='' width={262} height={400} className='w-auto min-w-25 md:w-[262px] h-auto object-contain' />
+            <div className='flex flex-col text-center w-full max-w-2xl gap-5 md:gap-10'>
+              <div>
+                <h2 className='text-neutral-1000 text-base md:text-[34px] font-bold'>Udah Tau Bakat atau Minatmu?</h2>
+                <p className='text-neutral-800 text-xs md:text-base'>
+                  Saatnya buktikan kemampuanmu di Try-Out OmahTOBK.
+                </p>
+              </div>
+              <Link href='/tryouts'>
+                <Button size="lg">
+                  Try-Out Sekarang
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </Container>
+      </>
     )
   } catch (error) {
     console.error('Error fetching results:', error)

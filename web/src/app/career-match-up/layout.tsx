@@ -23,9 +23,9 @@ const CareerMatchUpLayout = async ({
   }
 
   return (
-    <main className='min-h-screen'>
+    <main className='px-0 md:px-20 lg:px-30'>
       <Navbar />
-      <Container>{children}</Container>
+      {children}
     </main>
   )
 }

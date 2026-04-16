@@ -47,7 +47,7 @@ const Navbar = async () => {
 
   return (
     <>
-      <main className='md:mt-6 md:mx-6 lg:mx-auto max-w-7xl fixed inset-x-0 top-0 z-50 border-b-2 shadow-[0_4px_9px_0_rgba(18,72,193,0.90)] bg-white rounded-b-[20px] md:rounded-[40px]'>
+      <main className='md:mt-6 md:mx-auto xl:mx-auto max-w-7xl fixed inset-x-0 top-0 z-50 border-b-2 shadow-[0_4px_9px_0_rgba(18,72,193,0.90)] bg-white rounded-b-[20px] md:rounded-[40px]'>
         <Container className='h-20 flex-row items-center w-full justify-between gap-8'>
 
           <DesktopNavigation signedIn={isSignedIn} user={user} />
