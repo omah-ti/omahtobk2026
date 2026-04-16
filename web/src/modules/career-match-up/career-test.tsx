@@ -1,20 +1,78 @@
 // CareerMatchUpTest.tsx
 'use client'
-import { Button } from '@/components/ui/button'
-import { isMobile } from '@/lib/utils'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
-import Link from 'next/link'
-import React, { useState } from 'react'
 
-interface Question {
-  kode_soal: string
-  text_soal: string
-}
+import { Button } from '@/components/ui/button'
+import { MbQuestion, MbSubmitPayload } from '@/lib/fetch/mb-fetch'
+import { isMobile } from '@/lib/utils'
+import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import React, { useMemo, useState } from 'react'
 
 interface CareerMatchUpTestProps {
-  questions: Question[] | null | undefined
+  questions: MbQuestion[] | null | undefined
   loading?: boolean
   error?: string
+}
+
+type LikertValue = 1 | 2 | 3 | 4 | 5
+
+const CHOICE_ITEMS: Array<{
+  value: LikertValue
+  label: string
+  wrapperClassName: string
+  activeStyle?: React.CSSProperties
+  activeClassName?: string
+}> = [
+  {
+    value: 5,
+    label: 'Sangat setuju',
+    wrapperClassName:
+      'rounded-full md:w-31.75 w-13 md:h-31.75 h-13 p-0.75 bg-green-200 relative',
+    activeStyle: {
+      background:
+        'radial-gradient(60.91% 60.91% at 50% 50%, #FFF 0%, #1FC16B 100%)',
+    },
+  },
+  {
+    value: 4,
+    label: 'Setuju',
+    wrapperClassName:
+      'rounded-full md:w-21.75 w-10.5 md:h-21.75 h-10.5 p-0.75 bg-green-200 relative',
+    activeStyle: {
+      background:
+        'radial-gradient(60.91% 60.91% at 50% 50%, #FFF 0%, #1FC16B 100%)',
+    },
+  },
+  {
+    value: 3,
+    label: 'Netral',
+    wrapperClassName:
+      'rounded-full md:w-14.25 w-8 md:h-14.25 h-8 p-0.75 bg-gradient-to-r from-green-200 to-red-400 relative',
+    activeClassName: 'bg-white/70',
+  },
+  {
+    value: 2,
+    label: 'Tidak setuju',
+    wrapperClassName:
+      'rounded-full md:w-21.75 w-10.5 md:h-21.75 h-10.5 p-0.75 bg-red-400 relative',
+    activeStyle: {
+      background: 'radial-gradient(50% 50% at 50% 50%, #FFF 0%, #E70518 100%)',
+    },
+  },
+  {
+    value: 1,
+    label: 'Sangat tidak setuju',
+    wrapperClassName:
+      'rounded-full md:w-31.75 w-13 md:h-31.75 h-13 p-0.75 bg-red-400 relative',
+    activeStyle: {
+      background: 'radial-gradient(50% 50% at 50% 50%, #FFF 0%, #E70518 100%)',
+    },
+  },
+]
+
+const getQuestionText = (question: MbQuestion) => {
+  return question.statement || question.text_soal || ''
 }
 
 const CareerMatchUpTest = ({
@@ -22,7 +80,15 @@ const CareerMatchUpTest = ({
   loading = false,
   error = '',
 }: CareerMatchUpTestProps) => {
-  const safeQuestions = Array.isArray(questions) ? questions : []
+  const router = useRouter()
+  const safeQuestions = useMemo(
+    () => (Array.isArray(questions) ? questions : []),
+    [questions]
+  )
+  const [currentIndex, setCurrentIndex] = useState(0)
+  const [answers, setAnswers] = useState<Record<string, LikertValue>>({})
+  const [submitError, setSubmitError] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   if (loading)
     return <div className='text-center text-black'>Memuat pertanyaan...</div>
@@ -34,27 +100,163 @@ const CareerMatchUpTest = ({
       </div>
     )
 
+  const totalQuestions = safeQuestions.length
+  const currentQuestion = safeQuestions[currentIndex]
+  const selectedChoice = answers[currentQuestion.kode_soal]
+  const isCurrentAnswered = selectedChoice !== undefined
+  const allAnswered = safeQuestions.every(
+    (question) => answers[question.kode_soal] !== undefined
+  )
+
+  const handleSelectChoice = (value: LikertValue) => {
+    setSubmitError('')
+    setAnswers((prev) => ({
+      ...prev,
+      [currentQuestion.kode_soal]: value,
+    }))
+  }
+
+  const handleNext = () => {
+    if (!isCurrentAnswered) {
+      setSubmitError('Silakan pilih jawaban sebelum melanjutkan.')
+      return
+    }
+
+    setSubmitError('')
+    setCurrentIndex((prev) => Math.min(prev + 1, totalQuestions - 1))
+  }
+
+  const handlePrev = () => {
+    setSubmitError('')
+    setCurrentIndex((prev) => Math.max(prev - 1, 0))
+  }
+
+  const handleSubmit = async () => {
+    if (!allAnswered) {
+      setSubmitError('Semua pertanyaan wajib dijawab sebelum dikirim.')
+      return
+    }
+
+    setSubmitError('')
+    setIsSubmitting(true)
+
+    const payload: MbSubmitPayload = {
+      assessment_version: 'dna-it-v1',
+      answers: safeQuestions.map((question) => {
+        const likertValue = answers[question.kode_soal]
+        const base = {
+          likert_value: likertValue,
+        }
+
+        if (question.question_id) {
+          return {
+            ...base,
+            question_id: question.question_id,
+          }
+        }
+
+        return {
+          ...base,
+          kode_soal: question.kode_soal,
+        }
+      }),
+    }
+
+    try {
+      const response = await fetch('/api/career-match-up/submit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+        cache: 'no-store',
+      })
+
+      if (!response.ok) {
+        let message = 'Gagal mengirim jawaban. Silakan coba lagi.'
+        try {
+          const body = await response.json()
+          message = body?.error || body?.message || message
+        } catch {
+          // no-op
+        }
+        throw new Error(message)
+      }
+
+      router.push('/career-match-up/result')
+    } catch (submitErr) {
+      const message =
+        submitErr instanceof Error
+          ? submitErr.message
+          : 'Terjadi kesalahan saat mengirim jawaban.'
+      setSubmitError(message)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
   return (
     <div className='mx-auto flex w-full max-w-3xl flex-col items-center gap-9 px-4 py-8 md:max-w-5xl'>
-      <ProgressBar current={1} total={safeQuestions.length} />
+      <ProgressBar current={currentIndex + 1} total={totalQuestions} />
       <div className='w-full flex flex-col gap-9'>
-        {safeQuestions.map((question, index) => (
-          <QuestionCard key={question.kode_soal} question={question} index={index + 1} />
-        ))}
+        <QuestionCard
+          question={currentQuestion}
+          index={currentIndex + 1}
+          selectedChoice={selectedChoice}
+          onSelectChoice={handleSelectChoice}
+        />
       </div>
-      <div className='flex flex-row gap-3'>
+
+      {submitError && (
+        <p className='text-center text-sm text-red-500'>{submitError}</p>
+      )}
+
+      <div className='flex w-full flex-row justify-center gap-3'>
         <Link href='/career-match-up'>
           <Button variant="outline" size="lg" className='w-full'>
             <ChevronLeft />
             Kembali
           </Button>
         </Link>
-        <Link href='/career-match-up/result'>
-          <Button size="lg" className='w-full'>
+
+        <Button
+          variant='outline'
+          size='lg'
+          className='w-full'
+          onClick={handlePrev}
+          disabled={currentIndex === 0 || isSubmitting}
+        >
+          <ChevronLeft />
+          Sebelumnya
+        </Button>
+
+        {currentIndex < totalQuestions - 1 ? (
+          <Button
+            size='lg'
+            className='w-full'
+            onClick={handleNext}
+            disabled={isSubmitting}
+          >
             Selanjutnya
             <ChevronRight />
           </Button>
-        </Link>
+        ) : (
+          <Button
+            size='lg'
+            className='w-full'
+            onClick={handleSubmit}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className='animate-spin' />
+                Mengirim...
+              </>
+            ) : (
+              'Kirim Jawaban'
+            )}
+          </Button>
+        )}
       </div>
     </div>
   )
@@ -66,126 +268,69 @@ interface ProgressBarProps {
   total: number
 }
 
-const ProgressBar = ({ current, total }: ProgressBarProps) => (
-  <>
-    <div className='relative mx-auto w-full flex flex-row justify-center items-center gap-2'>
-      <div className='h-4  w-full rounded-full bg-transparent border border-neutral-1000  max-w-3xl'>
-        <div
-          className='h-4 rounded-full bg-gradient-to-r from-primary-200 to-primary-500 from-0% to-134% transition-all duration-300'
-          style={{ width: `${(current / total) * 100}%` }}
-        />
-      </div>
-      <span className='text-sm font-medium text-gray-700'>
-        {(current / total) * 100}%
-      </span>
-    </div>
-    {current < total && (
-      <div className='w-full bg-gradient-to-r from-primary-400 p-3 font-bold to-primary-600 rounded-[10px] text-center md:text-base text-sm text-white'>
-        Awali tes dengan merespons pertanyaan di bawah ini
-      </div>
-    )}
-  </>
-)
+const ProgressBar = ({ current, total }: ProgressBarProps) => {
+  const percentage = Math.round((current / total) * 100)
 
-interface QuestionCardProps {
-  question: Question
-  index: number
+  return (
+    <>
+      <div className='relative mx-auto w-full flex flex-row justify-center items-center gap-2'>
+        <div className='h-4  w-full rounded-full bg-transparent border border-neutral-1000  max-w-3xl'>
+          <div
+            className='h-4 rounded-full bg-gradient-to-r from-primary-200 to-primary-500 from-0% to-134% transition-all duration-300'
+            style={{ width: `${percentage}%` }}
+          />
+        </div>
+        <span className='text-sm font-medium text-gray-700'>{percentage}%</span>
+      </div>
+      {current < total && (
+        <div className='w-full bg-gradient-to-r from-primary-400 p-3 font-bold to-primary-600 rounded-[10px] text-center md:text-base text-sm text-white'>
+          Awali tes dengan merespons pertanyaan di bawah ini
+        </div>
+      )}
+    </>
+  )
 }
 
-const QuestionCard = ({ question, index }: QuestionCardProps) => {
-  const [selectedChoice, setSelectedChoice] = useState<
-    'strongYes' | 'yes' | 'neutral' | 'no' | 'strongNo' | null
-  >(null)
+interface QuestionCardProps {
+  question: MbQuestion
+  index: number
+  selectedChoice?: LikertValue
+  onSelectChoice: (value: LikertValue) => void
+}
+
+const QuestionCard = ({
+  question,
+  index,
+  selectedChoice,
+  onSelectChoice,
+}: QuestionCardProps) => {
+  const questionText = getQuestionText(question)
 
   return (
     <div className='w-full rounded-lg border border-neutral-1000 bg-white p-5 pb-10 shadow-md text-center'>
       <h2 className='mb-4 text-lg font-semibold text-gray-800'>
-        {index}. {question.text_soal}
+        {index}. {questionText}
       </h2>
       <div className='flex flex-row justify-between items-center'>
-        {!isMobile() && (
-          <span className='text-green-200 font-bold'>Setuju</span>
-        )}
-        <div className='rounded-full md:w-31.75 w-13 md:h-31.75 h-13 p-0.75 bg-green-200 relative'>
-          <button
-            type='button'
-            aria-pressed={selectedChoice === 'strongYes'}
-            onClick={() => setSelectedChoice('strongYes')}
-            className='rounded-full w-full h-full bg-white transition-all duration-200'
-            style={
-              selectedChoice === 'strongYes'
-                ? {
-                  background:
-                    'radial-gradient(60.91% 60.91% at 50% 50%, #FFF 0%, #1FC16B 100%)',
-                }
-                : undefined
-            }
-          />
-        </div>
-
-        <div className='rounded-full md:w-21.75 w-10.5 md:h-21.75 h-10.5 p-0.75 bg-green-200 relative'>
-          <button
-            type='button'
-            aria-pressed={selectedChoice === 'yes'}
-            onClick={() => setSelectedChoice('yes')}
-            className='rounded-full w-full h-full bg-white transition-all duration-200'
-            style={
-              selectedChoice === 'yes'
-                ? {
-                  background:
-                    'radial-gradient(60.91% 60.91% at 50% 50%, #FFF 0%, #1FC16B 100%)',
-                }
-                : undefined
-            }
-          />
-        </div>
-
-        <div className='rounded-full md:w-14.25 w-8 md:h-14.25 h-8 p-0.75 bg-gradient-to-r from-green-200 to-red-400 relative'>
-          <button
-            type='button'
-            aria-pressed={selectedChoice === 'neutral'}
-            onClick={() => setSelectedChoice('neutral')}
-            className={`rounded-full w-full h-full transition-all duration-200 ${selectedChoice === 'neutral' ? 'bg-white/70' : 'bg-white'
-              }`}
-          />
-        </div>
-
-        <div className='rounded-full md:w-21.75 w-10.5 md:h-21.75 h-10.5 p-0.75 bg-red-400 relative'>
-          <button
-            type='button'
-            aria-pressed={selectedChoice === 'no'}
-            onClick={() => setSelectedChoice('no')}
-            className='rounded-full w-full h-full bg-white transition-all duration-200'
-            style={
-              selectedChoice === 'no'
-                ? {
-                  background:
-                    'radial-gradient(50% 50% at 50% 50%, #FFF 0%, #E70518 100%)',
-                }
-                : undefined
-            }
-          />
-        </div>
-
-        <div className='rounded-full md:w-31.75 w-13 md:h-31.75 h-13 p-0.75 bg-red-400 relative'>
-          <button
-            type='button'
-            aria-pressed={selectedChoice === 'strongNo'}
-            onClick={() => setSelectedChoice('strongNo')}
-            className='rounded-full w-full h-full bg-white transition-all duration-200'
-            style={
-              selectedChoice === 'strongNo'
-                ? {
-                  background:
-                    'radial-gradient(50% 50% at 50% 50%, #FFF 0%, #E70518 100%)',
-                }
-                : undefined
-            }
-          />
-        </div>
-        {!isMobile() && (
-          <span className='text-red-400 font-bold'>Tidak Setuju</span>
-        )}
+        {!isMobile() && <span className='text-green-200 font-bold'>Setuju</span>}
+        {CHOICE_ITEMS.map((item) => {
+          const isActive = selectedChoice === item.value
+          return (
+            <div key={item.value} className={item.wrapperClassName}>
+              <button
+                type='button'
+                aria-label={item.label}
+                aria-pressed={isActive}
+                onClick={() => onSelectChoice(item.value)}
+                className={`rounded-full w-full h-full transition-all duration-200 ${
+                  isActive ? item.activeClassName || '' : ''
+                } ${!isActive || !item.activeClassName ? 'bg-white' : ''}`}
+                style={isActive ? item.activeStyle : undefined}
+              />
+            </div>
+          )
+        })}
+        {!isMobile() && <span className='text-red-400 font-bold'>Tidak Setuju</span>}
       </div>
     </div>
   )

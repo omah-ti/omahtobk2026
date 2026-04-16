@@ -7,14 +7,12 @@ import (
 	"minat-bakat-service/internal/logger"
 	"minat-bakat-service/internal/models"
 	"minat-bakat-service/internal/repositories"
-	"strconv"
 	"strings"
 )
 
 type MinatBakatService interface {
 	GetQuestions(c context.Context) ([]models.MbQuestion, error)
 	ProcessMinatBakatAnswers(c context.Context, userID int, req models.SubmitMinatBakatRequest) (*models.MinatBakatResult, error)
-	ProcessLegacyMinatBakatAnswers(c context.Context, userID int, answers []models.MinatBakatAnswers) (*models.MinatBakatResult, error)
 	GetMinatBakatAttempt(c context.Context, userID int) (*models.MinatBakatAttempt, error)
 	GetMinatBakatAttemptHistory(c context.Context, userID, limit, offset int) (*models.MinatBakatAttemptHistory, error)
 	GetLatestResult(c context.Context, userID int) (*models.MinatBakatResult, error)
@@ -30,52 +28,241 @@ func NewMinatBakatService(minatBakatRepo repositories.MbRepo) MinatBakatService 
 
 const (
 	defaultAssessmentVersion = "dna-it-v1"
-	defaultScoringVersion    = "scoring-v2"
+	defaultScoringVersion    = "scoring-v4"
 )
 
-var roleWeights = map[string]map[string]float64{
-	"Data Engineer / Big Data Architect": {
-		"analytical":    0.35,
-		"detail":        0.25,
-		"system":        0.25,
-		"security":      0.10,
-		"communication": 0.05,
+type roleDefinition struct {
+	Slug              string
+	Title             string
+	FirstDescription  string
+	SecondDescription string
+	Weights           map[string]float64
+}
+
+var roleDefinitions = []roleDefinition{
+	{
+		Slug:              "backend",
+		Title:             "BACK END",
+		FirstDescription:  "Back End Developer bertanggung jawab membangun logika sisi server dan arsitektur basis data yang kokoh. Fokus utamamu adalah merancang API yang efisien, mengelola sistem manajemen data yang aman, serta memastikan stabilitas infrastruktur agar aplikasi dapat berjalan tanpa hambatan.",
+		SecondDescription: "Kamu berperan penting dalam menjaga mesin penggerak utama di balik layar tetap beroperasi. Dengan menguasai bahasa pemrograman server dan optimasi kueri basis data, kamu memastikan sistem tidak hanya aman dari ancaman tetapi juga mampu menangani lonjakan pengguna dengan baik bagi semua orang.",
+		Weights: map[string]float64{
+			"analytical":    0.30,
+			"detail":        0.20,
+			"system":        0.30,
+			"security":      0.15,
+			"creative":      0.03,
+			"communication": 0.02,
+		},
 	},
-	"AI & Machine Learning Engineer": {
-		"analytical":    0.40,
-		"creative":      0.25,
-		"system":        0.20,
-		"detail":        0.10,
-		"communication": 0.05,
+	{
+		Slug:              "frontend",
+		Title:             "FRONT END",
+		FirstDescription:  "Front End Developer bertanggung jawab membangun antarmuka digital yang interaktif dan responsif menggunakan HTML, CSS, dan JavaScript. Fokus utamamu adalah mengubah desain visual menjadi kode nyata yang fungsional, memastikan setiap elemen UI berjalan mulus di berbagai perangkat, serta mengoptimalkan kecepatan akses demi pengalaman pengguna yang maksimal.",
+		SecondDescription: "Kamu berperan penting dalam menjembatani sisi estetika desain dengan logika pemrograman. Dengan menguasai struktur kode yang bersih dan integrasi data yang efisien, kamu memastikan aplikasi tidak hanya terlihat menarik tetapi juga memiliki performa tinggi dan aksesibilitas yang baik bagi semua orang.",
+		Weights: map[string]float64{
+			"creative":      0.32,
+			"system":        0.24,
+			"communication": 0.20,
+			"detail":        0.14,
+			"analytical":    0.08,
+			"security":      0.02,
+		},
 	},
-	"Product Manager / Tech Leadership": {
-		"communication": 0.35,
-		"analytical":    0.25,
-		"system":        0.20,
-		"creative":      0.10,
-		"detail":        0.10,
+	{
+		Slug:              "uiux",
+		Title:             "UI/UX DESIGNER",
+		FirstDescription:  "UI/UX Designer bertanggung jawab merancang antarmuka visual yang estetis sekaligus menciptakan alur pengalaman pengguna yang intuitif. Fokus utamamu adalah melakukan riset kebutuhan audiens, menyusun wireframe interaktif, serta membuat prototipe desain yang fungsional di berbagai ukuran layar.",
+		SecondDescription: "Kamu berperan penting dalam menghubungkan empati pengguna dengan solusi produk digital. Dengan menguasai prinsip desain empati dan tipografi yang harmonis, kamu memastikan aplikasi tidak hanya indah dipandang tetapi juga sangat mudah digunakan dan dinavigasi bagi semua orang.",
+		Weights: map[string]float64{
+			"creative":      0.36,
+			"communication": 0.28,
+			"detail":        0.14,
+			"system":        0.12,
+			"analytical":    0.08,
+			"security":      0.02,
+		},
 	},
-	"UI/UX Designer or Front-End Engineer": {
-		"creative":      0.35,
-		"communication": 0.25,
-		"system":        0.20,
-		"detail":        0.15,
-		"analytical":    0.05,
+	{
+		Slug:              "cysec",
+		Title:             "CYBER SECURITY",
+		FirstDescription:  "Cyber Security Analyst bertanggung jawab melindungi sistem jaringan dan data sensitif dari berbagai ancaman digital. Fokus utamamu adalah memantau aktivitas mencurigakan, melakukan pengujian kerentanan sistem, serta merancang protokol keamanan berlapis untuk mencegah kebocoran informasi.",
+		SecondDescription: "Kamu berperan penting dalam membangun benteng pertahanan utama untuk ekosistem digital. Dengan menguasai teknik enkripsi data dan analisis forensik jaringan, kamu memastikan privasi pengguna tetap terjaga dan platform beroperasi dengan tingkat kepercayaan yang tinggi bagi semua orang.",
+		Weights: map[string]float64{
+			"security":      0.45,
+			"analytical":    0.22,
+			"detail":        0.18,
+			"system":        0.10,
+			"communication": 0.03,
+			"creative":      0.02,
+		},
 	},
-	"Developer Advocate / Tech Consultant": {
-		"communication": 0.45,
-		"creative":      0.20,
-		"analytical":    0.15,
-		"system":        0.10,
-		"detail":        0.10,
+	{
+		Slug:              "data-scientist",
+		Title:             "DATA SCIENTIST",
+		FirstDescription:  "Data Scientist bertanggung jawab mengolah kumpulan data mentah menjadi wawasan bisnis yang berharga dan dapat ditindaklanjuti. Fokus utamamu adalah merancang model prediktif, membersihkan anomali data, serta memvisualisasikan tren kompleks menjadi informasi yang mudah dipahami oleh tim.",
+		SecondDescription: "Kamu berperan penting dalam mengarahkan strategi produk berdasarkan fakta dan angka nyata. Dengan menguasai algoritma machine learning dan bahasa pemrograman analitik, kamu memastikan keputusan bisnis tidak lagi berdasarkan tebakan tetapi didukung oleh akurasi data bagi semua orang.",
+		Weights: map[string]float64{
+			"analytical":    0.40,
+			"detail":        0.22,
+			"system":        0.18,
+			"communication": 0.10,
+			"creative":      0.08,
+			"security":      0.02,
+		},
 	},
-	"Backend Engineer": {
-		"analytical":    0.30,
-		"system":        0.30,
-		"detail":        0.20,
-		"security":      0.15,
-		"communication": 0.05,
+	{
+		Slug:              "dsai",
+		Title:             "DSAI",
+		FirstDescription:  "AI Engineer bertanggung jawab merancang dan melatih model kecerdasan buatan untuk mengotomatisasi sistem yang kompleks. Fokus utamamu adalah membangun jaringan saraf tiruan, mengimplementasikan pemrosesan bahasa alami, serta mengoptimalkan algoritma agar mesin dapat belajar secara mandiri.",
+		SecondDescription: "Kamu berperan penting dalam membawa inovasi masa depan ke dalam produk digital masa kini. Dengan menguasai logika matematika lanjutan dan arsitektur model komputasi, kamu memastikan teknologi tidak hanya menjadi alat pasif tetapi juga asisten cerdas yang proaktif bagi semua orang.",
+		Weights: map[string]float64{
+			"analytical":    0.38,
+			"creative":      0.24,
+			"system":        0.18,
+			"detail":        0.12,
+			"communication": 0.05,
+			"security":      0.03,
+		},
 	},
+	{
+		Slug:              "mobapps",
+		Title:             "MOBILE DEVELOPMENT",
+		FirstDescription:  "Mobile Developer bertanggung jawab merancang dan membangun aplikasi ponsel pintar yang berjalan mulus di sistem operasi iOS maupun Android. Fokus utamamu adalah menyusun kode yang efisien, mengintegrasikan fitur perangkat keras seperti kamera, serta memastikan konsistensi antarmuka di berbagai ukuran gawai.",
+		SecondDescription: "Kamu berperan penting dalam membawa teknologi agar selalu berada dalam genggaman pengguna. Dengan menguasai kerangka kerja aplikasi seluler dan manajemen memori yang baik, kamu memastikan aplikasi tidak hanya kaya fitur tetapi juga hemat baterai dan responsif bagi semua orang.",
+		Weights: map[string]float64{
+			"system":        0.30,
+			"detail":        0.20,
+			"creative":      0.20,
+			"analytical":    0.14,
+			"communication": 0.10,
+			"security":      0.06,
+		},
+	},
+	{
+		Slug:              "cloud-engineer",
+		Title:             "CLOUD ENGINEER",
+		FirstDescription:  "Cloud Engineer bertanggung jawab menjembatani proses pengembangan perangkat lunak dengan operasi IT melalui sistem otomatisasi komputasi awan. Fokus utamamu adalah merancang alur integrasi berkelanjutan, mengelola server virtual, serta memantau kesehatan infrastruktur agar selalu tersedia setiap saat.",
+		SecondDescription: "Kamu berperan penting dalam mempercepat siklus peluncuran fitur baru ke tangan pengguna. Dengan menguasai arsitektur sistem terdistribusi dan manajemen kontainer aplikasi, kamu memastikan platform tidak hanya stabil saat pembaruan tetapi juga skalabel dan andal bagi semua orang.",
+		Weights: map[string]float64{
+			"system":        0.34,
+			"security":      0.20,
+			"analytical":    0.20,
+			"detail":        0.16,
+			"communication": 0.08,
+			"creative":      0.02,
+		},
+	},
+	{
+		Slug:              "gamedev",
+		Title:             "GAME DEVELOPMENT",
+		FirstDescription:  "Game Developer bertanggung jawab mengubah baris kode dan aset visual menjadi pengalaman interaktif yang imersif dan hidup. Fokus utamamu adalah merancang logika permainan yang kompleks, mengoptimalkan mekanik gameplay, serta memastikan performa aplikasi tetap lancar di berbagai perangkat melalui penguasaan game engine.",
+		SecondDescription: "Kamu berperan penting dalam menghidupkan visi kreatif ke dalam dunia digital yang dapat dimainkan. Dengan menguasai arsitektur sistem real-time dan integrasi aset multimedia, kamu memastikan bahwa setiap interaksi terasa responsif, duniamu bebas dari kendala teknis, serta setiap pembaruan konten memberikan petualangan yang tak terlupakan bagi para pemain.",
+		Weights: map[string]float64{
+			"creative":      0.34,
+			"system":        0.24,
+			"analytical":    0.18,
+			"detail":        0.12,
+			"communication": 0.08,
+			"security":      0.04,
+		},
+	},
+}
+
+var roleBySlug = map[string]roleDefinition{}
+
+var roleAliasToSlug = map[string]string{}
+
+func init() {
+	for _, def := range roleDefinitions {
+		roleBySlug[def.Slug] = def
+		roleAliasToSlug[normalizeRoleKey(def.Slug)] = def.Slug
+		roleAliasToSlug[normalizeRoleKey(def.Title)] = def.Slug
+	}
+}
+
+func normalizeRoleKey(raw string) string {
+	normalized := strings.ToLower(strings.TrimSpace(raw))
+	replacer := strings.NewReplacer("-", " ", "_", " ", "/", " ", "&", " and ")
+	normalized = replacer.Replace(normalized)
+	return strings.Join(strings.Fields(normalized), " ")
+}
+
+func resolveRoleDefinition(raw string) (roleDefinition, bool) {
+	normalized := normalizeRoleKey(raw)
+	if normalized == "" {
+		return roleDefinition{}, false
+	}
+
+	if role, ok := roleBySlug[normalized]; ok {
+		return role, true
+	}
+
+	if slug, ok := roleAliasToSlug[normalized]; ok {
+		role, exists := roleBySlug[slug]
+		if exists {
+			return role, true
+		}
+	}
+
+	switch {
+	case strings.Contains(normalized, "back"):
+		return roleBySlug["backend"], true
+	case strings.Contains(normalized, "front"):
+		return roleBySlug["frontend"], true
+	case strings.Contains(normalized, "ui") || strings.Contains(normalized, "ux"):
+		return roleBySlug["uiux"], true
+	case strings.Contains(normalized, "cyber") || strings.Contains(normalized, "security"):
+		return roleBySlug["cysec"], true
+	case strings.Contains(normalized, "machine learning") || strings.Contains(normalized, "artificial") || strings.Contains(normalized, "ai"):
+		return roleBySlug["dsai"], true
+	case strings.Contains(normalized, "data"):
+		return roleBySlug["data-scientist"], true
+	case strings.Contains(normalized, "mobile"):
+		return roleBySlug["mobapps"], true
+	case strings.Contains(normalized, "cloud") || strings.Contains(normalized, "devops"):
+		return roleBySlug["cloud-engineer"], true
+	case strings.Contains(normalized, "game"):
+		return roleBySlug["gamedev"], true
+	default:
+		return roleDefinition{}, false
+	}
+}
+
+func toRoleProfile(role roleDefinition) models.MinatBakatRoleProfile {
+	return models.MinatBakatRoleProfile{
+		Slug:              role.Slug,
+		Title:             role.Title,
+		FirstDescription:  role.FirstDescription,
+		SecondDescription: role.SecondDescription,
+	}
+}
+
+func enrichRoleProfile(result *models.MinatBakatResult) *models.MinatBakatResult {
+	if result == nil {
+		return nil
+	}
+
+	candidates := []string{result.TopRoleSlug, result.TopRoleTitle, result.DNATop}
+	for _, candidate := range candidates {
+		role, ok := resolveRoleDefinition(candidate)
+		if !ok {
+			continue
+		}
+
+		result.TopRoleSlug = role.Slug
+		result.TopRoleTitle = role.Title
+		result.TopRoleProfile = toRoleProfile(role)
+		if strings.TrimSpace(result.DNATop) == "" {
+			result.DNATop = role.Title
+		}
+		return result
+	}
+
+	if strings.TrimSpace(result.TopRoleTitle) == "" {
+		result.TopRoleTitle = result.DNATop
+	}
+
+	return result
 }
 
 func (s *minatBakatService) GetQuestions(c context.Context) ([]models.MbQuestion, error) {
@@ -86,19 +273,6 @@ func (s *minatBakatService) GetQuestions(c context.Context) ([]models.MbQuestion
 	}
 
 	return questions, nil
-}
-
-func (s *minatBakatService) ProcessLegacyMinatBakatAnswers(c context.Context, userID int, answers []models.MinatBakatAnswers) (*models.MinatBakatResult, error) {
-	converted := make([]models.MbAnswerInput, 0, len(answers))
-	for _, ans := range answers {
-		likertValue, err := parseLegacyLikert(ans.Jawaban)
-		if err != nil {
-			return nil, err
-		}
-		converted = append(converted, models.MbAnswerInput{KodeSoal: ans.KodeSoal, LikertValue: likertValue})
-	}
-
-	return s.ProcessMinatBakatAnswers(c, userID, models.SubmitMinatBakatRequest{Answers: converted})
 }
 
 func (s *minatBakatService) ProcessMinatBakatAnswers(c context.Context, userID int, req models.SubmitMinatBakatRequest) (*models.MinatBakatResult, error) {
@@ -178,24 +352,29 @@ func (s *minatBakatService) ProcessMinatBakatAnswers(c context.Context, userID i
 		dimensionScores[dim] = total / count
 	}
 
-	roleScores := make(map[string]float64, len(roleWeights))
+	roleScores := make(map[string]float64, len(roleDefinitions))
 	var (
-		topRole  string
-		topScore float64
-		totalAll float64
+		topRoleDef *roleDefinition
+		topScore   float64
+		totalAll   float64
 	)
 
-	for role, weights := range roleWeights {
+	for _, role := range roleDefinitions {
 		var score float64
-		for dim, weight := range weights {
+		for dim, weight := range role.Weights {
 			score += dimensionScores[dim] * weight
 		}
-		roleScores[role] = score
+		roleScores[role.Title] = score
 		totalAll += score
-		if score > topScore || topRole == "" {
+		if score > topScore || topRoleDef == nil {
 			topScore = score
-			topRole = role
+			candidate := role
+			topRoleDef = &candidate
 		}
+	}
+
+	if topRoleDef == nil {
+		return nil, errors.New("failed to determine top role")
 	}
 
 	confidence := 0.0
@@ -229,7 +408,10 @@ func (s *minatBakatService) ProcessMinatBakatAnswers(c context.Context, userID i
 	result := &models.MinatBakatResult{
 		AttemptID:         attemptID,
 		UserID:            userID,
-		DNATop:            topRole,
+		DNATop:            topRoleDef.Title,
+		TopRoleSlug:       topRoleDef.Slug,
+		TopRoleTitle:      topRoleDef.Title,
+		TopRoleProfile:    toRoleProfile(*topRoleDef),
 		Confidence:        confidence,
 		TotalQuestions:    len(questions),
 		AssessmentVersion: assessmentVersion,
@@ -242,7 +424,7 @@ func (s *minatBakatService) ProcessMinatBakatAnswers(c context.Context, userID i
 		return nil, err
 	}
 
-	if err := s.minatBakatRepo.InsertAttemptHistoryTx(c, tx, userID, topRole); err != nil {
+	if err := s.minatBakatRepo.InsertAttemptHistoryTx(c, tx, userID, topRoleDef.Slug); err != nil {
 		return nil, err
 	}
 
@@ -262,6 +444,12 @@ func (s *minatBakatService) GetMinatBakatAttempt(c context.Context, userID int) 
 		return nil, err
 	}
 
+	if attempt != nil {
+		if role, ok := resolveRoleDefinition(attempt.BakatUser); ok {
+			attempt.BakatUser = role.Slug
+		}
+	}
+
 	return attempt, nil
 }
 
@@ -270,6 +458,12 @@ func (s *minatBakatService) GetMinatBakatAttemptHistory(c context.Context, userI
 	if err != nil {
 		logger.LogErrorCtx(c, err, "Failed to get minat bakat attempt history", map[string]interface{}{"user_id": userID, "limit": limit, "offset": offset})
 		return nil, err
+	}
+
+	for i := range items {
+		if role, ok := resolveRoleDefinition(items[i].BakatUser); ok {
+			items[i].BakatUser = role.Slug
+		}
 	}
 
 	return &models.MinatBakatAttemptHistory{
@@ -287,33 +481,5 @@ func (s *minatBakatService) GetLatestResult(c context.Context, userID int) (*mod
 		return nil, err
 	}
 
-	return result, nil
-}
-
-func parseLegacyLikert(raw string) (int, error) {
-	normalized := strings.ToLower(strings.TrimSpace(raw))
-	if normalized == "" {
-		return 0, errors.New("legacy jawaban cannot be empty")
-	}
-
-	if n, err := strconv.Atoi(normalized); err == nil {
-		if n < 1 || n > 5 {
-			return 0, errors.New("legacy likert value must be between 1 and 5")
-		}
-		return n, nil
-	}
-
-	mapping := map[string]int{
-		"sangat_setuju":       5,
-		"setuju":              4,
-		"netral":              3,
-		"tidak_setuju":        2,
-		"sangat_tidak_setuju": 1,
-	}
-
-	if val, ok := mapping[normalized]; ok {
-		return val, nil
-	}
-
-	return 0, fmt.Errorf("unsupported legacy jawaban format: %s", raw)
+	return enrichRoleProfile(result), nil
 }
