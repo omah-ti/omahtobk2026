@@ -11,6 +11,7 @@ import NavbarResolver from '@/components/home/navbar-resolver'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import AlumniCarousel from './alumni-carousel'
+import Footer from '@/modules/home/footer'
 
 const UI_ONLY_TEST_MODE = process.env.NEXT_PUBLIC_CMU_UI_ONLY === 'true'
 
@@ -99,7 +100,7 @@ export default async function CareerMatchUpResult() {
     return (
       <>
         <NavbarResolver />
-        <Container className='bg-white gap-9 px-0 md:px-10'>
+        <Container className='bg-white gap-9 mb-14 px-0 md:px-20 lg:px-30'>
           <div className='flex p-4 md:p-10 md:bg-[#e9effd] rounded-[10px] flex-col items-center justify-center gap-8 '>
             <div className='flex flex-col-reverse md:flex-row justify-between items-start gap-8 w-full'>
               <div className='text-center lg:text-left w-full justify-between'>
@@ -162,6 +163,7 @@ export default async function CareerMatchUpResult() {
             </div>
           </div>
         </Container>
+        <Footer/>
       </>
     )
   } catch (error) {
