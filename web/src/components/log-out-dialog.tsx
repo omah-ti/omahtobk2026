@@ -66,7 +66,7 @@ const LogOutDialog = ({ children }: { children: React.ReactNode }) => {
             <Button
               onClick={handleLogout}
               variant={'destructive'}
-              className='text-error-600! hover:bg-error-400! bg-transparent hover:cursor-pointer hover:text-white!'
+              className='text-red-700 hover:bg-error-400 bg-transparent hover:cursor-pointer hover:text-red-400 focus:ring-red-400 focus:ring-offset-red-100 disabled:pointer-events-none data-[state=open]:bg-transparent'
             >
               Logout
             </Button>
