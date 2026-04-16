@@ -1,42 +1,48 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 export const dynamic = 'force-dynamic'
 
 import React from 'react'
-import { getMbAttempt } from '@/lib/fetch/mb-fetch'
+import { getMbAttempt, getMbLatestResult } from '@/lib/fetch/mb-fetch'
 import ResultClient from './ResultClient'
 import { cookies } from 'next/headers'
-import Enthusiasts from '@/modules/career-match-up/enthusiasts'
-import { DIVISIONS } from '@/lib/helpers/divisions'
+import { resolveCareerProfile } from '@/modules/career-match-up/career-profiles'
 import Container from '@/components/container'
 import Image from 'next/image'
 import NavbarResolver from '@/components/home/navbar-resolver'
-import Link from 'next/dist/client/link'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 
 const UI_ONLY_TEST_MODE = process.env.NEXT_PUBLIC_CMU_UI_ONLY === 'true'
 
 const MOCK_ATTEMPT_DATA = {
-  bakat_user: 'dsai',
-  dominantCareer: 'dsai',
-  careerScores: {
-    dsai: 0.87,
-    frontend: 0.74,
-    backend: 0.69,
-    uiux: 0.58,
-  },
+  bakat_user: 'backend',
+}
+
+const MOCK_RESULT_DATA = {
+  dna_it_top: 'BACK END',
 }
 
 export default async function CareerMatchUpResult() {
   try {
-    const attemptData = UI_ONLY_TEST_MODE
-      ? MOCK_ATTEMPT_DATA
+    const { attemptData, latestResult } = UI_ONLY_TEST_MODE
+      ? {
+        attemptData: MOCK_ATTEMPT_DATA,
+        latestResult: MOCK_RESULT_DATA,
+      }
       : await (async () => {
         const cookieStore = await cookies()
         const accessToken = cookieStore.get('access_token')?.value
-        return getMbAttempt(accessToken, false)
+        const [attempt, result] = await Promise.all([
+          getMbAttempt(accessToken, false),
+          getMbLatestResult(accessToken, false),
+        ])
+
+        return {
+          attemptData: attempt,
+          latestResult: result,
+        }
       })()
 
-    if (!attemptData) {
+    if (!attemptData && !latestResult) {
       return (
         <div className='flex min-h-screen flex-col items-center justify-center p-4'>
           <div className='max-w-lg text-center'>
@@ -51,21 +57,21 @@ export default async function CareerMatchUpResult() {
       )
     }
 
-    // Extract the dominant career and find its information from DIVISIONS
-    const dominantCareer = attemptData.bakat_user || ''
-    const careerDivision = DIVISIONS.find(
-      (div) => div.slug === dominantCareer.toLowerCase()
-    )
+    const rawRoleName = latestResult?.dna_it_top || attemptData?.bakat_user || ''
+    const profile = resolveCareerProfile(rawRoleName)
+    const dominantCareerTitle = profile?.title || rawRoleName || 'Role belum tersedia'
+    const firstDescription =
+      profile?.firstDescription ||
+      `Kamu menunjukkan potensi kuat pada jalur ${dominantCareerTitle}.`
+    const secondDescription =
+      profile?.secondDescription ||
+      'Terus eksplorasi role ini dan asah kemampuanmu melalui proyek nyata.'
+    const imageSlug = profile?.imageSlug || attemptData?.bakat_user || 'dsai'
 
     const results = {
-      ...attemptData,
-      dominantCareerTitle: careerDivision?.name || dominantCareer,
-      firstDescription:
-        careerDivision?.career.firstDescription ||
-        `You show great potential in the ${dominantCareer} field.`,
-      secondDescription:
-        careerDivision?.career.secondDescription ||
-        `Continue exploring opportunities in this area to develop your skills further.`,
+      dominantCareerTitle,
+      firstDescription,
+      secondDescription,
     }
 
     return (
@@ -79,12 +85,12 @@ export default async function CareerMatchUpResult() {
                   Role yang cocok untukmu
                 </p>
                 <h2 className='text-[34px] md:text-[48px] font-bold'>
-                  {results.dominantCareerTitle || results.dominantCareer}
+                  {results.dominantCareerTitle}
                 </h2>
               </div>
               <div className='h-auto w-full md:w-[205px] px-10 md:px-0 items-center justify-center overflow-hidden md:mr-15'>
                 <Image
-                  src={`/assets/divisions/${dominantCareer || 'dsai'}.webp`}
+                  src={`/assets/divisions/${imageSlug}.webp`}
                   alt=''
                   width={205}
                   height={300}

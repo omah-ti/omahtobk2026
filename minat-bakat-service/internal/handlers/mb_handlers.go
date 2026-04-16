@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"minat-bakat-service/internal/logger"
@@ -39,39 +38,20 @@ func (h *MinatBakatHandler) ProcessMinatBakatHandler(c *gin.Context) {
 		return
 	}
 
-	body, err := c.GetRawData()
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
-		return
-	}
-
 	var req models.SubmitMinatBakatRequest
-	if err := json.Unmarshal(body, &req); err == nil && len(req.Answers) > 0 {
-		result, svcErr := h.minatBakatService.ProcessMinatBakatAnswers(c, userID, req)
-		if svcErr != nil {
-			logger.LogErrorCtx(c, svcErr, "Failed to process MB answers", map[string]interface{}{"user_id": userID})
-			c.JSON(http.StatusBadRequest, gin.H{"error": svcErr.Error()})
-			return
-		}
-
-		c.JSON(http.StatusOK, gin.H{"top_interest": result.DNATop, "data": result})
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid payload format"})
 		return
 	}
 
-	var legacyAnswers []models.MinatBakatAnswers
-	if err := json.Unmarshal(body, &legacyAnswers); err == nil && len(legacyAnswers) > 0 {
-		result, svcErr := h.minatBakatService.ProcessLegacyMinatBakatAnswers(c, userID, legacyAnswers)
-		if svcErr != nil {
-			logger.LogErrorCtx(c, svcErr, "Failed to process legacy MB answers", map[string]interface{}{"user_id": userID})
-			c.JSON(http.StatusBadRequest, gin.H{"error": svcErr.Error()})
-			return
-		}
-
-		c.JSON(http.StatusOK, gin.H{"top_interest": result.DNATop, "data": result})
+	result, svcErr := h.minatBakatService.ProcessMinatBakatAnswers(c, userID, req)
+	if svcErr != nil {
+		logger.LogErrorCtx(c, svcErr, "Failed to process MB answers", map[string]interface{}{"user_id": userID})
+		c.JSON(http.StatusBadRequest, gin.H{"error": svcErr.Error()})
 		return
 	}
 
-	c.JSON(http.StatusBadRequest, gin.H{"error": "invalid payload format"})
+	c.JSON(http.StatusOK, gin.H{"top_interest": result.DNATop, "data": result})
 }
 
 func (h *MinatBakatHandler) GetMinatBakatAttemptHandler(c *gin.Context) {

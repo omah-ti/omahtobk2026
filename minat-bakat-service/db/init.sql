@@ -36,11 +36,18 @@ CREATE TABLE IF NOT EXISTS mb_attempts (
     attempt_id SERIAL PRIMARY KEY,
     user_id INT NOT NULL,
     assessment_version VARCHAR(36) NOT NULL DEFAULT 'dna-it-v1',
-    scoring_version VARCHAR(36) NOT NULL DEFAULT 'scoring-v1',
+    scoring_version VARCHAR(36) NOT NULL DEFAULT 'scoring-v4',
     status VARCHAR(20) NOT NULL DEFAULT 'completed' CHECK (status IN ('in_progress', 'completed', 'cancelled')),
     started_at TIMESTAMP NOT NULL DEFAULT NOW(),
     completed_at TIMESTAMP
 );
+
+ALTER TABLE mb_attempts
+    ALTER COLUMN scoring_version SET DEFAULT 'scoring-v4';
+
+UPDATE mb_attempts
+SET scoring_version = 'scoring-v4'
+WHERE scoring_version IS NULL OR scoring_version = '' OR scoring_version = 'scoring-v3';
 
 CREATE TABLE IF NOT EXISTS mb_attempt_answers (
     attempt_id INT NOT NULL,
@@ -69,6 +76,34 @@ CREATE TABLE IF NOT EXISTS mb_results (
 
 CREATE INDEX IF NOT EXISTS idx_mb_results_user_created
 ON mb_results (user_id, created_at DESC, result_id DESC);
+
+UPDATE minat_bakat_attempt_history
+SET bakat_user = CASE
+    WHEN LOWER(TRIM(bakat_user)) IN ('backend', 'back end', 'back-end', 'back end developer', 'backend engineer') THEN 'backend'
+    WHEN LOWER(TRIM(bakat_user)) IN ('frontend', 'front end', 'front-end', 'fron end', 'front end developer', 'developer advocate / tech consultant') THEN 'frontend'
+    WHEN LOWER(TRIM(bakat_user)) IN ('ui/ux designer', 'ui ux designer', 'uiux', 'ui/ux designer or front-end engineer') THEN 'uiux'
+    WHEN LOWER(TRIM(bakat_user)) IN ('cyber security', 'cysec', 'security analyst') THEN 'cysec'
+    WHEN LOWER(TRIM(bakat_user)) IN ('ct', 'data scientist', 'data engineer / big data architect', 'data engineer', 'big data architect') THEN 'data-scientist'
+    WHEN LOWER(TRIM(bakat_user)) IN ('dsai', 'ai engineer', 'ai & machine learning engineer', 'machine learning engineer') THEN 'dsai'
+    WHEN LOWER(TRIM(bakat_user)) IN ('mobile development', 'mobile developer', 'mobapps', 'mobile apps') THEN 'mobapps'
+    WHEN LOWER(TRIM(bakat_user)) IN ('cloud engineer', 'devops', 'devops engineer', 'product manager / tech leadership') THEN 'cloud-engineer'
+    WHEN LOWER(TRIM(bakat_user)) IN ('game development', 'game developer', 'gamedev') THEN 'gamedev'
+    ELSE bakat_user
+END;
+
+UPDATE mb_results
+SET dna_it_top = CASE
+    WHEN LOWER(TRIM(dna_it_top)) IN ('backend', 'back end', 'back-end', 'back end developer', 'backend engineer') THEN 'BACK END'
+    WHEN LOWER(TRIM(dna_it_top)) IN ('frontend', 'front end', 'front-end', 'fron end', 'front end developer', 'developer advocate / tech consultant') THEN 'FRONT END'
+    WHEN LOWER(TRIM(dna_it_top)) IN ('ui/ux designer', 'ui ux designer', 'uiux', 'ui/ux designer or front-end engineer') THEN 'UI/UX DESIGNER'
+    WHEN LOWER(TRIM(dna_it_top)) IN ('cyber security', 'cysec', 'security analyst') THEN 'CYBER SECURITY'
+    WHEN LOWER(TRIM(dna_it_top)) IN ('ct', 'data scientist', 'data engineer / big data architect', 'data engineer', 'big data architect') THEN 'DATA SCIENTIST'
+    WHEN LOWER(TRIM(dna_it_top)) IN ('dsai', 'ai engineer', 'ai & machine learning engineer', 'machine learning engineer') THEN 'DSAI'
+    WHEN LOWER(TRIM(dna_it_top)) IN ('mobile development', 'mobile developer', 'mobapps', 'mobile apps') THEN 'MOBILE DEVELOPMENT'
+    WHEN LOWER(TRIM(dna_it_top)) IN ('cloud engineer', 'devops', 'devops engineer', 'product manager / tech leadership') THEN 'CLOUD ENGINEER'
+    WHEN LOWER(TRIM(dna_it_top)) IN ('game development', 'game developer', 'gamedev') THEN 'GAME DEVELOPMENT'
+    ELSE dna_it_top
+END;
 
 INSERT INTO mb_questions (kode_soal, statement, dimension, reverse_scored, is_active)
 VALUES
