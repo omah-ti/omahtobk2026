@@ -1,6 +1,5 @@
 export const dynamic = 'force-dynamic'
 
-import React from 'react'
 import { getMbAttempt, getMbLatestResult } from '@/lib/fetch/mb-fetch'
 import ResultClient from './ResultClient'
 import { cookies } from 'next/headers'
@@ -12,58 +11,23 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import AlumniCarousel from './alumni-carousel'
 import Footer from '@/modules/home/footer'
-
-const UI_ONLY_TEST_MODE = process.env.NEXT_PUBLIC_CMU_UI_ONLY === 'true'
-
-const MOCK_ATTEMPT_DATA = {
-  bakat_user: 'backend',
-}
-
-const MOCK_RESULT_DATA = {
-  dna_it_top: 'BACK END',
-}
-
-const MOCK_ALUMNI = [
-  {
-    name: 'Rizky Pratama',
-    role: 'Front-End Development',
-    image: '/assets/alumni/placeholder.webp',
-    desc: 'Rizky adalah seorang Front-End Developer yang memiliki keahlian dalam menciptakan antarmuka pengguna yang menarik dan responsif. Dengan pengalaman dalam HTML, CSS, dan JavaScript, Rizky telah berhasil mengembangkan berbagai proyek web yang memukau, mulai dari website perusahaan hingga aplikasi interaktif. Passion-nya dalam desain dan pengembangan web membuatnya selalu berusaha untuk memberikan pengalaman pengguna terbaik melalui kode yang efisien dan kreatif.',
-  },
-  {
-    name: 'Siti Aisyah',
-    role: `Back-End Development || CS'10`,
-    image: '/assets/alumni/placeholder.webp',
-    desc: 'Siti adalah seorang Back-End Developer yang ahli dalam membangun sistem server dan database yang kuat. Dengan pengalaman dalam bahasa pemrograman seperti Python dan Java, Siti telah mengembangkan berbagai aplikasi web yang handal dan scalable. Keahliannya dalam mengelola data dan logika bisnis membuatnya menjadi sosok penting dalam tim pengembangan, memastikan bahwa aplikasi berjalan dengan lancar dan aman.',
-  },
-  {
-    name: 'TROLLLL',
-    role: `Back-End Development || CS'10`,
-    image: '/assets/alumni/placeholder.webp',
-    desc: 'Siti adalah seorang Back-End Developer yang ahli dalam membangun sistem server dan database yang kuat. Dengan pengalaman dalam bahasa pemrograman seperti Python dan Java, Siti telah mengembangkan berbagai aplikasi web yang handal dan scalable. Keahliannya dalam mengelola data dan logika bisnis membuatnya menjadi sosok penting dalam tim pengembangan, memastikan bahwa aplikasi berjalan dengan lancar dan aman.',
-  },
-]
+import { ALUMNI } from '@/lib/helpers/alumni'
 
 export default async function CareerMatchUpResult() {
   try {
-    const { attemptData, latestResult } = UI_ONLY_TEST_MODE
-      ? {
-        attemptData: MOCK_ATTEMPT_DATA,
-        latestResult: MOCK_RESULT_DATA,
-      }
-      : await (async () => {
-        const cookieStore = await cookies()
-        const accessToken = cookieStore.get('access_token')?.value
-        const [attempt, result] = await Promise.all([
-          getMbAttempt(accessToken, false),
-          getMbLatestResult(accessToken, false),
-        ])
+    const { attemptData, latestResult } = await (async () => {
+      const cookieStore = await cookies()
+      const accessToken = cookieStore.get('access_token')?.value
+      const [attempt, result] = await Promise.all([
+        getMbAttempt(accessToken, false),
+        getMbLatestResult(accessToken, false),
+      ])
 
-        return {
-          attemptData: attempt,
-          latestResult: result,
-        }
-      })()
+      return {
+        attemptData: attempt,
+        latestResult: result,
+      }
+    })()
 
     if (!attemptData && !latestResult) {
       return (
@@ -90,6 +54,17 @@ export default async function CareerMatchUpResult() {
       profile?.secondDescription ||
       'Terus eksplorasi role ini dan asah kemampuanmu melalui proyek nyata.'
     const imageSlug = profile?.imageSlug || attemptData?.bakat_user || 'dsai'
+    const normalizedDivision = imageSlug.toLowerCase() as
+      | 'frontend'
+      | 'backend'
+      | 'uiux'
+      | 'mobapps'
+      | 'cysec'
+      | 'dsai'
+      | 'gamedev'
+    const matchedAlumni = ALUMNI.filter(
+      (alumni) => alumni.division === normalizedDivision
+    )
 
     const results = {
       dominantCareerTitle,
@@ -142,7 +117,13 @@ export default async function CareerMatchUpResult() {
                 Gambaran Karir Alumni Sesuai dengan minat bakatmu
               </p>
             </div>
-            <AlumniCarousel items={MOCK_ALUMNI} />
+            {matchedAlumni.length > 0 ? (
+              <AlumniCarousel items={matchedAlumni} />
+            ) : (
+              <p className='text-center text-sm md:text-base text-neutral-900'>
+                belum ada alumni terdata untuk divisi ini
+              </p>
+            )}
           </div>
 
           {/* cta */}
@@ -163,7 +144,7 @@ export default async function CareerMatchUpResult() {
             </div>
           </div>
         </Container>
-        <Footer/>
+        <Footer />
       </>
     )
   } catch (error) {
