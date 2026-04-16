@@ -23,7 +23,7 @@ const CareerMatchUpLayout = async ({
   }
 
   return (
-    <main className=''>
+    <main className='px-0 md:px-20 lg:px-30'>
       <Navbar />
       {children}
     </main>
