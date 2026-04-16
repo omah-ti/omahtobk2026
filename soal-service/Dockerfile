@@ -13,13 +13,10 @@ RUN apk add --no-cache build-base libwebp-dev
 WORKDIR /app
 
 COPY go.mod go.sum ./
-RUN --mount=type=cache,id=gomodcache,target=/go/pkg/mod,sharing=locked \
-    go mod download
+RUN go mod download
 
 COPY . .
-RUN --mount=type=cache,id=gomodcache,target=/go/pkg/mod,sharing=locked \
-    --mount=type=cache,id=gobuildcache,target=/root/.cache/go-build,sharing=locked \
-    go build -trimpath -ldflags='-s -w' -o /out/soal-service ./main.go
+RUN go build -trimpath -ldflags='-s -w' -o /out/soal-service ./main.go
 
 FROM alpine:3.21
 
