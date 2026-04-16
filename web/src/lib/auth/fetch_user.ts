@@ -1,23 +1,8 @@
-/**
- * Functions to handle user authentication and data retrieval
- * @module auth/fetch_user
- */
-
-/**
- * Retrieves the current user's data from request headers
- * @async
- * @returns {Promise<User>} User object if headers exist, null otherwise
- */
-
-/**
- * Validates and fetches user profile data from authentication server
- * @async
- * @param {string} [accessToken] - Optional access token for authentication
- * @returns {Promise<any | null>} User profile data if request succeeds, null otherwise
- * @throws Will throw an error if the fetch request fails
- */
 import { cookies, headers } from 'next/headers'
-import { User } from '../types/types'
+
+import { fetchJson } from '@/lib/fetch/http'
+import { API_GATEWAY_URL } from '@/lib/types/url'
+import { User } from '@/lib/types/types'
 
 export const getAccessToken = async () => {
   const cookieStore = await cookies()
@@ -29,46 +14,38 @@ export const getRefreshToken = async () => {
   return cookieStore.get('refresh_token')?.value as string
 }
 
-const buildCookieHeader = (accessToken?: string, refreshToken?: string) => {
-  const cookieParts: string[] = []
-  if (accessToken) cookieParts.push(`access_token=${accessToken}`)
-  if (refreshToken) cookieParts.push(`refresh_token=${refreshToken}`)
-  return cookieParts.join('; ')
-}
-
 export async function fetchUser(): Promise<User> {
-  // First try to get user from headers
   const headersList = await headers()
   const username = headersList.get('x-user-username')
   const email = headersList.get('x-user-email')
   const asal_sekolah = headersList.get('x-user-asal_sekolah')
   const user_id = headersList.get('x-user-id')
 
-  // If headers have the user data, return it
   if (username && email && asal_sekolah && user_id) {
     return { username, email, asal_sekolah, user_id }
   }
 
-  // If headers don't have user data, try to fetch directly
   try {
     const accessToken = await getAccessToken()
     const refreshToken = await getRefreshToken()
-    if (accessToken || refreshToken) {
-      const userData = await fetchUserClient(accessToken, refreshToken)
-      if (userData) {
-        return {
-          username: userData.username,
-          email: userData.email,
-          asal_sekolah: userData.asal_sekolah,
-          user_id: userData.user_id,
-        }
+
+    if (!accessToken && !refreshToken) {
+      return null
+    }
+
+    const userData = await fetchUserClient(accessToken, refreshToken)
+    if (userData) {
+      return {
+        username: userData.username,
+        email: userData.email,
+        asal_sekolah: userData.asal_sekolah,
+        user_id: userData.user_id,
       }
     }
   } catch (error) {
     console.error('Error fetching user data:', error)
   }
 
-  // If all attempts fail, return null
   return null
 }
 
@@ -76,17 +53,18 @@ export const fetchUserClient = async (
   accessToken?: string,
   refreshToken?: string
 ) => {
-  const res = await fetch(`${process.env.API_GATEWAY_URL}/api/me`, {
-    method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-      Cookie: buildCookieHeader(accessToken, refreshToken),
-    },
-    credentials: 'include',
-  })
-  if (res.ok) {
-    return await res.json()
+  try {
+    return await fetchJson<{
+      username: string
+      email: string
+      asal_sekolah: string
+      user_id: string | number
+    }>(`${API_GATEWAY_URL}/api/me`, {
+      method: 'GET',
+      accessToken,
+      refreshToken,
+    })
+  } catch {
+    return null
   }
-
-  return null
 }

@@ -16,6 +16,7 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import { getAuthErrorMessage, loginAuth } from '@/lib/fetch/auth'
 import Link from 'next/link'
 import { toast } from 'sonner'
 
@@ -44,35 +45,18 @@ const LoginForm = () => {
   const handleLogin = async (values: z.infer<typeof formSchema>) => {
     setLoading(true)
     try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_GATEWAY_URL}/api/auth/login`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include', // Required to send cookies for authentication
-          body: JSON.stringify(values),
-        }
-      )
-
-      if (!response.ok) {
-        toast.error('Login gagal. ', {
-          description:
-            'Email atau kata sandi tidak valid. Mohon periksa kredensial Anda.',
-        })
-        setLoading(false)
-
-        return
-      }
+      await loginAuth(values)
 
       router.push('/')
       router.refresh()
-      // Redirect or handle successful login here
-    } catch (_error) {
-      toast.error('Login gagal. ', {
-        description: 'Ups! Terjadi kesalahan jaringan. Silahkan coba lagi.',
+    } catch (error: unknown) {
+      toast.error('Login gagal.', {
+        description: getAuthErrorMessage(
+          error,
+          'Email atau kata sandi tidak valid. Mohon periksa kredensial Anda.'
+        ),
       })
+    } finally {
       setLoading(false)
     }
   }

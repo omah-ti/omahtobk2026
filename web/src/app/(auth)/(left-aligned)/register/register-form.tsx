@@ -16,6 +16,7 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import { z } from 'zod'
+import { getAuthErrorMessage, registerAuth } from '@/lib/fetch/auth'
 
 const formSchema = z
   .object({
@@ -60,35 +61,25 @@ const RegisterForm = () => {
     },
   })
 
-  const handleLogin = async (values: z.infer<typeof formSchema>) => {
+  const handleRegister = async (values: z.infer<typeof formSchema>) => {
     try {
       setLoading(true)
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_GATEWAY_URL}/api/auth/register`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include',
-          body: JSON.stringify(values),
-        }
-      )
 
-      if (!response.ok) {
-        toast.error('Gagal membuat akun', {
-          description: `${response}`,
-        })
-        setLoading(false)
+      const { confirm_password: _confirmPassword, ...registerPayload } = values
+      const response = await registerAuth(registerPayload)
 
-        return
-      }
-      router.push('/login')
-    } catch (_error) {
-      console.error('Error:', _error)
-      toast.error('Gagal membuat akun', {
-        description: 'Ups! Terjadi kesalahan jaringan. Silahkan coba lagi.',
+      toast.success('Akun berhasil dibuat.', {
+        description: response.message || 'Silakan login untuk melanjutkan.',
       })
+      router.push('/login')
+    } catch (error: unknown) {
+      toast.error('Gagal membuat akun', {
+        description: getAuthErrorMessage(
+          error,
+          'Ups! Terjadi kesalahan jaringan. Silahkan coba lagi.'
+        ),
+      })
+    } finally {
       setLoading(false)
     }
   }
@@ -96,7 +87,7 @@ const RegisterForm = () => {
   return (
     <Form {...form}>
       <form
-        onSubmit={form.handleSubmit(handleLogin)}
+        onSubmit={form.handleSubmit(handleRegister)}
         className='flex w-full flex-col gap-4 text-left'
       >
         <FormField
@@ -184,7 +175,7 @@ const RegisterForm = () => {
               Loading...
             </>
           ) : (
-            'Masuk'
+            'Daftar'
           )}
         </Button>
       </form>

@@ -10,6 +10,7 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import { getAuthErrorMessage, resetPasswordAuth } from '@/lib/fetch/auth'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useParams, useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
@@ -30,7 +31,7 @@ const formSchema = z
 
 const ResetPasswordPage = () => {
   const router = useRouter()
-  const { token } = useParams()
+  const params = useParams<{ token: string | string[] }>()
   const [pending, setPending] = useState(false)
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -39,36 +40,34 @@ const ResetPasswordPage = () => {
   })
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    const rawToken = params?.token
+    const resetToken = Array.isArray(rawToken) ? rawToken[0] : rawToken
+
+    if (!resetToken) {
+      toast.error('Gagal mereset password', {
+        description: 'Token reset password tidak valid.',
+      })
+      return
+    }
+
     try {
       setPending(true)
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_GATEWAY_URL}/api/auth/reset-password`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            reset_token: token,
-            new_password: values.password,
-          }),
-        }
-      )
-      const data = await res.json()
 
-      if (!res.ok) {
-        toast.error('Gagal mereset password', {
-          description: `${data.error}`,
-        })
-        return
-      }
+      const response = await resetPasswordAuth({
+        reset_token: resetToken,
+        new_password: values.password,
+      })
 
       toast.success('Password berhasil direset', {
-        description: `${data.message}`,
+        description: response.message || 'Silakan login menggunakan password baru.',
       })
       router.push('/login')
     } catch (error: unknown) {
-      console.error('Error:', error)
       toast.error('Gagal mereset password', {
-        description: `${error instanceof Error ? error.message : 'Terjadi kesalahan jaringan. Silahkan coba lagi.'}`,
+        description: getAuthErrorMessage(
+          error,
+          'Terjadi kesalahan jaringan. Silahkan coba lagi.'
+        ),
       })
     } finally {
       setPending(false)

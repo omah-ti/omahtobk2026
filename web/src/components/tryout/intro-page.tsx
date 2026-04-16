@@ -1,7 +1,7 @@
 import Container from '@/components/container'
 import RemainingTime from '@/components/tryout/remaining-time'
 import TopBar from '@/components/tryout/top-bar'
-import { syncTryout } from '@/lib/fetch/tryout-test'
+import { getCurrentTryout, syncTryout } from '@/lib/fetch/tryout-test'
 import { cn } from '@/lib/utils'
 import { cookies } from 'next/headers'
 import Image from 'next/image'
@@ -14,18 +14,15 @@ import { SUBTESTS } from '@/lib/helpers/subtests'
 const IntroPage = async () => {
   const accessToken = (await cookies()).get('access_token')?.value as string
   const refreshToken = (await cookies()).get('refresh_token')?.value as string
-	const cookieParts: string[] = []
-	if (accessToken) cookieParts.push(`access_token=${accessToken}`)
-	if (refreshToken) cookieParts.push(`refresh_token=${refreshToken}`)
-	const cookieHeader = cookieParts.join('; ')
+  const currentTryout = await getCurrentTryout(
+    accessToken,
+    undefined,
+    refreshToken
+  )
 
-  const res = await fetch(`${process.env.API_GATEWAY_URL}/api/tryout/sync/current`, {
-    method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-      Cookie: cookieHeader,
-    },
-  })
+  if (!currentTryout?.data?.subtest_sekarang) {
+    redirect('/tryout?error=current-attempt-failed')
+  }
 
   let timeLimit
   try {
@@ -39,11 +36,6 @@ const IntroPage = async () => {
   const grace = 30_000
   const adjustedTimeLimit = new Date(new Date(timeLimit).getTime() - grace)
 
-  if (!res.ok) {
-    redirect('/tryout?error=current-attempt-failed')
-  }
-
-  const currentTryout = await res.json()
   const subtestKey = currentTryout.data.subtest_sekarang || 'subtest_pu' // Default to 'subtest_pu'
 
   const { title, index, src, description } = SUBTESTS[subtestKey] || {

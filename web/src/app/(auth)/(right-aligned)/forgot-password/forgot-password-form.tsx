@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 'use client'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useState } from 'react'
@@ -16,6 +14,7 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import { getAuthErrorMessage, requestPasswordResetAuth } from '@/lib/fetch/auth'
 import { LoaderCircle } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -26,7 +25,6 @@ const formSchema = z.object({
 })
 
 const ForgotPasswordForm = () => {
-  const [message, setMessage] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -36,33 +34,23 @@ const ForgotPasswordForm = () => {
     },
   })
 
-  const handleLogin = async (values: z.infer<typeof formSchema>) => {
+  const handleForgotPassword = async (values: z.infer<typeof formSchema>) => {
     try {
       setPending(true)
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_GATEWAY_URL}/api/auth/request-password-reset`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ email: values.email }),
-        }
-      )
-      const data = await res.json()
-      if (!res.ok) {
-        toast.error('Gagal mengirim email', {
-          description: `${data.error}`,
-        })
-        return
-      }
+
+      const response = await requestPasswordResetAuth({ email: values.email })
+
       toast.success('Email berhasil dikirim', {
-        description: `${data.message}`,
+        description:
+          response.message ||
+          'Silakan cek email kamu, termasuk folder spam jika belum terlihat.',
       })
-    } catch (error: any) {
-      console.error('Error:', error)
+    } catch (error: unknown) {
       toast.error('Gagal mengirim email', {
-        description: `${error.message}`,
+        description: getAuthErrorMessage(
+          error,
+          'Terjadi kesalahan jaringan. Silahkan coba lagi.'
+        ),
       })
     } finally {
       setPending(false)
@@ -72,7 +60,7 @@ const ForgotPasswordForm = () => {
   return (
     <Form {...form}>
       <form
-        onSubmit={form.handleSubmit(handleLogin)}
+        onSubmit={form.handleSubmit(handleForgotPassword)}
         className='flex w-full flex-col gap-4 text-left'
       >
         <FormField

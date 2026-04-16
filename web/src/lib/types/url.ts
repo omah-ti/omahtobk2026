@@ -1,6 +1,14 @@
-export const API_GATEWAY_URL = process.env.API_GATEWAY_URL as string
-export const PUBLIC_API_GATEWAY_URL = process.env
-	.NEXT_PUBLIC_API_GATEWAY_URL as string
+const normalizeUrl = (value?: string) => value?.trim().replace(/\/$/, '')
+
+const FALLBACK_API_GATEWAY_URL = 'http://localhost:8080'
+
+const internalApiGatewayUrl = normalizeUrl(process.env.API_GATEWAY_URL)
+const publicApiGatewayUrl = normalizeUrl(process.env.NEXT_PUBLIC_API_GATEWAY_URL)
+
+export const API_GATEWAY_URL =
+	internalApiGatewayUrl || publicApiGatewayUrl || FALLBACK_API_GATEWAY_URL
+export const PUBLIC_API_GATEWAY_URL =
+	publicApiGatewayUrl || internalApiGatewayUrl || FALLBACK_API_GATEWAY_URL
 
 export const TRYOUT_URL = `${API_GATEWAY_URL}/api/tryout`
 export const AUTH_URL = `${API_GATEWAY_URL}/api/auth`
