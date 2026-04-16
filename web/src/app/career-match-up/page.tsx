@@ -1,8 +1,6 @@
 import Link from 'next/link'
-import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import Image from 'next/image'
-import React from 'react'
 import { getMbAttempt } from '@/lib/fetch/mb-fetch'
 import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
@@ -16,68 +14,29 @@ async function careerMatchUpPage() {
   }
 
   return (
-    <>
-      <div className='flex min-h-[calc(100vh-theme(spacing.48))] flex-1 flex-col-reverse items-center justify-center gap-20 lg:flex-row'>
-        <div className='flex justify-start'>
-          <div className='xxl:left-36 absolute bottom-0 left-0 z-0 hidden sm:block'>
-            <Image
-              src='/assets/Robot-Tobk-1.webp'
-              alt='Robot Mascot'
-              width={526}
-              height={526}
-              className='z-0 w-[240px] drop-shadow-md md:w-[360px] lg:w-[480px]'
-            />
+    <section className='h-screen flex flex-col !px-0 space-y-9 overflow-y-hidden items-center overflow-x-hidden justify-center bg-gradient-to-b relative from-primary-400/30 to-primary-100'>
+      <div className='max-w-3xl space-y-2 flex flex-col items-center text-center'>
+        <div className="p-[1px] rounded-[100px] bg-gradient-to-r from-[rgba(231,5,24,0.44)] to-[rgba(37,99,235,0.44)] w-fit">
+          <div className="rounded-[100px] bg-[#DBE5F9] px-5 py-2 md:text-sm text-xs text-black">
+            Roadmap Calon Mahasiswa IT Terbaik
           </div>
         </div>
-        <Card className='xxl:max-w-3xl z-10 w-full max-w-xl bg-white shadow-lg lg:absolute lg:ml-96 xl:max-w-2xl'>
-          <CardContent className='p-6'>
-            <div className='mb-4 flex items-center'>
-              <div className='mr-2 rounded-full bg-blue-600 p-2'>
-                <svg
-                  xmlns='http://www.w3.org/2000/svg'
-                  width='24'
-                  height='24'
-                  viewBox='0 0 24 24'
-                  fill='none'
-                  stroke='white'
-                  strokeWidth='2'
-                  strokeLinecap='round'
-                  strokeLinejoin='round'
-                >
-                  <circle cx='12' cy='12' r='10'></circle>
-                  <line x1='12' y1='8' x2='12' y2='12'></line>
-                  <line x1='12' y1='16' x2='12.01' y2='16'></line>
-                </svg>
-              </div>
-              <h2 className='text-xl font-bold'>Perhatian!</h2>
-            </div>
-            <hr />
-
-            <ol className='my-6 list-decimal space-y-2 pl-5'>
-              <li>
-                Pilih jawaban yang paling mewakili kepalaaanmu pada salah satu
-                gambar yang tersedia.
-              </li>
-              <li>
-                Tidak ada jawaban yang benar atau salah, maka jawablah dengan
-                objektif!
-              </li>
-              <li>
-                Pastikan memilih dengan hati-hati, karena jawaban tidak bisa
-                diubah setelah dipilih (tidak ada penyesalan).
-              </li>
-              <li>Bila sudah siap, tombol mulai tes dibawah ini.</li>
-            </ol>
-
-            <Link href={`/career-match-up/test`}>
-              <Button className='w-full bg-blue-600 text-white hover:bg-blue-700'>
-                Mulai Tes Kecocokan Karir
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
+        <h1 className='italic text-primary-600 md:leading-17 md:text-[48px] text-[28px] font-bold text-center'>
+          Role Quest: <span className='font-normal text-neutral-1000'>Cari Tahu </span>DNA IT-mu!
+        </h1>
+        <p className='text-center text-neutral-1000 md:text-[20px] text-sm'>
+          Nggak semua anak Ilkom itu cuma ngoding! Jawab beberapa pertanyaan seru ini untuk mencocokkan kepribadianmu dengan jalur karir masa depan di industri digital
+        </p>
       </div>
-    </>
+      <Link href='/career-match-up/test'>
+        <Button size='lg' className='px-11 font-bold cursor-pointer'>
+          Mulai Quiz
+        </Button>
+      </Link>
+      <Image src='/assets/fullbody-love.webp' alt='Career Match-Up Hero' height={360} width={350} className='rotate-35 h-88 w-auto absolute object-contain xl:scale-130 lg:scale-110 md:scale-100 scale-70 -bottom-30 md:-bottom-20 -left-20 md:-left-10 pointer-events-none' priority />
+      <Image src='/assets/fullbody-flipped.webp' alt='Career Match-Up Hero' height={360} width={350} className='rotate-325 h-88 w-auto absolute object-contain xl:scale-130 lg:scale-110 md:scale-100 scale-70 -bottom-20 md:-bottom-10 -right-20 md:-right-10 pointer-events-none' priority />
+      
+    </section>
   )
 }
 
