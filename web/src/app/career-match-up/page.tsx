@@ -14,7 +14,7 @@ async function careerMatchUpPage() {
   }
 
   return (
-    <section className='h-screen flex flex-col space-y-9 overflow-y-hidden items-center overflow-x-hidden justify-center bg-gradient-to-b relative from-primary-400/30 to-primary-100'>
+    <section className='h-screen flex flex-col !px-0 space-y-9 overflow-y-hidden items-center overflow-x-hidden justify-center bg-gradient-to-b relative from-primary-400/30 to-primary-100'>
       <div className='max-w-3xl space-y-2 flex flex-col items-center text-center'>
         <div className="p-[1px] rounded-[100px] bg-gradient-to-r from-[rgba(231,5,24,0.44)] to-[rgba(37,99,235,0.44)] w-fit">
           <div className="rounded-[100px] bg-[#DBE5F9] px-5 py-2 md:text-sm text-xs text-black">
