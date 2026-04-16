@@ -28,7 +28,36 @@ func (h *MinatBakatHandler) GetQuestionsHandler(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"data": questions})
+	rawLimit := c.Query("limit")
+	rawOffset := c.Query("offset")
+	if rawLimit == "" && rawOffset == "" {
+		c.JSON(http.StatusOK, gin.H{"data": questions})
+		return
+	}
+
+	total := len(questions)
+	if total == 0 {
+		c.JSON(http.StatusOK, gin.H{"data": []models.MbQuestion{}, "meta": gin.H{"total": 0, "limit": 0, "offset": 0, "count": 0}})
+		return
+	}
+
+	limit := parseBoundedIntQuery(c, "limit", 8, 1, total)
+	offset := parseBoundedIntQuery(c, "offset", 0, 0, total)
+
+	if offset >= total {
+		c.JSON(http.StatusOK, gin.H{"data": []models.MbQuestion{}, "meta": gin.H{"total": total, "limit": limit, "offset": offset, "count": 0}})
+		return
+	}
+
+	end := offset + limit
+	if end > total {
+		end = total
+	}
+
+	paged := questions[offset:end]
+
+	c.JSON(http.StatusOK, gin.H{"data": paged, "meta": gin.H{"total": total, "limit": limit, "offset": offset, "count": len(paged)}})
+	return
 }
 
 func (h *MinatBakatHandler) ProcessMinatBakatHandler(c *gin.Context) {

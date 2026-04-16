@@ -92,11 +92,27 @@ export const getSoalUrl = (isPublic?: boolean) => {
 export const getMbQuestions = async (
     accessToken?: string,
     isPublic?: boolean,
-    refreshToken?: string
+    refreshToken?: string,
+    paging?: {
+        limit?: number
+        offset?: number
+    }
 ): Promise<MbQuestion[]> => {
     try {
         const mbUrl = getMbUrl(isPublic)
-        const res = await fetch(`${mbUrl}/questions`, {
+        const query = new URLSearchParams()
+        if (paging?.limit !== undefined) {
+            query.set('limit', String(paging.limit))
+        }
+        if (paging?.offset !== undefined) {
+            query.set('offset', String(paging.offset))
+        }
+
+        const requestUrl = query.toString()
+            ? `${mbUrl}/questions?${query.toString()}`
+            : `${mbUrl}/questions`
+
+        const res = await fetch(requestUrl, {
             method: 'GET',
             headers: cookieHeaders(accessToken, refreshToken),
             credentials: 'include',

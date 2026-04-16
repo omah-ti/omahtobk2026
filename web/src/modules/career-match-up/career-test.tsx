@@ -17,6 +17,8 @@ interface CareerMatchUpTestProps {
 
 type LikertValue = 1 | 2 | 3 | 4 | 5
 
+const QUESTIONS_PER_PAGE = 8
+
 const CHOICE_ITEMS: Array<{
   value: LikertValue
   label: string
@@ -75,6 +77,17 @@ const getQuestionText = (question: MbQuestion) => {
   return question.statement || question.text_soal || ''
 }
 
+const scrollToPageTop = () => {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  window.scrollTo({
+    top: 0,
+    behavior: 'smooth',
+  })
+}
+
 const CareerMatchUpTest = ({
   questions,
   loading = false,
@@ -85,7 +98,7 @@ const CareerMatchUpTest = ({
     () => (Array.isArray(questions) ? questions : []),
     [questions]
   )
-  const [currentIndex, setCurrentIndex] = useState(0)
+  const [currentPage, setCurrentPage] = useState(0)
   const [answers, setAnswers] = useState<Record<string, LikertValue>>({})
   const [submitError, setSubmitError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -101,34 +114,57 @@ const CareerMatchUpTest = ({
     )
 
   const totalQuestions = safeQuestions.length
-  const currentQuestion = safeQuestions[currentIndex]
-  const selectedChoice = answers[currentQuestion.kode_soal]
-  const isCurrentAnswered = selectedChoice !== undefined
+  const totalPages = Math.ceil(totalQuestions / QUESTIONS_PER_PAGE)
+  const pageStartIndex = currentPage * QUESTIONS_PER_PAGE
+  const pageEndIndex = Math.min(pageStartIndex + QUESTIONS_PER_PAGE, totalQuestions)
+  const currentPageQuestions = safeQuestions.slice(pageStartIndex, pageEndIndex)
+
+  const isCurrentPageAnswered = currentPageQuestions.every(
+    (question) => answers[question.kode_soal] !== undefined
+  )
+
+  const answeredCount = safeQuestions.reduce((count, question) => {
+    if (answers[question.kode_soal] !== undefined) {
+      return count + 1
+    }
+    return count
+  }, 0)
+
   const allAnswered = safeQuestions.every(
     (question) => answers[question.kode_soal] !== undefined
   )
 
-  const handleSelectChoice = (value: LikertValue) => {
+  const handleSelectChoice = (questionCode: string, value: LikertValue) => {
     setSubmitError('')
     setAnswers((prev) => ({
       ...prev,
-      [currentQuestion.kode_soal]: value,
+      [questionCode]: value,
     }))
   }
 
   const handleNext = () => {
-    if (!isCurrentAnswered) {
-      setSubmitError('Silakan pilih jawaban sebelum melanjutkan.')
+    if (!isCurrentPageAnswered) {
+      setSubmitError('Semua soal pada halaman ini wajib dijawab sebelum lanjut.')
+      return
+    }
+
+    if (currentPage >= totalPages - 1) {
       return
     }
 
     setSubmitError('')
-    setCurrentIndex((prev) => Math.min(prev + 1, totalQuestions - 1))
+    setCurrentPage((prev) => Math.min(prev + 1, totalPages - 1))
+    scrollToPageTop()
   }
 
   const handlePrev = () => {
+    if (currentPage <= 0) {
+      return
+    }
+
     setSubmitError('')
-    setCurrentIndex((prev) => Math.max(prev - 1, 0))
+    setCurrentPage((prev) => Math.max(prev - 1, 0))
+    scrollToPageTop()
   }
 
   const handleSubmit = async () => {
@@ -196,15 +232,21 @@ const CareerMatchUpTest = ({
   }
 
   return (
-    <div className='mx-auto flex w-full max-w-3xl flex-col items-center gap-9 px-4 py-8 md:max-w-5xl'>
-      <ProgressBar current={currentIndex + 1} total={totalQuestions} />
+    <div className='mx-auto flex w-full max-w-3xl flex-col items-center gap-9 px-4 pt-28 pb-8 md:max-w-5xl md:pt-34'>
+      <ProgressBar current={answeredCount} total={totalQuestions} />
+      <p className='text-sm font-medium text-gray-700'>
+        Halaman {currentPage + 1} dari {totalPages}
+      </p>
       <div className='w-full flex flex-col gap-9'>
-        <QuestionCard
-          question={currentQuestion}
-          index={currentIndex + 1}
-          selectedChoice={selectedChoice}
-          onSelectChoice={handleSelectChoice}
-        />
+        {currentPageQuestions.map((question, idx) => (
+          <QuestionCard
+            key={question.question_id ?? question.kode_soal}
+            question={question}
+            index={pageStartIndex + idx + 1}
+            selectedChoice={answers[question.kode_soal]}
+            onSelectChoice={handleSelectChoice}
+          />
+        ))}
       </div>
 
       {submitError && (
@@ -224,20 +266,20 @@ const CareerMatchUpTest = ({
           size='lg'
           className='w-full'
           onClick={handlePrev}
-          disabled={currentIndex === 0 || isSubmitting}
+          disabled={currentPage === 0 || isSubmitting}
         >
           <ChevronLeft />
-          Sebelumnya
+          Halaman Sebelumnya
         </Button>
 
-        {currentIndex < totalQuestions - 1 ? (
+        {currentPage < totalPages - 1 ? (
           <Button
             size='lg'
             className='w-full'
             onClick={handleNext}
             disabled={isSubmitting}
           >
-            Selanjutnya
+            Halaman Berikutnya
             <ChevronRight />
           </Button>
         ) : (
@@ -295,7 +337,7 @@ interface QuestionCardProps {
   question: MbQuestion
   index: number
   selectedChoice?: LikertValue
-  onSelectChoice: (value: LikertValue) => void
+  onSelectChoice: (questionCode: string, value: LikertValue) => void
 }
 
 const QuestionCard = ({
@@ -321,7 +363,7 @@ const QuestionCard = ({
                 type='button'
                 aria-label={item.label}
                 aria-pressed={isActive}
-                onClick={() => onSelectChoice(item.value)}
+                onClick={() => onSelectChoice(question.kode_soal, item.value)}
                 className={`rounded-full w-full h-full transition-all duration-200 ${
                   isActive ? item.activeClassName || '' : ''
                 } ${!isActive || !item.activeClassName ? 'bg-white' : ''}`}
