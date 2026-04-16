@@ -1,42 +1,71 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 export const dynamic = 'force-dynamic'
 
 import React from 'react'
-import { getMbAttempt } from '@/lib/fetch/mb-fetch'
+import { getMbAttempt, getMbLatestResult } from '@/lib/fetch/mb-fetch'
 import ResultClient from './ResultClient'
 import { cookies } from 'next/headers'
-import Enthusiasts from '@/modules/career-match-up/enthusiasts'
-import { DIVISIONS } from '@/lib/helpers/divisions'
+import { resolveCareerProfile } from '@/modules/career-match-up/career-profiles'
 import Container from '@/components/container'
 import Image from 'next/image'
 import NavbarResolver from '@/components/home/navbar-resolver'
-import Link from 'next/dist/client/link'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
+import AlumniCarousel from './alumni-carousel'
+import Footer from '@/modules/home/footer'
 
 const UI_ONLY_TEST_MODE = process.env.NEXT_PUBLIC_CMU_UI_ONLY === 'true'
 
 const MOCK_ATTEMPT_DATA = {
-  bakat_user: 'dsai',
-  dominantCareer: 'dsai',
-  careerScores: {
-    dsai: 0.87,
-    frontend: 0.74,
-    backend: 0.69,
-    uiux: 0.58,
-  },
+  bakat_user: 'backend',
 }
+
+const MOCK_RESULT_DATA = {
+  dna_it_top: 'BACK END',
+}
+
+const MOCK_ALUMNI = [
+  {
+    name: 'Rizky Pratama',
+    role: 'Front-End Development',
+    image: '/assets/alumni/placeholder.webp',
+    desc: 'Rizky adalah seorang Front-End Developer yang memiliki keahlian dalam menciptakan antarmuka pengguna yang menarik dan responsif. Dengan pengalaman dalam HTML, CSS, dan JavaScript, Rizky telah berhasil mengembangkan berbagai proyek web yang memukau, mulai dari website perusahaan hingga aplikasi interaktif. Passion-nya dalam desain dan pengembangan web membuatnya selalu berusaha untuk memberikan pengalaman pengguna terbaik melalui kode yang efisien dan kreatif.',
+  },
+  {
+    name: 'Siti Aisyah',
+    role: `Back-End Development || CS'10`,
+    image: '/assets/alumni/placeholder.webp',
+    desc: 'Siti adalah seorang Back-End Developer yang ahli dalam membangun sistem server dan database yang kuat. Dengan pengalaman dalam bahasa pemrograman seperti Python dan Java, Siti telah mengembangkan berbagai aplikasi web yang handal dan scalable. Keahliannya dalam mengelola data dan logika bisnis membuatnya menjadi sosok penting dalam tim pengembangan, memastikan bahwa aplikasi berjalan dengan lancar dan aman.',
+  },
+  {
+    name: 'TROLLLL',
+    role: `Back-End Development || CS'10`,
+    image: '/assets/alumni/placeholder.webp',
+    desc: 'Siti adalah seorang Back-End Developer yang ahli dalam membangun sistem server dan database yang kuat. Dengan pengalaman dalam bahasa pemrograman seperti Python dan Java, Siti telah mengembangkan berbagai aplikasi web yang handal dan scalable. Keahliannya dalam mengelola data dan logika bisnis membuatnya menjadi sosok penting dalam tim pengembangan, memastikan bahwa aplikasi berjalan dengan lancar dan aman.',
+  },
+]
 
 export default async function CareerMatchUpResult() {
   try {
-    const attemptData = UI_ONLY_TEST_MODE
-      ? MOCK_ATTEMPT_DATA
+    const { attemptData, latestResult } = UI_ONLY_TEST_MODE
+      ? {
+        attemptData: MOCK_ATTEMPT_DATA,
+        latestResult: MOCK_RESULT_DATA,
+      }
       : await (async () => {
         const cookieStore = await cookies()
         const accessToken = cookieStore.get('access_token')?.value
-        return getMbAttempt(accessToken, false)
+        const [attempt, result] = await Promise.all([
+          getMbAttempt(accessToken, false),
+          getMbLatestResult(accessToken, false),
+        ])
+
+        return {
+          attemptData: attempt,
+          latestResult: result,
+        }
       })()
 
-    if (!attemptData) {
+    if (!attemptData && !latestResult) {
       return (
         <div className='flex min-h-screen flex-col items-center justify-center p-4'>
           <div className='max-w-lg text-center'>
@@ -51,45 +80,44 @@ export default async function CareerMatchUpResult() {
       )
     }
 
-    // Extract the dominant career and find its information from DIVISIONS
-    const dominantCareer = attemptData.bakat_user || ''
-    const careerDivision = DIVISIONS.find(
-      (div) => div.slug === dominantCareer.toLowerCase()
-    )
+    const rawRoleName = latestResult?.dna_it_top || attemptData?.bakat_user || ''
+    const profile = resolveCareerProfile(rawRoleName)
+    const dominantCareerTitle = profile?.title || rawRoleName || 'Role belum tersedia'
+    const firstDescription =
+      profile?.firstDescription ||
+      `Kamu menunjukkan potensi kuat pada jalur ${dominantCareerTitle}.`
+    const secondDescription =
+      profile?.secondDescription ||
+      'Terus eksplorasi role ini dan asah kemampuanmu melalui proyek nyata.'
+    const imageSlug = profile?.imageSlug || attemptData?.bakat_user || 'dsai'
 
     const results = {
-      ...attemptData,
-      dominantCareerTitle: careerDivision?.name || dominantCareer,
-      firstDescription:
-        careerDivision?.career.firstDescription ||
-        `You show great potential in the ${dominantCareer} field.`,
-      secondDescription:
-        careerDivision?.career.secondDescription ||
-        `Continue exploring opportunities in this area to develop your skills further.`,
+      dominantCareerTitle,
+      firstDescription,
+      secondDescription,
     }
 
     return (
       <>
         <NavbarResolver />
-        <Container className='bg-white gap-9'>
-          <div className='flex p-0 md:p-10 md:bg-[#e9effd] rounded-[10px] flex-col items-center justify-center gap-8 '>
+        <Container className='bg-white gap-9 mb-14 px-0 md:px-20 lg:px-30'>
+          <div className='flex p-4 md:p-10 md:bg-[#e9effd] rounded-[10px] flex-col items-center justify-center gap-8 '>
             <div className='flex flex-col-reverse md:flex-row justify-between items-start gap-8 w-full'>
               <div className='text-center lg:text-left w-full justify-between'>
                 <p className='text-base md:text-2xl font-bold'>
                   Role yang cocok untukmu
                 </p>
                 <h2 className='text-[34px] md:text-[48px] font-bold'>
-                  {results.dominantCareerTitle || results.dominantCareer}
+                  {results.dominantCareerTitle}
                 </h2>
               </div>
               <div className='h-auto w-full md:w-[205px] px-10 md:px-0 items-center justify-center overflow-hidden md:mr-15'>
                 <Image
-                  src={`/assets/divisions/${dominantCareer || 'dsai'}.webp`}
+                  src={`/assets/divisions/${imageSlug}.webp`}
                   alt=''
                   width={205}
                   height={300}
                   className='h-auto w-full object-contain'
-                  priority // Tambahkan ini untuk memuat gambar lebih cepat
                 />
               </div>
             </div>
@@ -107,12 +135,18 @@ export default async function CareerMatchUpResult() {
           </div>
 
           {/* alumni */}
-          <div className='flex p-10 md:bg-[#e9effd] rounded-[10px] flex-col items-center justify-center gap-8'>
-
+          <div className='flex px-0 md:px-10 pb-18 pt-14 md:pb-7 bg-[#e9effd] mx-0 rounded-[10px] flex-col items-center justify-center gap-8'>
+            <div className='flex flex-col text-center'>
+              <h3 className='text-xl md:text-[34px] font-bold'>Alumni yang Sesuai Rolemu</h3>
+              <p className='text-center text-neutral-1000 text-xs md:text-base'>
+                Gambaran Karir Alumni Sesuai dengan minat bakatmu
+              </p>
+            </div>
+            <AlumniCarousel items={MOCK_ALUMNI} />
           </div>
 
           {/* cta */}
-          <div className='flex p-0 md:p-10 md:bg-[#e9effd] rounded-[10px] flex-row items-center gap-2.5 justify-between'>
+          <div className='flex p-4 md:p-10 md:bg-[#e9effd] rounded-[10px] flex-row items-center gap-2.5 justify-between'>
             <Image src='/assets/cstryouts.webp' alt='' width={262} height={400} className='w-auto min-w-25 md:w-[262px] h-auto object-contain' />
             <div className='flex flex-col text-center w-full max-w-2xl gap-5 md:gap-10'>
               <div>
@@ -129,6 +163,7 @@ export default async function CareerMatchUpResult() {
             </div>
           </div>
         </Container>
+        <Footer/>
       </>
     )
   } catch (error) {

@@ -1,32 +1,32 @@
 import CareerMatchUpTest from '@/modules/career-match-up/career-test'
 import { cookies } from 'next/headers'
-import React from 'react'
-import { getMbAttempt, getMbSoal } from '@/lib/fetch/mb-fetch'
+import { getMbAttempt, getMbQuestions } from '@/lib/fetch/mb-fetch'
 import { redirect } from 'next/navigation'
 import NavbarResolver from '@/components/home/navbar-resolver'
+import Footer from '@/modules/home/footer'
 
-const UI_ONLY_TEST_MODE = process.env.NEXT_PUBLIC_CMU_UI_ONLY === 'true'
+const UI_ONLY_TEST_MODE = process.env.NEXT_PUBLIC_CMU_UI_ONLY === 'false'
 
 const MOCK_QUESTIONS = [
   {
     kode_soal: 'mock-001',
-    text_soal: 'Aktivitas mana yang paling kamu nikmati?',
+    statement: 'Aktivitas mana yang paling kamu nikmati?',
   },
   {
     kode_soal: 'mock-002',
-    text_soal: 'Lingkungan kerja seperti apa yang paling cocok untukmu?',
+    statement: 'Lingkungan kerja seperti apa yang paling cocok untukmu?',
   },
   {
     kode_soal: 'mock-003',
-    text_soal: 'Apa yang paling kamu minati dalam pekerjaan?',
+    statement: 'Apa yang paling kamu minati dalam pekerjaan?',
   },
   {
     kode_soal: 'mock-004',
-    text_soal: 'Apa yang paling kamu apalah itu?',
+    statement: 'Apa yang paling kamu apalah itu?',
   },
   {
     kode_soal: 'mock-005',
-    text_soal: 'Saya bikin pertanyaan ini sambil nahan lapar, kamu lapar ga?',
+    statement: 'Saya bikin pertanyaan ini sambil nahan lapar, kamu lapar ga?',
   },
 ]
 
@@ -48,10 +48,11 @@ async function Page() {
   }
 
   try {
-    const questionsData = await getMbSoal(accessToken)
+    const questionsData = await getMbQuestions(accessToken)
     return (
-      <div className='flex flex-1 items-center justify-center'>
+      <div className='flex flex-col items-center justify-center'>
         <CareerMatchUpTest questions={questionsData} />
+        <Footer />
       </div>
     )
   } catch (error) {

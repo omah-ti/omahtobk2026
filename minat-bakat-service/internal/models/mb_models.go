@@ -16,12 +16,6 @@ type MinatBakatAttemptHistory struct {
 	Count  int                 `json:"count"`
 }
 
-// Legacy payload format kept for backward compatibility.
-type MinatBakatAnswers struct {
-	KodeSoal string `json:"kode_soal"`
-	Jawaban  string `json:"jawaban"`
-}
-
 type MbQuestion struct {
 	QuestionID    int    `db:"question_id" json:"question_id"`
 	KodeSoal      string `db:"kode_soal" json:"kode_soal"`
@@ -42,15 +36,25 @@ type SubmitMinatBakatRequest struct {
 	Answers           []MbAnswerInput `json:"answers" binding:"required,min=1,dive"`
 }
 
+type MinatBakatRoleProfile struct {
+	Slug              string `json:"slug"`
+	Title             string `json:"title"`
+	FirstDescription  string `json:"first_description"`
+	SecondDescription string `json:"second_description"`
+}
+
 type MinatBakatResult struct {
-	AttemptID         int                `db:"attempt_id" json:"attempt_id"`
-	UserID            int                `db:"user_id" json:"user_id"`
-	DNATop            string             `db:"dna_it_top" json:"dna_it_top"`
-	Confidence        float64            `db:"confidence" json:"confidence"`
-	TotalQuestions    int                `db:"total_questions" json:"total_questions"`
-	AssessmentVersion string             `db:"assessment_version" json:"assessment_version"`
-	ScoringVersion    string             `db:"scoring_version" json:"scoring_version"`
-	DimensionScores   map[string]float64 `json:"dimension_scores"`
-	RoleScores        map[string]float64 `json:"role_scores"`
-	CreatedAt         time.Time          `db:"created_at" json:"created_at"`
+	AttemptID         int                   `db:"attempt_id" json:"attempt_id"`
+	UserID            int                   `db:"user_id" json:"user_id"`
+	DNATop            string                `db:"dna_it_top" json:"dna_it_top"`
+	TopRoleSlug       string                `json:"top_role_slug,omitempty"`
+	TopRoleTitle      string                `json:"top_role_title,omitempty"`
+	TopRoleProfile    MinatBakatRoleProfile `json:"top_role_profile"`
+	Confidence        float64               `db:"confidence" json:"confidence"`
+	TotalQuestions    int                   `db:"total_questions" json:"total_questions"`
+	AssessmentVersion string                `db:"assessment_version" json:"assessment_version"`
+	ScoringVersion    string                `db:"scoring_version" json:"scoring_version"`
+	DimensionScores   map[string]float64    `json:"dimension_scores"`
+	RoleScores        map[string]float64    `json:"role_scores"`
+	CreatedAt         time.Time             `db:"created_at" json:"created_at"`
 }
