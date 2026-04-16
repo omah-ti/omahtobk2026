@@ -33,7 +33,7 @@ const TESTIMONIES: TestimonyType[] = [
   {
     name: 'Patrick Aura Wibawa',
     role: "Backend Developer | CS'16",
-    image: '/assets/alumni/patrick-aura-wibawa.webp',
+    image: '/assets/alumni/placeholder.webp',
     description: 'Alumni tim teknis Tokopedia yang memiliki spesialisasi dalam menyusun serta merawat arsitektur di balik layar untuk trafik tinggi. Ia berfokus pada penguatan performa server guna menjamin layanan tetap responsif dan kokoh meskipun diakses oleh jutaan pengguna secara bersamaan.',
   },
   {
@@ -45,7 +45,7 @@ const TESTIMONIES: TestimonyType[] = [
   {
     name: 'Gabriella Christina Kandinata',
     role: "Product Designer | CS'19",
-    image: '/assets/alumni/gabriella-christina-kandinata.webp',
+    image: '/assets/alumni/gabriella-christina.webp',
     description: 'Saat ini mendedikasikan keahliannya di Fairatmos, setelah sebelumnya memperkuat tim Momentree. Ia memiliki spesialisasi dalam menciptakan ekosistem digital yang humanis, di mana setiap elemen visual dan fungsionalitas produk dibangun berdasarkan hasil analisis serta riset yang mendalam.',
   },
 ]
