@@ -135,7 +135,7 @@ const AnswerCard = ({
   // Time limit handler
   useEffect(() => {
     if (!timeLimit || isNaN(timeLimit)) return
-    if (timeLimit == 0) router.push(`/tryout/${currentNumber}`)
+    if (timeLimit == 0) router.push(`/tryout/soal/${currentNumber}`)
     const checkTime = () => {
       const now = Date.now()
       const gracePeriodStart = timeLimit

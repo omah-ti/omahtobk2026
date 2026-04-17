@@ -26,35 +26,38 @@ const TryOutPage = async () => {
   const finished = await getFinishedAttempt(accessToken, refreshToken)
 
   return (
-    <main className='min-h-screen bg-neutral-50'>
-      <motion.main
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ type: 'tween', duration: 0.2 }}
-      >
-        <Container>
-          <TopBar />
+    // <main className='min-h-screen bg-neutral-50'>
+    //   <motion.main
+    //     initial={{ opacity: 0 }}
+    //     animate={{ opacity: 1 }}
+    //     transition={{ type: 'tween', duration: 0.2 }}
+    //   >
+    //     <Container>
+    //       <TopBar />
 
-          <motion.main
-            initial={{ opacity: 0, y: 5 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ type: 'tween', duration: 0.2 }}
-            className='flex flex-col gap-4'
-          >
-            <section className='flex flex-col-reverse gap-4 md:grid md:grid-cols-4'>
-              <StartCard
-                status={finished ? 'finished' : ongoing ? 'ongoing' : 'none'}
-              />
-              <ProfileCard user={user} />
-            </section>
-            <section className='grid grid-cols-1 gap-4 md:grid-cols-2'>
-              <HistoryCard score={subtestsScore} />
-              <RankingCard leaderboard={leaderboard} />
-            </section>
-          </motion.main>
-        </Container>
-      </motion.main>
-    </main>
+    //       <motion.main
+    //         initial={{ opacity: 0, y: 5 }}
+    //         animate={{ opacity: 1, y: 0 }}
+    //         transition={{ type: 'tween', duration: 0.2 }}
+    //         className='flex flex-col gap-4'
+    //       >
+    //         <section className='flex flex-col-reverse gap-4 md:grid md:grid-cols-4'>
+    //           <StartCard
+    //             status={finished ? 'finished' : ongoing ? 'ongoing' : 'none'}
+    //           />
+    //           <ProfileCard user={user} />
+    //         </section>
+    //         <section className='grid grid-cols-1 gap-4 md:grid-cols-2'>
+    //           <HistoryCard score={subtestsScore} />
+    //           <RankingCard leaderboard={leaderboard} />
+    //         </section>
+    //       </motion.main>
+    //     </Container>
+    //   </motion.main>
+    // </main>
+    <Container>
+fef
+    </Container>
   )
 }
 
