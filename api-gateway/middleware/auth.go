@@ -35,6 +35,35 @@ type refreshCall struct {
 
 var refreshInFlight sync.Map
 
+var reservedInboundHeaders = map[string]struct{}{
+	"x-gateway":           {},
+	"x-internal-request":  {},
+	"x-auth-access-token": {},
+	"x-user-id":           {},
+	"x-user-email":        {},
+	"x-user-username":     {},
+	"x-user-asal-sekolah": {},
+	"x-user-asal_sekolah": {},
+	"x-user-role":         {},
+}
+
+func IsReservedInboundHeader(headerName string) bool {
+	_, blocked := reservedInboundHeaders[strings.ToLower(strings.TrimSpace(headerName))]
+	return blocked
+}
+
+func StripReservedHeaders() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		for key := range c.GetReqHeaders() {
+			if IsReservedInboundHeader(key) {
+				c.Request().Header.Del(key)
+			}
+		}
+
+		return c.Next()
+	}
+}
+
 func SessionAuthMiddleware(authServiceURL string) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		accessToken := c.Cookies("access_token")

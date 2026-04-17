@@ -29,14 +29,10 @@ export async function POST(req: NextRequest) {
 
     const cookieStore = await cookies()
     const accessToken = cookieStore.get('access_token')?.value
-    const refreshToken = cookieStore.get('refresh_token')?.value
 
     const cookieParts: string[] = []
     if (accessToken) {
       cookieParts.push(`access_token=${accessToken}`)
-    }
-    if (refreshToken) {
-      cookieParts.push(`refresh_token=${refreshToken}`)
     }
 
     const headers: Record<string, string> = {

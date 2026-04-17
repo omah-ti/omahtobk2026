@@ -114,7 +114,10 @@ func ValidateAccessToken(accessToken string) (*AccessTokenClaims, error) {
 		return nil, err
 	}
 
-	token, err := jwt.ParseWithClaims(accessToken, &AccessTokenClaims{}, func(token *jwt.Token) (any, error) {
+	const tokenLeeway = 30 * time.Second
+
+	parser := jwt.Parser{SkipClaimsValidation: true}
+	token, err := parser.ParseWithClaims(accessToken, &AccessTokenClaims{}, func(token *jwt.Token) (any, error) {
 		if token.Method != jwt.SigningMethodHS256 {
 			return nil, fmt.Errorf("unexpected signing method: %s", token.Method.Alg())
 		}
@@ -127,6 +130,19 @@ func ValidateAccessToken(accessToken string) (*AccessTokenClaims, error) {
 	}
 
 	if claims, ok := token.Claims.(*AccessTokenClaims); ok && token.Valid {
+		if claims.ExpiresAt == nil {
+			return nil, fmt.Errorf("token is missing expiry")
+		}
+
+		now := time.Now()
+		if now.After(claims.ExpiresAt.Time.Add(tokenLeeway)) {
+			return nil, fmt.Errorf("token is expired")
+		}
+
+		if claims.NotBefore != nil && now.Add(tokenLeeway).Before(claims.NotBefore.Time) {
+			return nil, fmt.Errorf("token is not active yet")
+		}
+
 		if !claims.VerifyIssuer(issuer, true) {
 			return nil, fmt.Errorf("invalid token issuer")
 		}

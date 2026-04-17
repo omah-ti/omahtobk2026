@@ -136,11 +136,11 @@ export default async function CareerMatchUpResult() {
                   Saatnya buktikan kemampuanmu di Try-Out OmahTOBK.
                 </p>
               </div>
-              <Link href='/tryouts'>
-                <Button size="lg">
-                  Try-Out Sekarang
-                </Button>
-              </Link>
+              {/* <Link href='/'> */}
+              <Button size="lg" disabled className='w-fit cursor-not-allowed self-center'>
+                Try-Out Sekarang
+              </Button>
+              {/* </Link> */}
             </div>
           </div>
         </Container>

@@ -2,8 +2,8 @@ import Container from '@/components/container'
 import RemainingTime from '@/components/tryout/remaining-time'
 import TopBar from '@/components/tryout/top-bar'
 import { getCurrentTryout, syncTryout } from '@/lib/fetch/tryout-test'
+import { getRequestAccessToken } from '@/lib/auth/request-token'
 import { cn } from '@/lib/utils'
-import { cookies } from 'next/headers'
 import Image from 'next/image'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
@@ -12,13 +12,8 @@ import * as motion from 'motion/react-client'
 import { SUBTESTS } from '@/lib/helpers/subtests'
 
 const IntroPage = async () => {
-  const accessToken = (await cookies()).get('access_token')?.value as string
-  const refreshToken = (await cookies()).get('refresh_token')?.value as string
-  const currentTryout = await getCurrentTryout(
-    accessToken,
-    undefined,
-    refreshToken
-  )
+  const accessToken = await getRequestAccessToken()
+  const currentTryout = await getCurrentTryout(accessToken)
 
   if (!currentTryout?.data?.subtest_sekarang) {
     redirect('/tryout?error=current-attempt-failed')
@@ -26,7 +21,7 @@ const IntroPage = async () => {
 
   let timeLimit
   try {
-    const syncData = await syncTryout([], accessToken, undefined, refreshToken)
+    const syncData = await syncTryout([], accessToken)
     timeLimit = syncData.data.time_limit
   } catch (error) {
     console.error('Error:', error)

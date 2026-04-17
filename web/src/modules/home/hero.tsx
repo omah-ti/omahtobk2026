@@ -61,7 +61,7 @@ const Hero = () => {
             <Button variant='outline' size='lg' className='w-full md:w-50'>
               <Link href='/career-match-up'>Tech Persona</Link>
             </Button>
-            <Button variant='default' size='lg' className='w-full md:w-50'>
+            <Button variant='default' disabled size='lg' className='w-full md:w-50'>
               <Link href='/tryout'>Try out</Link>
             </Button>
           </motion.div>

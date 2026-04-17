@@ -3,10 +3,10 @@ import { cookies, headers } from 'next/headers'
 import { fetchJson } from '@/lib/fetch/http'
 import { API_GATEWAY_URL } from '@/lib/types/url'
 import { User } from '@/lib/types/types'
+import { getRequestAccessToken } from './request-token'
 
 export const getAccessToken = async () => {
-  const cookieStore = await cookies()
-  return cookieStore.get('access_token')?.value as string
+  return (await getRequestAccessToken()) as string
 }
 
 export const getRefreshToken = async () => {
@@ -27,13 +27,12 @@ export async function fetchUser(): Promise<User> {
 
   try {
     const accessToken = await getAccessToken()
-    const refreshToken = await getRefreshToken()
 
-    if (!accessToken && !refreshToken) {
+    if (!accessToken) {
       return null
     }
 
-    const userData = await fetchUserClient(accessToken, refreshToken)
+    const userData = await fetchUserClient(accessToken)
     if (userData) {
       return {
         username: userData.username,
@@ -50,8 +49,7 @@ export async function fetchUser(): Promise<User> {
 }
 
 export const fetchUserClient = async (
-  accessToken?: string,
-  refreshToken?: string
+  accessToken?: string
 ) => {
   try {
     return await fetchJson<{
@@ -62,7 +60,6 @@ export const fetchUserClient = async (
     }>(`${API_GATEWAY_URL}/api/me`, {
       method: 'GET',
       accessToken,
-      refreshToken,
     })
   } catch {
     return null

@@ -135,7 +135,7 @@ const MobileNavigation = ({
                 <button
                   className={cn(
                     buttonVariants({ variant: 'destructive' }),
-                    'bg-error-400 text-white'
+                    'bg-error-400 text-red-700 hover:bg-error-400 hover:cursor-pointer hover:text-red-400 focus:ring-red-400 focus:ring-offset-red-100 disabled:pointer-events-none data-[state=open]:bg-transparent'
                   )}
                 >
                   Logout
