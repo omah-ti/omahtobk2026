@@ -106,6 +106,8 @@ func main() {
 
 	protected := app.Group("/api", middleware.SessionAuthMiddleware(config.AuthServiceURL))
 	protected.Get("/me", authController.Me)
+	protected.All("/soal/answer-key", blockSensitiveSoalRoute())
+	protected.All("/soal/answer-key/*", blockSensitiveSoalRoute())
 	protected.All("/soal", proxyRequest(config.SoalServiceURL, "/api"))
 	protected.All("/soal/*", proxyRequest(config.SoalServiceURL, "/api"))
 	protected.All("/tryout", proxyRequest(config.TryoutServiceURL, "/api"))
@@ -134,6 +136,15 @@ func requestIDMiddleware() fiber.Handler {
 
 		c.Set("X-Request-ID", requestID)
 		return c.Next()
+	}
+}
+
+func blockSensitiveSoalRoute() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error":   "Not Found",
+			"message": "Resource not found",
+		})
 	}
 }
 

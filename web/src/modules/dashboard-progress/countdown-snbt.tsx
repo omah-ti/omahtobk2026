@@ -2,11 +2,21 @@
 
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
+import { ProgressOverviewUTBK } from '@/lib/types/types'
 
-const TARGET_DATE = new Date('2026-05-10T00:00:00')
+const FALLBACK_TARGET_DATE = new Date('2026-05-10T00:00:00')
 
-function getCountdown() {
-  const diff = TARGET_DATE.getTime() - Date.now()
+const parseDate = (value?: string) => {
+  if (!value) {
+    return null
+  }
+
+  const parsed = new Date(value)
+  return Number.isNaN(parsed.getTime()) ? null : parsed
+}
+
+function getCountdown(targetMs: number, nowMs: number) {
+  const diff = targetMs - nowMs
   if (diff <= 0) return { hari: 0, jam: 0, menit: 0 }
   return {
     hari: Math.floor(diff / (1000 * 60 * 60 * 24)),
@@ -28,13 +38,22 @@ function CountBox({ value, label }: { value: number; label: string }) {
   )
 }
 
-const CountdownSNBT = () => {
-  const [countdown, setCountdown] = useState(getCountdown)
+const CountdownSNBT = ({ utbk }: { utbk?: ProgressOverviewUTBK }) => {
+  const targetDate = parseDate(utbk?.end_at) || FALLBACK_TARGET_DATE
+
+  const [countdown, setCountdown] = useState(() => {
+    return getCountdown(targetDate.getTime(), Date.now())
+  })
 
   useEffect(() => {
-    const id = setInterval(() => setCountdown(getCountdown()), 60000)
+    setCountdown(getCountdown(targetDate.getTime(), Date.now()))
+
+    const id = setInterval(() => {
+      setCountdown(getCountdown(targetDate.getTime(), Date.now()))
+    }, 60000)
+
     return () => clearInterval(id)
-  }, [])
+  }, [targetDate])
 
   return (
     <div className="relative flex flex-col items-center gap-[24px] p-5 bg-neutral-100 border border-neutral-200 rounded-[8px] shadow-[0_2px_4px_0_rgba(0,0,0,0.05)] overflow-hidden">

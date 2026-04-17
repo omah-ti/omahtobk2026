@@ -7,6 +7,22 @@ import {
 import { Jawaban } from '@/lib/types/types'
 import { ApiFetchError, fetchJson } from '@/lib/fetch/http'
 
+type SubtestSyncPayload = {
+  answers: Jawaban[]
+}
+
+type SubtestSyncResponse = {
+  message: string
+  data: {
+    subtest: string
+    answers: Array<{
+      kode_soal: string
+      jawaban: string
+    }>
+    time_limit: string
+  }
+}
+
 export const getTryoutUrl = (isPublic?: boolean) => {
   return isPublic ? PUBLIC_TRYOUT_URL : TRYOUT_URL
 }
@@ -89,7 +105,7 @@ export const getCurrentTryout = async (
 ): Promise<any | null> => {
   try {
     const tryoutUrl = getTryoutUrl(isPublic)
-    return await fetchJson<any>(`${tryoutUrl}/sync/current`, {
+    return await fetchJson<any>(`${tryoutUrl}/current`, {
       method: 'GET',
       accessToken,
       refreshToken,
@@ -97,6 +113,97 @@ export const getCurrentTryout = async (
   } catch (error) {
     console.error('Error fetching current tryout:', error)
     return null
+  }
+}
+
+export const startSubtest = async (
+  subtest: string,
+  accessToken?: string,
+  isPublic?: boolean,
+  refreshToken?: string
+): Promise<SubtestSyncResponse> => {
+  const tryoutUrl = getTryoutUrl(isPublic)
+
+  try {
+    return await fetchJson<SubtestSyncResponse>(`${tryoutUrl}/${subtest}/start`, {
+      method: 'POST',
+      accessToken,
+      refreshToken,
+    })
+  } catch (error) {
+    const mappedError = mapTryoutSyncError(
+      error,
+      'Gagal memulai subtest. Silahkan coba lagi.'
+    )
+
+    console.error('Error starting subtest:', {
+      subtest,
+      message: mappedError.message,
+    })
+
+    throw mappedError
+  }
+}
+
+export const saveSubtestAnswers = async (
+  subtest: string,
+  payload: SubtestSyncPayload,
+  accessToken?: string,
+  isPublic?: boolean,
+  refreshToken?: string
+): Promise<SubtestSyncResponse> => {
+  const tryoutUrl = getTryoutUrl(isPublic)
+
+  try {
+    return await fetchJson<SubtestSyncResponse>(`${tryoutUrl}/${subtest}/answers`, {
+      method: 'PUT',
+      accessToken,
+      refreshToken,
+      body: payload,
+    })
+  } catch (error) {
+    const mappedError = mapTryoutSyncError(
+      error,
+      'Gagal menyimpan jawaban subtest. Silahkan coba lagi.'
+    )
+
+    console.error('Error saving subtest answers:', {
+      subtest,
+      message: mappedError.message,
+    })
+
+    throw mappedError
+  }
+}
+
+export const submitSubtest = async (
+  subtest: string,
+  payload: SubtestSyncPayload,
+  accessToken?: string,
+  isPublic?: boolean,
+  refreshToken?: string
+): Promise<any> => {
+  const tryoutUrl = getTryoutUrl(isPublic)
+
+  try {
+    return await fetchJson<any>(`${tryoutUrl}/${subtest}/submit`, {
+      method: 'POST',
+      accessToken,
+      refreshToken,
+      body: payload,
+    })
+  } catch (error) {
+    const mappedError = mapTryoutSyncError(
+      error,
+      'Gagal submit subtest. Silahkan coba lagi.'
+    )
+
+    console.error('Error submitting subtest:', {
+      subtest,
+      message: mappedError.message,
+    })
+
+    throw mappedError
   }
 }
 
@@ -113,7 +220,7 @@ export const getSoal = async (
       method: 'GET',
       accessToken,
       refreshToken,
-      cache: 'force-cache',
+      cache: 'no-store',
     })
   } catch (error) {
     const mappedError = mapSoalFetchError(

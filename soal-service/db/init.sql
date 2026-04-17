@@ -20,10 +20,14 @@ ALTER TABLE soal ALTER COLUMN pembahasan DROP NOT NULL;
 CREATE TABLE IF NOT EXISTS pilihan_pilihan_ganda (
     pilihan_pilihan_ganda_id VARCHAR(36) PRIMARY KEY,
     kode_soal VARCHAR(36) NOT NULL,
+    option_order INT,
     pilihan TEXT NOT NULL,
     is_correct BOOLEAN NOT NULL DEFAULT FALSE,
     FOREIGN KEY (kode_soal) REFERENCES soal(kode_soal) ON DELETE CASCADE
 );
+
+ALTER TABLE pilihan_pilihan_ganda
+    ADD COLUMN IF NOT EXISTS option_order INT;
 
 CREATE TABLE IF NOT EXISTS pilihan_true_false (
     pilihan_true_false_id VARCHAR(36) PRIMARY KEY,

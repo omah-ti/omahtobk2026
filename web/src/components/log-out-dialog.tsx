@@ -13,22 +13,30 @@ import {
 } from '@/components/ui/alert-dialog'
 import { getAuthErrorMessage, logoutAuth } from '@/lib/fetch/auth'
 import { X } from 'lucide-react'
-import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Button } from './ui/button'
+import { useState } from 'react'
 
 const LogOutDialog = ({ children }: { children: React.ReactNode }) => {
-  const router = useRouter()
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
 
   const handleLogout = async () => {
+    if (isLoggingOut) {
+      return
+    }
+
+    setIsLoggingOut(true)
     const toastId = toast.loading('Memproses logout...')
+
     try {
       await logoutAuth()
 
       toast.dismiss(toastId)
       toast.success('Berhasil keluar dari akun.')
-      router.push('/')
-      router.refresh()
+
+      // Force hard navigation so protected pages are left immediately
+      // after cookies are cleared by the logout endpoint.
+      window.location.replace('/login')
     } catch (error: unknown) {
       toast.dismiss(toastId)
       toast.error('Gagal keluar dari akun.', {
@@ -37,6 +45,7 @@ const LogOutDialog = ({ children }: { children: React.ReactNode }) => {
           'Silahkan coba lagi beberapa saat lagi.'
         ),
       })
+      setIsLoggingOut(false)
     }
   }
 
@@ -65,10 +74,11 @@ const LogOutDialog = ({ children }: { children: React.ReactNode }) => {
           <AlertDialogAction asChild>
             <Button
               onClick={handleLogout}
+              disabled={isLoggingOut}
               variant={'destructive'}
               className='text-red-700 hover:bg-error-400 bg-transparent hover:cursor-pointer hover:text-red-400 focus:ring-red-400 focus:ring-offset-red-100 disabled:pointer-events-none data-[state=open]:bg-transparent'
             >
-              Logout
+              {isLoggingOut ? 'Memproses...' : 'Logout'}
             </Button>
           </AlertDialogAction>
         </AlertDialogFooter>

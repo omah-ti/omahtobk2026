@@ -150,7 +150,7 @@ const LatexRenderer = ({ content }: { content: string }) => {
 
 const TryoutPage = ({ params }: { params: Promise<{ id: number }> }) => {
   const { id } = use(params)
-  const { value: soal, time, currentSubtest } = useTryoutData()
+  const { value: soal, time, currentSubtest, initialAnswers } = useTryoutData()
   const currentSoal = soal[id - 1]
 
   if (!currentSoal) redirect('/tryout/soal/1')
@@ -192,6 +192,7 @@ const TryoutPage = ({ params }: { params: Promise<{ id: number }> }) => {
         soal={[currentSoal]}
         soalSemua={soal}
         currentSubtest={currentSubtest}
+        initialAnswers={initialAnswers}
       />
     </motion.main>
   )

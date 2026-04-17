@@ -107,7 +107,7 @@ func (s *pageRepo) GetUserAnswersBasedOnIDPaketAndSubtest(c context.Context, use
 }
 
 func (s *pageRepo) GetOngoingAttemptByUserID(c context.Context, userID int) (*models.TryoutAttempt, error) {
-	query := `SELECT * FROM tryout_attempt WHERE user_id = $1 AND status = 'ongoing'`
+	query := `SELECT * FROM tryout_attempt WHERE user_id = $1 AND status = 'ongoing' ORDER BY start_time DESC LIMIT 1`
 	var attempt models.TryoutAttempt
 	err := s.db.Get(&attempt, query, userID)
 	if err != nil {
@@ -118,7 +118,7 @@ func (s *pageRepo) GetOngoingAttemptByUserID(c context.Context, userID int) (*mo
 }
 
 func (s *pageRepo) GetFinishedAttemptByUserID(c context.Context, userID int) (*models.TryoutAttempt, error) {
-	query := `SELECT * FROM tryout_attempt WHERE user_id = $1 AND status = 'finished'`
+	query := `SELECT * FROM tryout_attempt WHERE user_id = $1 AND status = 'finished' ORDER BY start_time DESC LIMIT 1`
 	var attempt models.TryoutAttempt
 	err := s.db.Get(&attempt, query, userID)
 	if err != nil {

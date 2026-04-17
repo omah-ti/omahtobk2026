@@ -1,17 +1,32 @@
 import { TrendingUp } from 'lucide-react'
-import { SubtestsScoreResponse } from '@/lib/types/types'
+import {
+  ProgressOverviewResponse,
+  SubtestsProgressRow,
+} from '@/lib/types/types'
 
 type StatistikCardProps = {
-  score: SubtestsScoreResponse
+  overview: ProgressOverviewResponse
+  subtestRows?: SubtestsProgressRow[]
 }
 
-const StatistikCard = ({ score }: StatistikCardProps) => {
-  const subtests = score?.data ?? []
-  const total = subtests.length
+const StatistikCard = ({ overview, subtestRows = [] }: StatistikCardProps) => {
+  const statistics = overview?.data.statistics
   const rataRata =
-    total > 0
-      ? Math.round(subtests.reduce((acc, s) => acc + s.score, 0) / total)
+    statistics && statistics.completed_subtests > 0
+      ? Math.round(statistics.average_score)
       : null
+
+  const totalSubtests =
+    subtestRows.length > 0
+      ? subtestRows.length
+      : (statistics?.total_subtests ?? 7)
+
+  const completedSubtests =
+    subtestRows.length > 0
+      ? subtestRows.filter((row) => row.score_value !== null).length
+      : (statistics?.completed_subtests ?? 0)
+
+  const progressText = `${completedSubtests} / ${totalSubtests} subtest`
 
   return (
     <div className='bg-white rounded-2xl border border-neutral-100 p-5 flex flex-col gap-4'>
@@ -30,7 +45,7 @@ const StatistikCard = ({ score }: StatistikCardProps) => {
         <div className='bg-primary-50 rounded-xl p-3 flex flex-col gap-1'>
           <p className='text-xs text-neutral-400'>Progres Try Out</p>
           <p className='text-2xl font-bold text-neutral-900'>
-            {total} / 7 subtest
+            {progressText}
           </p>
         </div>
       </div>

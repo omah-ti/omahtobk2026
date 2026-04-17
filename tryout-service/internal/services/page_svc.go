@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"math"
 	"time"
 	"tryout-service/internal/logger"
 	"tryout-service/internal/models"
@@ -23,6 +24,25 @@ type pageService struct {
 	pageRepo     repositories.PageRepo
 	scoreService ScoreService
 	tryoutRepo   repositories.TryoutRepo
+}
+
+func clampSubtestScore(score float64) float64 {
+	if score < 0 {
+		return 0
+	}
+	if score > 1000 {
+		return 1000
+	}
+	return score
+}
+
+func formatSubtestScoreText(score float64) string {
+	rounded := math.Round(score)
+	if math.Abs(score-rounded) < 0.005 {
+		return fmt.Sprintf("%.0f/1000", rounded)
+	}
+
+	return fmt.Sprintf("%.2f/1000", score)
 }
 
 func resolveJakartaLocation(c context.Context) *time.Location {
@@ -52,18 +72,23 @@ func (s *pageService) GetSubtestsProgress(c context.Context, userID int) (*model
 		Key  string
 		Name string
 	}{
-		{Key: "subtest_pu", Name: "Penalaran Umum"},
+		{Key: "subtest_pu", Name: "Kemampuan Penalaran Umum"},
 		{Key: "subtest_ppu", Name: "Pengetahuan dan Pemahaman Umum"},
-		{Key: "subtest_pbm", Name: "Pemahaman Bacaan dan Menulis"},
+		{Key: "subtest_pbm", Name: "Kemampuan Memahami Bacaan dan Menulis"},
 		{Key: "subtest_pk", Name: "Pengetahuan Kuantitatif"},
 		{Key: "subtest_lbi", Name: "Literasi dalam Bahasa Indonesia"},
 		{Key: "subtest_lbe", Name: "Literasi dalam Bahasa Inggris"},
 		{Key: "subtest_pm", Name: "Penalaran Matematika"},
 	}
 
-	userScores, err := s.pageRepo.GetAllSubtestScoreForAUser(c, userID)
-	if err != nil {
-		return nil, err
+	actionRoutes := map[string]string{
+		"subtest_pu":  "/tryout/penalaran-umum",
+		"subtest_ppu": "/tryout/pengetahuan-dan-pemahaman-umum",
+		"subtest_pbm": "/tryout/pemahaman-bacaan-dan-menulis",
+		"subtest_pk":  "/tryout/pengetahuan-kuantitatif",
+		"subtest_lbi": "/tryout/literasi-bahasa-indonesia",
+		"subtest_lbe": "/tryout/literasi-bahasa-inggris",
+		"subtest_pm":  "/tryout/penalaran-matematika",
 	}
 
 	ongoingAttempt, err := s.pageRepo.GetOngoingAttemptByUserID(c, userID)
@@ -71,17 +96,34 @@ func (s *pageService) GetSubtestsProgress(c context.Context, userID int) (*model
 		ongoingAttempt = nil
 	}
 
+	finishedAttempt, err := s.pageRepo.GetFinishedAttemptByUserID(c, userID)
+	if err != nil {
+		finishedAttempt = nil
+	}
+
 	attemptStatus := "not_started"
 	currentSubtest := ""
+	targetAttemptID := 0
+
 	if ongoingAttempt != nil {
 		attemptStatus = "ongoing"
 		currentSubtest = ongoingAttempt.SubtestSekarang
-	} else if len(userScores) > 0 {
+		targetAttemptID = ongoingAttempt.TryoutAttemptID
+	} else if finishedAttempt != nil {
 		attemptStatus = "finished"
+		targetAttemptID = finishedAttempt.TryoutAttemptID
+	}
+
+	userScores, err := s.pageRepo.GetAllSubtestScoreForAUser(c, userID)
+	if err != nil {
+		return nil, err
 	}
 
 	scoreMap := make(map[string]float64, len(userScores))
 	for _, score := range userScores {
+		if targetAttemptID > 0 && score.TryoutAttemptID != targetAttemptID {
+			continue
+		}
 		scoreMap[score.Subtest] = score.Score
 	}
 
@@ -103,13 +145,24 @@ func (s *pageService) GetSubtestsProgress(c context.Context, userID int) (*model
 			SubtestName: sub.Name,
 			ScoreMax:    1000,
 			ScoreText:   "-",
-			ActionRoute: "/tryout/intro",
+			ActionRoute: actionRoutes[sub.Key],
 		}
 
-		if hasScore {
+		isCompleted := false
+		switch attemptStatus {
+		case "ongoing":
+			isCompleted = currentIndex >= 0 && i < currentIndex
+		case "finished":
+			isCompleted = hasScore
+		}
+
+		if isCompleted {
 			completed++
-			row.ScoreValue = &scoreValue
-			row.ScoreText = fmt.Sprintf("%.0f/1000", scoreValue)
+			if hasScore {
+				cappedScore := clampSubtestScore(scoreValue)
+				row.ScoreValue = &cappedScore
+				row.ScoreText = formatSubtestScoreText(cappedScore)
+			}
 			row.StatusLabel = "Selesai"
 			row.ActionLabel = "Lihat Hasil"
 			row.IsLocked = false

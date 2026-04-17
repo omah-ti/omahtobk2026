@@ -1,5 +1,10 @@
 import { TRYOUT_URL } from '@/lib/types/url'
-import { LeaderboardResponse, SubtestsScoreResponse } from '@/lib/types/types'
+import {
+  LeaderboardResponse,
+  ProgressOverviewResponse,
+  SubtestsProgressResponse,
+  SubtestsScoreResponse,
+} from '@/lib/types/types'
 import { fetchJson } from '@/lib/fetch/http'
 
 export const getSubtestsScore = async (
@@ -32,6 +37,46 @@ export const getLeaderboard = async (
     })
   } catch (error) {
     console.error('Error fetching leaderboard:', error)
+    return null
+  }
+}
+
+export const getSubtestsProgress = async (
+  accessToken?: string,
+  refreshToken?: string
+): Promise<SubtestsProgressResponse> => {
+  try {
+    return await fetchJson<SubtestsProgressResponse>(
+      `${TRYOUT_URL}/subtests-progress`,
+      {
+        method: 'GET',
+        accessToken,
+        refreshToken,
+        cache: 'no-store',
+      }
+    )
+  } catch (error) {
+    console.error('Error fetching subtests progress:', error)
+    return null
+  }
+}
+
+export const getProgressOverview = async (
+  accessToken?: string,
+  refreshToken?: string
+): Promise<ProgressOverviewResponse> => {
+  try {
+    return await fetchJson<ProgressOverviewResponse>(
+      `${TRYOUT_URL}/progress-overview`,
+      {
+        method: 'GET',
+        accessToken,
+        refreshToken,
+        cache: 'no-store',
+      }
+    )
+  } catch (error) {
+    console.error('Error fetching progress overview:', error)
     return null
   }
 }

@@ -11,7 +11,7 @@ type TryoutBannerProps = {
 
 const STATS = [
   { icon: Clock, label: '195 Menit' },
-  { icon: Book, label: '160 Soal' },
+  { icon: Book, label: '170 Soal' },
   { icon: Layers, label: '7 Subtest' },
 ]
 
@@ -49,7 +49,7 @@ const TryoutBanner = ({ status, deadline = '19 April 2026' }: TryoutBannerProps)
                 Lihat Pembahasan
               </Link>
             ) : (
-              <Link href='/tryout/intro' className={cn(buttonVariants({ size: 'sm' }), 'h-auto gap-2 rounded-lg border border-primary-100 bg-primary-100 px-4 py-2.5 text-sm font-normal text-neutral-900 shadow-xs hover:bg-primary-200')}>
+              <Link href='/tryout/penalaran-umum' className={cn(buttonVariants({ size: 'sm' }), 'h-auto gap-2 rounded-lg border border-primary-100 bg-primary-100 px-4 py-2.5 text-sm font-normal text-neutral-900 shadow-xs hover:bg-primary-200')}>
                 <PlayCircle className='h-5 w-5' />
                 {status === 'ongoing' ? 'Lanjutkan Tryout' : 'Mulai Sekarang'}
               </Link>

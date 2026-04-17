@@ -1,9 +1,9 @@
 import { BarChart2 } from 'lucide-react'
-import { LeaderboardResponse, User } from '@/lib/types/types'
+import { ProgressOverviewResponse } from '@/lib/types/types'
 
 type PeringkatNasionalProps = {
-  leaderboard: LeaderboardResponse
-  user: User
+  overview: ProgressOverviewResponse
+  currentUsername?: string
 }
 
 type RowVariant = 'gold' | 'neutral' | 'user'
@@ -41,15 +41,14 @@ function RankRow({
   )
 }
 
-const PeringkatNasional = ({ leaderboard, user }: PeringkatNasionalProps) => {
-  const data = leaderboard?.data ?? []
-  const isEmpty = data.length === 0
-
-  const userRankIndex = user
-    ? data.findIndex((e) => e.username === user.username)
-    : -1
-
-  const top3 = data.slice(0, 3)
+const PeringkatNasional = ({ overview, currentUsername }: PeringkatNasionalProps) => {
+  const leaderboard = overview?.data.leaderboard
+  const top3 = leaderboard?.top_n?.slice(0, 3) ?? []
+  const isEmpty = top3.length === 0
+  const currentUserRank = leaderboard?.current_user_rank
+  const currentUserScore = leaderboard?.current_user_score
+  const fallbackName =
+    currentUsername || overview?.data.profile.name || 'Kamu'
 
   return (
     <div className="flex flex-col gap-[14px] p-5 bg-neutral-100 border border-neutral-200 rounded-[8px] shadow-[0_2px_4px_0_rgba(0,0,0,0.05)] self-stretch">
@@ -73,10 +72,10 @@ const PeringkatNasional = ({ leaderboard, user }: PeringkatNasionalProps) => {
           <div className="flex flex-col gap-[12px]">
             {top3.map((entry, i) => (
               <RankRow
-                key={i}
-                rank={i + 1}
-                name={entry.username ?? '–'}
-                score={entry.score ?? '–'}
+                key={entry.rank}
+                rank={entry.rank || i + 1}
+                name={entry.username || '–'}
+                score={Math.round(entry.score)}
                 variant={i === 0 ? 'gold' : 'neutral'}
               />
             ))}
@@ -88,11 +87,13 @@ const PeringkatNasional = ({ leaderboard, user }: PeringkatNasionalProps) => {
               Posisi kamu saat ini:
             </span>
 
-            {userRankIndex >= 0 ? (
+            {currentUserRank != null ? (
               <RankRow
-                rank={userRankIndex + 1}
-                name={data[userRankIndex].username ?? '–'}
-                score={data[userRankIndex].score ?? '–'}
+                rank={currentUserRank}
+                name={fallbackName}
+                score={
+                  currentUserScore != null ? Math.round(currentUserScore) : '–'
+                }
                 variant="user"
               />
             ) : (

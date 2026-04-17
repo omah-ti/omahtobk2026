@@ -21,6 +21,7 @@ type SoalRepo interface {
 	GetMinatBakatSoal(c context.Context) ([]models.MinatBakatGabungan, error)
 	GetSoalImagePathByKodeSoal(c context.Context, kodeSoal string) (*string, error)
 	UpdateSoalImagePath(c context.Context, kodeSoal, objectKey string) error
+	ReplaceInlineImageObjectKeyReferences(c context.Context, kodeSoal, oldObjectKey, newObjectKey string) error
 	ImportSoalCSV(c context.Context, input *models.SoalCSVImportInput) (*models.SoalCSVImportResult, error)
 }
 
@@ -35,11 +36,12 @@ func NewSoalRepo(db *sqlx.DB) SoalRepo {
 func (r *soalRepo) GetSoalByPaketAndSubtest(c context.Context, paketSoal, subtest string) ([]models.SoalGabungan, error) {
 	// Map soal by kode_soal as key
 	var mappedSoal = make(map[string]*models.SoalGabungan)
+	orderedKodeSoal := make([]string, 0)
 
 	query := `
 		SELECT 
 			s.kode_soal, s.paket_soal_id, s.subtest, s.text_soal, s.path_gambar_soal, 
-			ppg.pilihan_pilihan_ganda_id, ppg.pilihan, 
+			ppg.pilihan_pilihan_ganda_id, ppg.option_order, ppg.pilihan, 
 			ptf.pilihan_true_false_id, ptf.pilihan_tf,
 			u.uraian_id
 		FROM soal s
@@ -47,6 +49,15 @@ func (r *soalRepo) GetSoalByPaketAndSubtest(c context.Context, paketSoal, subtes
 		LEFT JOIN pilihan_true_false ptf ON s.kode_soal = ptf.kode_soal
 		LEFT JOIN uraian u ON s.kode_soal = u.kode_soal
 		WHERE s.paket_soal_id = $1 AND s.subtest = $2
+		ORDER BY
+			CASE
+				WHEN s.kode_soal ~ '[0-9]+$' THEN substring(s.kode_soal from '([0-9]+)$')::INT
+				ELSE 2147483647
+			END,
+			LOWER(s.kode_soal),
+			COALESCE(ppg.option_order, 2147483647),
+			ppg.pilihan_pilihan_ganda_id,
+			ptf.pilihan_true_false_id
 	`
 
 	rows, err := r.db.Queryx(query, paketSoal, subtest)
@@ -59,12 +70,13 @@ func (r *soalRepo) GetSoalByPaketAndSubtest(c context.Context, paketSoal, subtes
 	for rows.Next() {
 		var soal models.SoalGabungan
 		var pilihanGandaID, pilihanGandaPilihan sql.NullString
+		var pilihanGandaOrder sql.NullInt64
 		var trueFalseID, trueFalsePilihan sql.NullString
 		var uraianID sql.NullString
 
 		err := rows.Scan(
 			&soal.KodeSoal, &soal.PaketSoalID, &soal.Subtest, &soal.TextSoal, &soal.PathGambarSoal,
-			&pilihanGandaID, &pilihanGandaPilihan,
+			&pilihanGandaID, &pilihanGandaOrder, &pilihanGandaPilihan,
 			&trueFalseID, &trueFalsePilihan,
 			&uraianID,
 		)
@@ -76,12 +88,19 @@ func (r *soalRepo) GetSoalByPaketAndSubtest(c context.Context, paketSoal, subtes
 		// Ensure soal exists in the map
 		if _, exists := mappedSoal[soal.KodeSoal]; !exists {
 			mappedSoal[soal.KodeSoal] = &soal
+			orderedKodeSoal = append(orderedKodeSoal, soal.KodeSoal)
 		}
 
 		// Append choices only if not NULL
 		if pilihanGandaID.Valid {
+			optionOrder := 0
+			if pilihanGandaOrder.Valid {
+				optionOrder = int(pilihanGandaOrder.Int64)
+			}
+
 			mappedSoal[soal.KodeSoal].PilihanGanda = append(mappedSoal[soal.KodeSoal].PilihanGanda, models.PilihanPilihanGanda{
 				PilihanPilihanGandaID: pilihanGandaID.String,
+				OptionOrder:           optionOrder,
 				Pilihan:               pilihanGandaPilihan.String,
 			})
 		}
@@ -102,7 +121,11 @@ func (r *soalRepo) GetSoalByPaketAndSubtest(c context.Context, paketSoal, subtes
 
 	// Convert map to slice
 	var listSoal []models.SoalGabungan
-	for _, soal := range mappedSoal {
+	for _, kodeSoal := range orderedKodeSoal {
+		soal, exists := mappedSoal[kodeSoal]
+		if !exists {
+			continue
+		}
 		listSoal = append(listSoal, *soal)
 	}
 	logger.LogDebugCtx(c, "Soal retrieved successfully", map[string]interface{}{"paket_soal": paketSoal, "subtest": subtest})
@@ -252,12 +275,14 @@ func (r *soalRepo) GetAnswerKeyByPaketAndSubtest(c context.Context, paketSoal, s
 
 func (r *soalRepo) GetMinatBakatSoal(c context.Context) ([]models.MinatBakatGabungan, error) {
 	var mappedSoal = make(map[string]*models.MinatBakatGabungan)
+	orderedKodeSoal := make([]string, 0)
 	// query
 	query := `
 			SELECT 
 				mb.kode_soal, mb.text_soal, mbp.text_pilihan, mbp.divisi, mbp.pilihan_id
 				FROM minat_bakat_soal mb
 				LEFT JOIN minat_bakat_pilihan mbp ON mb.kode_soal = mbp.kode_soal
+				ORDER BY LOWER(mb.kode_soal), mbp.pilihan_id
 		`
 
 	// execute query
@@ -291,6 +316,7 @@ func (r *soalRepo) GetMinatBakatSoal(c context.Context) ([]models.MinatBakatGabu
 				},
 				Pilihan: []models.MinatBakatPilihan{},
 			}
+			orderedKodeSoal = append(orderedKodeSoal, soalID)
 		}
 		// append the pilihan to the soal, if the pilihanID is not empty
 		if pilihan.PilihanID != "" {
@@ -301,7 +327,11 @@ func (r *soalRepo) GetMinatBakatSoal(c context.Context) ([]models.MinatBakatGabu
 	// convert the map to slice
 	var results []models.MinatBakatGabungan
 	// iterate the map and append it to the slice
-	for _, soal := range mappedSoal {
+	for _, kodeSoal := range orderedKodeSoal {
+		soal, exists := mappedSoal[kodeSoal]
+		if !exists {
+			continue
+		}
 		results = append(results, *soal)
 	}
 
@@ -345,6 +375,66 @@ func (r *soalRepo) UpdateSoalImagePath(c context.Context, kodeSoal, objectKey st
 
 	if rowsAffected == 0 {
 		return sql.ErrNoRows
+	}
+
+	return nil
+}
+
+func (r *soalRepo) ReplaceInlineImageObjectKeyReferences(c context.Context, kodeSoal, oldObjectKey, newObjectKey string) error {
+	if strings.TrimSpace(kodeSoal) == "" {
+		return nil
+	}
+
+	oldKey := strings.TrimSpace(oldObjectKey)
+	newKey := strings.TrimSpace(newObjectKey)
+	if oldKey == "" || newKey == "" || oldKey == newKey {
+		return nil
+	}
+
+	oldToken := "[img:" + oldKey + "]"
+	newToken := "[img:" + newKey + "]"
+	oldBlockToken := "[img:block:" + oldKey + "]"
+	newBlockToken := "[img:block:" + newKey + "]"
+
+	if _, err := r.db.ExecContext(c, `
+		UPDATE soal
+		SET
+			text_soal = REPLACE(REPLACE(COALESCE(text_soal, ''), $2, $3), $4, $5),
+			pembahasan = CASE
+				WHEN pembahasan IS NULL THEN NULL
+				ELSE REPLACE(REPLACE(pembahasan, $2, $3), $4, $5)
+			END
+		WHERE kode_soal = $1
+	`, kodeSoal, oldToken, newToken, oldBlockToken, newBlockToken); err != nil {
+		logger.LogErrorCtx(c, err, "Failed to replace inline image token in soal", map[string]interface{}{"kode_soal": kodeSoal})
+		return err
+	}
+
+	if _, err := r.db.ExecContext(c, `
+		UPDATE pilihan_pilihan_ganda
+		SET pilihan = REPLACE(REPLACE(COALESCE(pilihan, ''), $2, $3), $4, $5)
+		WHERE kode_soal = $1
+	`, kodeSoal, oldToken, newToken, oldBlockToken, newBlockToken); err != nil {
+		logger.LogErrorCtx(c, err, "Failed to replace inline image token in pilihan_pilihan_ganda", map[string]interface{}{"kode_soal": kodeSoal})
+		return err
+	}
+
+	if _, err := r.db.ExecContext(c, `
+		UPDATE pilihan_true_false
+		SET pilihan_tf = REPLACE(REPLACE(COALESCE(pilihan_tf, ''), $2, $3), $4, $5)
+		WHERE kode_soal = $1
+	`, kodeSoal, oldToken, newToken, oldBlockToken, newBlockToken); err != nil {
+		logger.LogErrorCtx(c, err, "Failed to replace inline image token in pilihan_true_false", map[string]interface{}{"kode_soal": kodeSoal})
+		return err
+	}
+
+	if _, err := r.db.ExecContext(c, `
+		UPDATE uraian
+		SET jawaban = REPLACE(REPLACE(COALESCE(jawaban, ''), $2, $3), $4, $5)
+		WHERE kode_soal = $1
+	`, kodeSoal, oldToken, newToken, oldBlockToken, newBlockToken); err != nil {
+		logger.LogErrorCtx(c, err, "Failed to replace inline image token in uraian", map[string]interface{}{"kode_soal": kodeSoal})
+		return err
 	}
 
 	return nil
@@ -404,9 +494,9 @@ func (r *soalRepo) ImportSoalCSV(c context.Context, input *models.SoalCSVImportI
 
 	for _, item := range input.PilihanGandas {
 		_, err := tx.ExecContext(c, `
-			INSERT INTO pilihan_pilihan_ganda (pilihan_pilihan_ganda_id, kode_soal, pilihan, is_correct)
-			VALUES ($1, $2, $3, $4)
-		`, uuid.NewString(), item.KodeSoal, item.Pilihan, item.IsCorrect)
+			INSERT INTO pilihan_pilihan_ganda (pilihan_pilihan_ganda_id, kode_soal, option_order, pilihan, is_correct)
+			VALUES ($1, $2, $3, $4, $5)
+		`, uuid.NewString(), item.KodeSoal, item.OptionOrder, item.Pilihan, item.IsCorrect)
 		if err != nil {
 			logger.LogErrorCtx(c, err, "Failed to insert pilihan ganda", map[string]interface{}{"kode_soal": item.KodeSoal})
 			return nil, err

@@ -1,7 +1,7 @@
 import Container from '@/components/container'
 import TopBar from '@/components/tryout/top-bar'
 import { getFinishedAttempt } from '@/lib/fetch/tryout-page'
-import { getCurrentTryout, getSoal, syncTryout } from '@/lib/fetch/tryout-test'
+import { getCurrentTryout, getSoal, startSubtest } from '@/lib/fetch/tryout-test'
 import NumberCarousel from '@/modules/tryout/number-carousel'
 import TryoutStatus from '@/modules/tryout/tryout-status'
 import { redirect } from 'next/navigation'
@@ -14,26 +14,30 @@ const TryoutLayout = async ({ children }: { children: React.ReactNode }) => {
   const accessToken = await getRequestAccessToken()
   const finishedAttempt = await getFinishedAttempt(accessToken)
   if (finishedAttempt) {
-    redirect('/tryout')
+    redirect('/dashboard-home')
   }
   const currentSubtest = await getCurrentTryout(accessToken)
   if (currentSubtest == null) {
-    redirect('/tryout')
+    redirect('/tryout/intro')
   }
-  const syncData = await syncTryout([], accessToken)
-  if (syncData == null) {
-    redirect('/tryout?error=sync-failed')
+  const subtestSekarang = currentSubtest.data.subtest_sekarang
+  let subtestData
+  try {
+    subtestData = await startSubtest(subtestSekarang, accessToken)
+  } catch (error) {
+    console.error('Failed to start subtest in layout:', error)
+    redirect('/dashboard-home?error=start-subtest-failed')
   }
-  const timeLimit = syncData.data.time_limit
+  const timeLimit = subtestData.data.time_limit
+  const initialAnswers = subtestData.data.answers || []
   const grace = 60_000
   const adjustedTimeLimit = new Date(new Date(timeLimit).getTime() - grace)
-  const subtestSekarang = currentSubtest.data.subtest_sekarang
   let soal
   try {
     soal = await getSoal(currentSubtest.data.subtest_sekarang, accessToken)
   } catch (error) {
     console.error('Failed to fetch soal in layout:', error)
-    redirect('/tryout?error=soal-fetch-failed')
+    redirect('/dashboard-home?error=soal-fetch-failed')
   }
 
   const user = await fetchUser()
@@ -51,6 +55,7 @@ const TryoutLayout = async ({ children }: { children: React.ReactNode }) => {
           currentSubtest={subtestSekarang}
           value={soal}
           time={adjustedTimeLimit}
+          initialAnswers={initialAnswers}
         >
           <TopBar />
           <TryoutStatus

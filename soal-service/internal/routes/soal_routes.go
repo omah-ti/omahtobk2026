@@ -21,11 +21,16 @@ func InitializeRoutes(r *gin.Engine, soalHandler *handlers.SoalHandler) {
 	soal.Use(utils.ValidateJWT())
 	{
 		soal.GET("/:paket_soal", soalHandler.GetSoalByPaketAndSubtest)
-		soal.GET("/answer-key/:paket_soal", soalHandler.GetAnswerKeyByPaketAndSubtest)
 		soal.GET("/minat-bakat", soalHandler.GetMinatBakatSoal)
 		soal.POST("/import/csv", utils.RequireRoles("admin"), soalHandler.ImportSoalCSV)
 		soal.POST("/import/csv-bundle", utils.RequireRoles("admin"), soalHandler.ImportSoalCSVBundle)
 		soal.POST("/images/upload", utils.RequireRoles("admin"), soalHandler.UploadSoalImage)
 		soal.GET("/images/object/*object_key", soalHandler.GetSoalImageObject)
+	}
+
+	internalSoal := r.Group("/internal/soal")
+	internalSoal.Use(utils.RequireInternalServiceToken())
+	{
+		internalSoal.GET("/answer-key/:paket_soal", soalHandler.GetAnswerKeyByPaketAndSubtest)
 	}
 }

@@ -5,7 +5,7 @@ import { fetchUser } from '@/app/fetch_user'
 import {
   getFinishedAttempt,
   getOngoingAttempt,
-  getSubtestsScore,
+  getSubtestsProgress,
 } from '@/lib/fetch/tryout-page'
 import { cookies } from 'next/headers'
 import * as motion from 'motion/react-client'
@@ -15,9 +15,9 @@ const DashboardHomePage = async () => {
   const accessToken = cookieStore.get('access_token')?.value as string
   const refreshToken = cookieStore.get('refresh_token')?.value as string
 
-  const [user, subtestsScore, ongoing, finished] = await Promise.all([
+  const [user, subtestsProgress, ongoing, finished] = await Promise.all([
     fetchUser(),
-    getSubtestsScore(accessToken, refreshToken),
+    getSubtestsProgress(accessToken, refreshToken),
     getOngoingAttempt(accessToken, refreshToken),
     getFinishedAttempt(accessToken, refreshToken),
   ])
@@ -35,7 +35,7 @@ const DashboardHomePage = async () => {
 
       <TryoutBanner status={tryoutStatus} />
 
-      <ActivitySection score={subtestsScore} tryoutStatus={tryoutStatus} />
+      <ActivitySection progress={subtestsProgress} />
     </motion.div>
   )
 }

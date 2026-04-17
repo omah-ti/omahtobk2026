@@ -2,6 +2,12 @@
 
 import Container from '@/components/container'
 import {
+  getCurrentTryout,
+  startSubtest,
+  startTryout,
+} from '@/lib/fetch/tryout-test'
+import { ApiFetchError } from '@/lib/fetch/http'
+import {
   ArrowLeft,
   Book,
   CircleAlert,
@@ -15,59 +21,82 @@ import {
   Wifi,
 } from 'lucide-react'
 import { useParams, useRouter } from 'next/navigation'
-import { type ReactNode, useMemo, useState } from 'react'
+import { type ReactNode, useEffect, useMemo, useState } from 'react'
+
+type SubtestCode = 'pu' | 'ppu' | 'pbm' | 'pk' | 'lbi' | 'lbe' | 'pm'
+type BackendSubtestKey =
+  | 'subtest_pu'
+  | 'subtest_ppu'
+  | 'subtest_pbm'
+  | 'subtest_pk'
+  | 'subtest_lbi'
+  | 'subtest_lbe'
+  | 'subtest_pm'
 
 type SubtestItem = {
   slug: string
   title: string
   totalQuestion: number
-  targetPath: string
+  code: SubtestCode
+  backendSubtest: BackendSubtestKey
 }
 
 const SUBTESTS: SubtestItem[] = [
   {
     slug: 'penalaran-umum',
-    title: 'Penalaran Umum',
-    totalQuestion: 30,
-    targetPath: '/tryout/pu/1',
+    title: 'Kemampuan Penalaran Umum',
+    totalQuestion: 34,
+    code: 'pu',
+    backendSubtest: 'subtest_pu',
   },
   {
-    slug: 'pengentahuan-dan-pemahaman-umum',
+    slug: 'pengetahuan-dan-pemahaman-umum',
     title: 'Pengetahuan dan Pemahaman Umum',
     totalQuestion: 20,
-    targetPath: '/tryout/ppu/1',
+    code: 'ppu',
+    backendSubtest: 'subtest_ppu',
   },
   {
     slug: 'pemahaman-bacaan-dan-menulis',
-    title: 'Pemahaman Bacaan dan Menulis',
+    title: 'Kemampuan Memahami Bacaan dan Menulis',
     totalQuestion: 20,
-    targetPath: '/tryout/pbm/1',
+    code: 'pbm',
+    backendSubtest: 'subtest_pbm',
   },
   {
-    slug: 'pengetahuan-kuatitatif',
+    slug: 'pengetahuan-kuantitatif',
     title: 'Pengetahuan Kuantitatif',
     totalQuestion: 20,
-    targetPath: '/tryout/pk/1',
+    code: 'pk',
+    backendSubtest: 'subtest_pk',
   },
   {
     slug: 'literasi-bahasa-indonesia',
     title: 'Literasi dalam Bahasa Indonesia',
-    totalQuestion: 30,
-    targetPath: '/tryout/lbi/1',
+    totalQuestion: 36,
+    code: 'lbi',
+    backendSubtest: 'subtest_lbi',
   },
   {
     slug: 'literasi-bahasa-inggris',
     title: 'Literasi dalam Bahasa Inggris',
     totalQuestion: 20,
-    targetPath: '/tryout/lbe/1',
+    code: 'lbe',
+    backendSubtest: 'subtest_lbe',
   },
   {
     slug: 'penalaran-matematika',
     title: 'Penalaran Matematika',
     totalQuestion: 20,
-    targetPath: '/tryout/pm/1',
+    code: 'pm',
+    backendSubtest: 'subtest_pm',
   },
 ]
+
+const LEGACY_SLUG_ALIASES: Record<string, string> = {
+  'pengentahuan-dan-pemahaman-umum': 'pengetahuan-dan-pemahaman-umum',
+  'pengetahuan-kuatitatif': 'pengetahuan-kuantitatif',
+}
 
 const cardStyle =
   'rounded-lg bg-neutral-200 p-5 shadow-[0_3px_10px_rgba(0,0,0,0.1),0_2px_4px_rgba(0,0,0,0.08)]'
@@ -76,14 +105,102 @@ const TryoutSubtestPage = () => {
   const router = useRouter()
   const params = useParams<{ subtest: string }>()
   const [isAgreed, setIsAgreed] = useState(false)
-  const currentSlug = params.subtest
+  const [isBootstrapping, setIsBootstrapping] = useState(true)
+  const [isStarting, setIsStarting] = useState(false)
+  const [activeSubtestCode, setActiveSubtestCode] = useState<SubtestCode | null>(
+    null
+  )
+  const [pageError, setPageError] = useState<string | null>(null)
 
-  const activeSubtest = useMemo(
+  const currentSlugRaw = params.subtest
+  const currentSlug = LEGACY_SLUG_ALIASES[currentSlugRaw] || currentSlugRaw
+
+  const requestedSubtest = useMemo(
     () => SUBTESTS.find((item) => item.slug === currentSlug),
     [currentSlug]
   )
 
-  if (!activeSubtest) {
+  const activeSubtest = useMemo(() => {
+    if (!activeSubtestCode) {
+      return requestedSubtest || null
+    }
+
+    return SUBTESTS.find((item) => item.code === activeSubtestCode) || null
+  }, [activeSubtestCode, requestedSubtest])
+
+  useEffect(() => {
+    if (!requestedSubtest) {
+      setIsBootstrapping(false)
+      return
+    }
+
+    let active = true
+
+    const loadCurrentTryoutState = async () => {
+      setIsBootstrapping(true)
+      setPageError(null)
+
+      try {
+        let currentTryout = await getCurrentTryout('', true)
+
+        if (!currentTryout?.data?.attempt_id) {
+          await startTryout('', true)
+          currentTryout = await getCurrentTryout('', true)
+        }
+
+        const backendSubtest = currentTryout?.data
+          ?.subtest_sekarang as BackendSubtestKey | undefined
+
+        if (!backendSubtest) {
+          router.replace('/tryout/intro')
+          return
+        }
+
+        const activeItem =
+          SUBTESTS.find((item) => item.backendSubtest === backendSubtest) ||
+          null
+
+        if (!activeItem) {
+          router.replace('/tryout/intro')
+          return
+        }
+
+        if (!active) {
+          return
+        }
+
+        setActiveSubtestCode(activeItem.code)
+
+        if (activeItem.slug !== currentSlug) {
+          router.replace(`/tryout/${activeItem.slug}`)
+        }
+      } catch (error) {
+        if (!active) {
+          return
+        }
+
+        if (error instanceof ApiFetchError && error.status === 401) {
+          router.replace('/login')
+          return
+        }
+
+        console.error('Failed to load active tryout state:', error)
+        setPageError('Gagal menyiapkan data try out. Coba lagi beberapa saat.')
+      } finally {
+        if (active) {
+          setIsBootstrapping(false)
+        }
+      }
+    }
+
+    loadCurrentTryoutState()
+
+    return () => {
+      active = false
+    }
+  }, [currentSlug, requestedSubtest, router])
+
+  if (!requestedSubtest) {
     return (
       <Container>
         <div className='rounded-lg border border-neutral-300 bg-neutral-50 p-6 text-sm text-neutral-700'>
@@ -93,12 +210,32 @@ const TryoutSubtestPage = () => {
     )
   }
 
-  const startTryout = () => {
-    if (!isAgreed) {
+  const handleStartTryout = async () => {
+    if (!isAgreed || !activeSubtest || isBootstrapping || isStarting) {
       return
     }
 
-    router.push(activeSubtest.targetPath)
+    setIsStarting(true)
+    setPageError(null)
+
+    try {
+      await startSubtest(activeSubtest.backendSubtest, '', true)
+      router.push(`/tryout/${activeSubtest.code}/1`)
+    } catch (error) {
+      if (error instanceof ApiFetchError && error.status === 401) {
+        router.replace('/login')
+        return
+      }
+
+      console.error('Failed to start subtest from slug intro page:', error)
+      setPageError('Gagal memulai subtest. Silakan coba lagi.')
+    } finally {
+      setIsStarting(false)
+    }
+  }
+
+  if (!activeSubtest) {
+    return null
   }
 
   return (
@@ -129,7 +266,7 @@ const TryoutSubtestPage = () => {
 
               <div className='mt-5 flex flex-wrap items-center gap-5'>
                 <InfoChip icon={<Clock3 size={16} />} text='195 Menit' />
-                <InfoChip icon={<FileText size={16} />} text='160 Soal' />
+                <InfoChip icon={<FileText size={16} />} text='170 Soal' />
                 <InfoChip icon={<Layers2 size={16} />} text='7 Subtest' />
               </div>
             </article>
@@ -183,13 +320,19 @@ const TryoutSubtestPage = () => {
 
                 <button
                   type='button'
-                  disabled={!isAgreed}
-                  onClick={startTryout}
+                  disabled={!isAgreed || isBootstrapping || isStarting}
+                  onClick={() => void handleStartTryout()}
                   className='flex w-fit items-center gap-2 rounded-lg px-[18px] py-3 text-[16px] font-medium text-white transition-colors disabled:cursor-not-allowed disabled:bg-neutral-300 disabled:text-neutral-600 enabled:bg-primary-600 enabled:hover:bg-primary-700'
                 >
                   <CirclePlay size={20} />
-                  Mulai Sekarang
+                  {isBootstrapping || isStarting
+                    ? 'Menyiapkan Subtest...'
+                    : 'Mulai Sekarang'}
                 </button>
+
+                {pageError && (
+                  <p className='text-[13px] text-error-300'>{pageError}</p>
+                )}
               </div>
             </article>
           </div>

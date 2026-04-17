@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers'
 import * as motion from 'motion/react-client'
 import { fetchUser } from '@/app/fetch_user'
-import { getSubtestsScore, getLeaderboard } from '@/lib/fetch/tryout-page'
+import { getProgressOverview, getSubtestsProgress } from '@/lib/fetch/tryout-page'
 import LogOutDialog from '@/components/log-out-dialog'
 import { Button } from '@/components/ui/button'
 import { LogOut } from 'lucide-react'
@@ -16,10 +16,10 @@ const DashboardProgressPage = async () => {
   const accessToken = cookieStore.get('access_token')?.value as string
   const refreshToken = cookieStore.get('refresh_token')?.value as string
 
-  const [user, score, leaderboard] = await Promise.all([
+  const [user, overview, subtestsProgress] = await Promise.all([
     fetchUser(),
-    getSubtestsScore(accessToken, refreshToken),
-    getLeaderboard(accessToken, refreshToken),
+    getProgressOverview(accessToken, refreshToken),
+    getSubtestsProgress(accessToken, refreshToken),
   ])
 
   return (
@@ -54,13 +54,19 @@ const DashboardProgressPage = async () => {
 
         <div className='flex flex-col gap-5 md:w-[422px] md:shrink-0'>
           <ProfileCard user={user} />
-          <StatistikCard score={score} />
-          <InsightCard score={score} />
+          <StatistikCard
+            overview={overview}
+            subtestRows={subtestsProgress?.data?.rows || []}
+          />
+          <InsightCard
+            overview={overview}
+            subtestRows={subtestsProgress?.data?.rows || []}
+          />
         </div>
 
         <div className='flex flex-col gap-5 md:flex-1'>
-          <PeringkatNasional leaderboard={leaderboard} user={user} />
-          <CountdownSNBT />
+          <PeringkatNasional overview={overview} currentUsername={user?.username} />
+          <CountdownSNBT utbk={overview?.data.utbk} />
         </div>
 
       </div>

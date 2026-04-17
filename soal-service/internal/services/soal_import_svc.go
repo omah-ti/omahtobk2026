@@ -16,6 +16,7 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 )
 
 const (
@@ -26,6 +27,11 @@ const (
 )
 
 var inlineImageTokenPattern = regexp.MustCompile(`(?i)\[img:([^\]\r\n]+)\]`)
+
+const (
+	imageTokenModeInline = "inline"
+	imageTokenModeBlock  = "block"
+)
 
 type CSVImportFiles struct {
 	SoalCSV []byte
@@ -87,11 +93,11 @@ func (s *soalService) ImportSoalFromZIPBundle(c context.Context, zipData []byte)
 		if strings.TrimSpace(value) == "" {
 			return nil
 		}
-		_, err := rewriteInlineImageTokens(value, func(normPath string) (string, error) {
+		_, err := rewriteInlineImageTokens(value, func(mode, normPath string) (string, error) {
 			if _, exists := requiredImagePaths[normPath]; !exists {
 				requiredImagePaths[normPath] = source
 			}
-			return normPath, nil
+			return buildImageTokenPayload(mode, normPath), nil
 		})
 		if err != nil {
 			return fmt.Errorf("%s: %w", source, err)
@@ -159,8 +165,7 @@ func (s *soalService) ImportSoalFromZIPBundle(c context.Context, zipData []byte)
 			return nil, fmt.Errorf("failed to process image %q referenced by %s: %w", normPath, requiredImagePaths[normPath], err)
 		}
 
-		hint := strings.TrimSuffix(path.Base(normPath), path.Ext(normPath))
-		objectKey := storage.NewObjectKey(hint)
+		objectKey := storage.NewObjectKeyFromBundlePath(normPath)
 		if err := s.imageStore.UploadObject(c, objectKey, bytes.NewReader(converted.Data), int64(len(converted.Data)), converted.ContentType); err != nil {
 			cleanupUploadedObjects(c, s.imageStore, uploadedObjectKeys)
 			return nil, fmt.Errorf("failed to upload image %q referenced by %s: %w", normPath, requiredImagePaths[normPath], err)
@@ -171,12 +176,12 @@ func (s *soalService) ImportSoalFromZIPBundle(c context.Context, zipData []byte)
 	}
 
 	rewriteTextWithUploadedKeys := func(value, source string) (string, error) {
-		rewritten, err := rewriteInlineImageTokens(value, func(normPath string) (string, error) {
+		rewritten, err := rewriteInlineImageTokens(value, func(mode, normPath string) (string, error) {
 			objectKey, ok := uploadedObjectByPath[normPath]
 			if !ok {
 				return "", fmt.Errorf("missing uploaded image mapping for %q", normPath)
 			}
-			return objectKey, nil
+			return buildImageTokenPayload(mode, objectKey), nil
 		})
 		if err != nil {
 			return "", fmt.Errorf("%s: %w", source, err)
@@ -510,16 +515,17 @@ func buildImportInput(files CSVImportFiles) (*models.SoalCSVImportInput, []strin
 			}
 
 			labels := []string{"A", "B", "C", "D", "E"}
-			for _, label := range labels {
+			for optionIndex, label := range labels {
 				text := options[label]
 				if text == "" {
 					continue
 				}
 				_, isCorrect := correctByLabel[label]
 				input.PilihanGandas = append(input.PilihanGandas, models.PilihanGandaImportRow{
-					KodeSoal:  kodeSoal,
-					Pilihan:   text,
-					IsCorrect: isCorrect,
+					KodeSoal:    kodeSoal,
+					OptionOrder: optionIndex + 1,
+					Pilihan:     text,
+					IsCorrect:   isCorrect,
 				})
 			}
 		case "true_false":
@@ -648,7 +654,7 @@ func readCSVRows(name string, data []byte, requiredHeaders []string, optionalHea
 				row[h] = ""
 				continue
 			}
-			row[h] = record[idx]
+			row[h] = sanitizeCSVCellValue(record[idx])
 		}
 
 		if isCompletelyBlankRow(row) {
@@ -672,6 +678,16 @@ func isCompletelyBlankRow(row map[string]string) bool {
 
 func normalizeCell(value string) string {
 	return strings.TrimSpace(value)
+}
+
+func sanitizeCSVCellValue(value string) string {
+	if utf8.ValidString(value) {
+		return value
+	}
+
+	// Some CSV editors export cp1252 smart punctuation bytes (e.g. 0x97).
+	// Replace invalid sequences with ASCII '-' so text stays DB-safe.
+	return string(bytes.ToValidUTF8([]byte(value), []byte("-")))
 }
 
 func parseBoolCell(value string) (bool, error) {
@@ -726,7 +742,38 @@ func normalizeBundleImagePath(raw string) (string, error) {
 	return strings.ToLower(normPath), nil
 }
 
-func rewriteInlineImageTokens(value string, replacer func(normalizedPath string) (string, error)) (string, error) {
+func parseImageTokenPayload(raw string) (string, string, error) {
+	payload := strings.TrimSpace(raw)
+	if payload == "" {
+		return "", "", fmt.Errorf("invalid image path %q", strings.TrimSpace(raw))
+	}
+
+	mode := imageTokenModeInline
+	if idx := strings.Index(payload, ":"); idx > 0 {
+		prefix := strings.ToLower(strings.TrimSpace(payload[:idx]))
+		if prefix == imageTokenModeInline || prefix == imageTokenModeBlock {
+			mode = prefix
+			payload = strings.TrimSpace(payload[idx+1:])
+		}
+	}
+
+	normPath, err := normalizeBundleImagePath(payload)
+	if err != nil {
+		return "", "", err
+	}
+
+	return mode, normPath, nil
+}
+
+func buildImageTokenPayload(mode, pathValue string) string {
+	cleanPath := strings.TrimSpace(pathValue)
+	if strings.EqualFold(strings.TrimSpace(mode), imageTokenModeBlock) {
+		return imageTokenModeBlock + ":" + cleanPath
+	}
+	return cleanPath
+}
+
+func rewriteInlineImageTokens(value string, replacer func(mode string, normalizedPath string) (string, error)) (string, error) {
 	if !strings.Contains(strings.ToLower(value), "[img:") {
 		return value, nil
 	}
@@ -742,13 +789,13 @@ func rewriteInlineImageTokens(value string, replacer func(normalizedPath string)
 			return token
 		}
 
-		normPath, err := normalizeBundleImagePath(match[1])
+		mode, normPath, err := parseImageTokenPayload(match[1])
 		if err != nil {
 			rewriteErr = err
 			return token
 		}
 
-		replacement, err := replacer(normPath)
+		replacement, err := replacer(mode, normPath)
 		if err != nil {
 			rewriteErr = err
 			return token
