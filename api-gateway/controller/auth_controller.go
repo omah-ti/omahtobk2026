@@ -1,6 +1,7 @@
 package controller
 
 import (
+	appmiddleware "api-gateway/middleware"
 	"bytes"
 	"io"
 	"net/http"
@@ -66,6 +67,10 @@ func (a *AuthController) proxy(c *fiber.Ctx, method, upstreamPath string) error 
 	}
 
 	for key, values := range c.GetReqHeaders() {
+		if appmiddleware.IsReservedInboundHeader(key) {
+			continue
+		}
+
 		for _, value := range values {
 			req.Header.Add(key, value)
 		}

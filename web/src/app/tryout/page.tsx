@@ -12,18 +12,16 @@ import {
   getOngoingAttempt,
   getSubtestsScore,
 } from '@/lib/fetch/tryout-page'
-import { cookies } from 'next/headers'
+import { getRequestAccessToken } from '@/lib/auth/request-token'
 import * as motion from 'motion/react-client'
 
 const TryOutPage = async () => {
-  const cookieStore = await cookies()
-  const accessToken = cookieStore.get('access_token')?.value as string
-  const refreshToken = cookieStore.get('refresh_token')?.value as string
-  const subtestsScore = await getSubtestsScore(accessToken, refreshToken)
-  const leaderboard = await getLeaderboard(accessToken, refreshToken)
+  const accessToken = await getRequestAccessToken()
+  const subtestsScore = await getSubtestsScore(accessToken)
+  const leaderboard = await getLeaderboard(accessToken)
   const user = await fetchUser()
-  const ongoing = await getOngoingAttempt(accessToken, refreshToken)
-  const finished = await getFinishedAttempt(accessToken, refreshToken)
+  const ongoing = await getOngoingAttempt(accessToken)
+  const finished = await getFinishedAttempt(accessToken)
 
   return (
     <main className='min-h-screen bg-neutral-50'>

@@ -41,6 +41,7 @@ func main() {
 
 	app.Use(recover.New())
 	app.Use(logger.New())
+	app.Use(middleware.StripReservedHeaders())
 	app.Use(requestIDMiddleware())
 	app.Use(cors.New(cors.Config{
 		AllowOrigins:     config.CORSURL,
@@ -160,6 +161,10 @@ func proxyRequest(targetURL, stripPrefix string) fiber.Handler {
 		}
 
 		for key, values := range c.GetReqHeaders() {
+			if middleware.IsReservedInboundHeader(key) {
+				continue
+			}
+
 			for _, value := range values {
 				req.Header.Add(key, value)
 			}

@@ -4,24 +4,23 @@ import { getFinishedAttempt } from '@/lib/fetch/tryout-page'
 import { getCurrentTryout, getSoal, syncTryout } from '@/lib/fetch/tryout-test'
 import NumberCarousel from '@/modules/tryout/number-carousel'
 import TryoutStatus from '@/modules/tryout/tryout-status'
-import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { TryoutDataProvider } from './tryout-context'
 import { fetchUser } from '@/app/fetch_user'
 import * as motion from 'motion/react-client'
+import { getRequestAccessToken } from '@/lib/auth/request-token'
 
 const TryoutLayout = async ({ children }: { children: React.ReactNode }) => {
-  const accessToken = (await cookies()).get('access_token')?.value as string
-  const refreshToken = (await cookies()).get('refresh_token')?.value as string
+  const accessToken = await getRequestAccessToken()
   const finishedAttempt = await getFinishedAttempt(accessToken)
   if (finishedAttempt) {
     redirect('/tryout')
   }
-  const currentSubtest = await getCurrentTryout(accessToken, undefined, refreshToken)
+  const currentSubtest = await getCurrentTryout(accessToken)
   if (currentSubtest == null) {
     redirect('/tryout')
   }
-  const syncData = await syncTryout([], accessToken, undefined, refreshToken)
+  const syncData = await syncTryout([], accessToken)
   if (syncData == null) {
     redirect('/tryout?error=sync-failed')
   }
@@ -31,12 +30,7 @@ const TryoutLayout = async ({ children }: { children: React.ReactNode }) => {
   const subtestSekarang = currentSubtest.data.subtest_sekarang
   let soal
   try {
-    soal = await getSoal(
-      currentSubtest.data.subtest_sekarang,
-      accessToken,
-      undefined,
-      refreshToken
-    )
+    soal = await getSoal(currentSubtest.data.subtest_sekarang, accessToken)
   } catch (error) {
     console.error('Failed to fetch soal in layout:', error)
     redirect('/tryout?error=soal-fetch-failed')
