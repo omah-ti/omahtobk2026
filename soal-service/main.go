@@ -104,7 +104,7 @@ func main() {
 
 	r.Use(rateLimiterMiddleware())
 	r.Use(requestSizeLimitMiddleware(getRequestBodyLimitBytes()))
-	r.Use(timeoutMiddleware(20 * time.Second))
+	r.Use(timeoutMiddleware(60 * time.Second))
 
 	routes.InitializeRoutes(r, soalHandler)
 

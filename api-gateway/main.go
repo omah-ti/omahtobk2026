@@ -149,7 +149,7 @@ func blockSensitiveSoalRoute() fiber.Handler {
 }
 
 func proxyRequest(targetURL, stripPrefix string) fiber.Handler {
-	client := &http.Client{Timeout: 20 * time.Second}
+	client := &http.Client{Timeout: 120 * time.Second}
 
 	return func(c *fiber.Ctx) error {
 		upstreamPath := strings.TrimPrefix(c.Path(), stripPrefix)

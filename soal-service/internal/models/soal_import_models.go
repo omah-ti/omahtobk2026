@@ -20,10 +20,10 @@ type SoalImportRow struct {
 }
 
 type PilihanGandaImportRow struct {
-	KodeSoal  string
+	KodeSoal    string
 	OptionOrder int
-	Pilihan   string
-	IsCorrect bool
+	Pilihan     string
+	IsCorrect   bool
 }
 
 type TrueFalseImportRow struct {
