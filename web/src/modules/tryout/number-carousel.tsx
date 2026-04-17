@@ -21,14 +21,15 @@ import { useCallback, useEffect, useState } from 'react'
 
 const NumberCarousel = ({ totalQuestions }: { totalQuestions: number }) => {
   const pathname = usePathname()
-  const { value: soal } = useTryoutData()
+  const { value: soal, currentSubtest } = useTryoutData()
+  const localStorageKey = `tryout_answers_${currentSubtest}`
   let currentNumber = Number(pathname.slice(pathname.lastIndexOf('/') + 1))
   const [savedAnswers, setSavedAnswers] = useState<Record<string, any>>({})
 
   // Function to get answers from localStorage
   const getAnswersFromLocalStorage = useCallback(() => {
     try {
-      const answersJson = localStorage.getItem('tryout_answers_user')
+      const answersJson = localStorage.getItem(localStorageKey)
       if (answersJson) {
         const parsedAnswers = JSON.parse(answersJson)
         // Use functional update to avoid issues with stale state
@@ -43,7 +44,7 @@ const NumberCarousel = ({ totalQuestions }: { totalQuestions: number }) => {
     } catch (e) {
       console.error('Error parsing answers from localStorage:', e)
     }
-  }, [])
+  }, [localStorageKey])
 
   // Use useEffect to handle localStorage and events
   useEffect(() => {
@@ -98,7 +99,7 @@ const NumberCarousel = ({ totalQuestions }: { totalQuestions: number }) => {
                     className='basis-[33%] pl-2 min-[400px]:basis-[25%] sm:basis-[11%] md:basis-[9%] lg:basis-[6%] xl:basis-[5%]'
                   >
                     <Link
-                      href={`/tryout/${questionNumber}`}
+                      href={`/tryout/soal/${questionNumber}`}
                       replace={true}
                       scroll={false}
                     >

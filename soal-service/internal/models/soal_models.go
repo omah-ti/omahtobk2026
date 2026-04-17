@@ -18,6 +18,7 @@ type Soal struct {
 type PilihanPilihanGanda struct {
 	PilihanPilihanGandaID string `json:"soal_pilihan_ganda_id" db:"soal_pilihan_ganda_id" binding:"required"`
 	KodeSoal              string `json:"kode_soal" db:"kode_soal" binding:"required"`
+	OptionOrder           int    `json:"option_order" db:"option_order"`
 	Pilihan               string `json:"pilihan" db:"pilihan" binding:"required"`
 	IsCorrect             bool   `json:"is_correct" db:"is_correct" binding:"required"`
 }

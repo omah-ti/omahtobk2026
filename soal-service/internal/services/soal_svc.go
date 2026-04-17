@@ -138,6 +138,15 @@ func (s *soalService) UploadSoalImage(c context.Context, kodeSoal string, raw []
 		return nil, err
 	}
 
+	if oldPath != nil {
+		oldKey := strings.TrimSpace(*oldPath)
+		if oldKey != "" && !isAbsoluteURL(oldKey) && oldKey != objectKey {
+			if err := s.soalRepo.ReplaceInlineImageObjectKeyReferences(c, kodeSoal, oldKey, objectKey); err != nil {
+				logger.LogErrorCtx(c, err, "Failed to sync inline image references after upload", map[string]interface{}{"kode_soal": kodeSoal})
+			}
+		}
+	}
+
 	if oldPath != nil && strings.TrimSpace(*oldPath) != "" && !isAbsoluteURL(*oldPath) && strings.TrimSpace(*oldPath) != objectKey {
 		if err := s.imageStore.DeleteObject(c, strings.TrimSpace(*oldPath)); err != nil {
 			logger.LogErrorCtx(c, err, "Failed deleting previous soal image", map[string]interface{}{"kode_soal": kodeSoal})
@@ -187,12 +196,30 @@ func rewriteInlineImageTokensToProxyURL(value string, imageStore storage.ObjectS
 			return token
 		}
 
-		imgPath := strings.TrimSpace(match[1])
+		mode, imgPath := parseInlineImageTokenPath(match[1])
 		if imgPath == "" || isAbsoluteURL(imgPath) {
 			return token
 		}
 
 		proxyURL := imageStore.BuildProxyURL(strings.TrimLeft(imgPath, "/"))
-		return "[img:" + proxyURL + "]"
+		return "[img:" + buildImageTokenPayload(mode, proxyURL) + "]"
 	})
+}
+
+func parseInlineImageTokenPath(raw string) (string, string) {
+	payload := strings.TrimSpace(raw)
+	if payload == "" {
+		return imageTokenModeInline, ""
+	}
+
+	mode := imageTokenModeInline
+	if idx := strings.Index(payload, ":"); idx > 0 {
+		prefix := strings.ToLower(strings.TrimSpace(payload[:idx]))
+		if prefix == imageTokenModeInline || prefix == imageTokenModeBlock {
+			mode = prefix
+			payload = strings.TrimSpace(payload[idx+1:])
+		}
+	}
+
+	return mode, payload
 }

@@ -120,6 +120,8 @@ services:
         env_file:
             - soal-service/.env
             - .env
+        environment:
+            INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-omahto-dev-internal-token}
         depends_on:
             soal-service-db:
                 condition: service_healthy # Ensure DB is ready
@@ -157,6 +159,8 @@ services:
         env_file:
             - tryout-service/.env
             - .env
+        environment:
+            INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-omahto-dev-internal-token}
         depends_on:
             tryout-service-db:
                 condition: service_healthy # Ensure DB is ready

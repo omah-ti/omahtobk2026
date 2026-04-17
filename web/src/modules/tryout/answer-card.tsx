@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { progressTryout, syncTryout } from '@/lib/fetch/tryout-test'
+import { saveSubtestAnswers, submitSubtest } from '@/lib/fetch/tryout-test'
 import { cn } from '@/lib/utils'
 import {
   ArrowLeft,
@@ -40,6 +40,7 @@ interface AnswerCardProps {
   soalSemua: any[]
   time: Date
   currentSubtest: string
+  initialAnswers?: Array<{ kode_soal: string; jawaban: string }>
 }
 
 interface AnswerPayload {
@@ -55,6 +56,7 @@ interface LocalAnswer extends AnswerPayload {
 const AnswerCard = ({
   time,
   currentSubtest,
+  initialAnswers = [],
   variant = 'multiple_choice',
   soalSemua,
 }: AnswerCardProps) => {
@@ -63,7 +65,7 @@ const AnswerCard = ({
   const basePath = pathname.slice(0, pathname.lastIndexOf('/'))
   const currentNumber =
     Number(pathname.slice(pathname.lastIndexOf('/') + 1)) || 1
-  const localStorageKey = `tryout_answers_user`
+  const localStorageKey = `tryout_answers_${currentSubtest}`
 
   // State management
   const [hasSubmitted, setHasSubmitted] = useState(false)
@@ -76,6 +78,15 @@ const AnswerCard = ({
   const [isGracePeriod, setIsGracePeriod] = useState(false)
   const [graceTimeRemaining, setGraceTimeRemaining] = useState<number>(1 * 60) // 1 minutes in seconds
   const [dialogOpen, setDialogOpen] = useState(false)
+
+  const mapToPayload = (items: Record<string, LocalAnswer>): AnswerPayload[] => {
+    return Object.values(items)
+      .filter((item) => (item.jawaban || '').trim().length > 0)
+      .map((item) => ({
+        kode_soal: item.kode_soal,
+        jawaban: item.jawaban,
+      }))
+  }
 
   // Use the time prop directly as timeLimit instead of state
   const timeLimit = time ? time.getTime() : null
@@ -101,31 +112,32 @@ const AnswerCard = ({
       setSubmitting(true)
       setSyncStatus('syncing')
 
-      const answersToSubmit = Object.values(answers)
-      const result = await progressTryout(answersToSubmit, '', true)
+      const answersToSubmit = mapToPayload(answers)
+      const result = await submitSubtest(
+        currentSubtest,
+        { answers: answersToSubmit },
+        '',
+        true
+      )
 
       localStorage.removeItem(localStorageKey)
       setHasSubmitted(true)
       if (timerRef.current) clearInterval(timerRef.current)
-      if (currentSubtest === 'subtest_pm') {
-        router.push('/tryout')
-      } else {
-        router.push('/tryout/intro')
-      }
+      router.push('/dashboard-home')
       toast.success('Jawaban berhasil dikumpulkan!', {
         position: 'bottom-left',
       })
       return result
     } catch (error) {
-      localStorage.clear()
+      localStorage.removeItem(localStorageKey)
       console.error('Submission error:', error)
       toast.error(
-        'Jawaban gagal dikumpulkan. Waktu pengumpulan sudah habis, tryout akan diulang.',
+        'Jawaban gagal dikumpulkan. Silahkan coba lagi dari dashboard.',
         {
           position: 'bottom-left',
         }
       )
-      router.push('/tryout')
+      router.push('/dashboard-home')
     } finally {
       setSubmitting(false)
       setSyncStatus('idle')
@@ -135,7 +147,6 @@ const AnswerCard = ({
   // Time limit handler
   useEffect(() => {
     if (!timeLimit || isNaN(timeLimit)) return
-    if (timeLimit == 0) router.push(`/tryout/${currentNumber}`)
     const checkTime = () => {
       const now = Date.now()
       const gracePeriodStart = timeLimit
@@ -191,15 +202,20 @@ const AnswerCard = ({
         const savedAnswers = localStorage.getItem(localStorageKey)
         if (!savedAnswers) return
 
-        const answers: LocalAnswer[] = JSON.parse(savedAnswers)
-        const answersObj = Object.values(answers)
+        const savedMap: Record<string, LocalAnswer> = JSON.parse(savedAnswers)
+        const answersObj = Object.values(savedMap)
         const answersToSync = force
           ? answersObj
           : answersObj.filter((a) => !a.synced)
         if (!answersToSync.length && !force) return
 
         setSyncStatus('syncing')
-        const result = await syncTryout(answersToSync, '', true)
+        const result = await saveSubtestAnswers(
+          currentSubtest,
+          { answers: answersToSync },
+          '',
+          true
+        )
 
         setAnswers((prev) => {
           const merged = { ...prev }
@@ -227,21 +243,38 @@ const AnswerCard = ({
         })
       }
     },
-    [localStorageKey]
+    [localStorageKey, currentSubtest]
   )
 
   // Initial load
   useEffect(() => {
     try {
       const savedAnswers = localStorage.getItem(localStorageKey)
-      if (savedAnswers) setAnswers(JSON.parse(savedAnswers))
+      if (savedAnswers) {
+        setAnswers(JSON.parse(savedAnswers))
+      } else if (initialAnswers.length > 0) {
+        const mapped = initialAnswers.reduce<Record<string, LocalAnswer>>(
+          (acc, item) => {
+            acc[item.kode_soal] = {
+              kode_soal: item.kode_soal,
+              jawaban: item.jawaban,
+              updatedAt: Date.now(),
+              synced: true,
+            }
+            return acc
+          },
+          {}
+        )
+        setAnswers(mapped)
+        localStorage.setItem(localStorageKey, JSON.stringify(mapped))
+      }
 
       const interval = setInterval(syncWithServer, 210000) // Sync every 3.5 minutes
       return () => clearInterval(interval)
     } catch (error) {
       console.error('Initial load error:', error)
     }
-  }, [localStorageKey, syncWithServer])
+  }, [localStorageKey, syncWithServer, initialAnswers])
 
   // Answer handling
   const updateAnswer = useCallback(
@@ -530,7 +563,7 @@ const TrueFalse = ({
     if (!savedAnswer) return []
 
     try {
-      return savedAnswer.split(',').filter(Boolean)
+      return savedAnswer.split(/[,|]/).filter(Boolean)
     } catch (error) {
       console.error('Error parsing saved true/false answers:', error)
       return []
@@ -554,7 +587,7 @@ const TrueFalse = ({
     }
 
     try {
-      const ids = savedAnswer.split(',').filter(Boolean)
+      const ids = savedAnswer.split(/[,|]/).filter(Boolean)
       setTrueAnswerIds(ids)
     } catch (error) {
       console.error('Error parsing saved true/false answers:', error)

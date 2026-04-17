@@ -85,7 +85,7 @@ func (h *TryoutHandler) SaveSubtestAnswersHandler(c *gin.Context) {
 
 	subtest := c.Param("subtest")
 	var payload struct {
-		Answers []models.AnswerPayload `json:"answers" binding:"required,dive"`
+		Answers []models.AnswerPayload `json:"answers" binding:"omitempty,dive"`
 	}
 
 	if err := c.ShouldBindJSON(&payload); err != nil {
@@ -130,7 +130,7 @@ func (h *TryoutHandler) SubmitSubtestHandler(c *gin.Context) {
 
 	subtest := c.Param("subtest")
 	var payload struct {
-		Answers []models.AnswerPayload `json:"answers" binding:"required,dive"`
+		Answers []models.AnswerPayload `json:"answers" binding:"omitempty,dive"`
 	}
 
 	if err := c.ShouldBindJSON(&payload); err != nil {

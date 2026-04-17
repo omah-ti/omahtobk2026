@@ -18,7 +18,7 @@ type RedisRateLimiterConfig struct {
 
 func DefaultRateLimiterConfig() RedisRateLimiterConfig {
 	return RedisRateLimiterConfig{
-		Max:         100,
+		Max:         400,
 		Expiration:  1 * time.Minute,
 		KeyPrefix:   "api_rate_limit",
 		RedisClient: nil,

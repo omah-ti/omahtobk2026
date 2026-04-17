@@ -1,7 +1,11 @@
 import Container from '@/components/container'
 import RemainingTime from '@/components/tryout/remaining-time'
 import TopBar from '@/components/tryout/top-bar'
-import { getCurrentTryout, syncTryout } from '@/lib/fetch/tryout-test'
+import {
+  getCurrentTryout,
+  startSubtest,
+  startTryout,
+} from '@/lib/fetch/tryout-test'
 import { getRequestAccessToken } from '@/lib/auth/request-token'
 import { cn } from '@/lib/utils'
 import Image from 'next/image'
@@ -13,19 +17,33 @@ import { SUBTESTS } from '@/lib/helpers/subtests'
 
 const IntroPage = async () => {
   const accessToken = await getRequestAccessToken()
-  const currentTryout = await getCurrentTryout(accessToken)
+  let currentTryout = await getCurrentTryout(accessToken)
+
+  // Initialize paket1 attempt on first entry if there is no ongoing attempt.
+  if (!currentTryout?.data?.subtest_sekarang) {
+    try {
+      await startTryout(accessToken)
+      currentTryout = await getCurrentTryout(accessToken)
+    } catch (error) {
+      console.error('Error starting attempt:', error)
+      redirect('/dashboard-home?error=start-attempt-failed')
+    }
+  }
 
   if (!currentTryout?.data?.subtest_sekarang) {
-    redirect('/tryout?error=current-attempt-failed')
+    redirect('/dashboard-home?error=current-attempt-failed')
   }
 
   let timeLimit
   try {
-    const syncData = await syncTryout([], accessToken)
-    timeLimit = syncData.data.time_limit
+    const subtestStart = await startSubtest(
+      currentTryout.data.subtest_sekarang,
+      accessToken
+    )
+    timeLimit = subtestStart.data.time_limit
   } catch (error) {
     console.error('Error:', error)
-    redirect('/tryout?error=sync-failed')
+    redirect('/dashboard-home?error=start-subtest-failed')
   }
 
   const grace = 30_000
@@ -59,7 +77,7 @@ const IntroPage = async () => {
           <h2 className='text-sm md:text-base'>{description}</h2>
 
           <Link
-            href='/tryout/1'
+            href='/tryout/soal/1'
             className={cn(
               buttonVariants({ variant: 'white' }),
               'mt-2 w-fit px-8 font-medium! text-black!'

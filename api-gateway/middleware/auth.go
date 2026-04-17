@@ -38,6 +38,7 @@ var refreshInFlight sync.Map
 var reservedInboundHeaders = map[string]struct{}{
 	"x-gateway":           {},
 	"x-internal-request":  {},
+	"x-service-token":     {},
 	"x-auth-access-token": {},
 	"x-user-id":           {},
 	"x-user-email":        {},

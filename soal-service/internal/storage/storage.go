@@ -6,6 +6,8 @@ import (
 	"io"
 	"net/url"
 	"os"
+	"path"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -71,22 +73,35 @@ func (s *MinIOStorage) UploadObject(ctx context.Context, objectKey string, conte
 }
 
 func (s *MinIOStorage) GetObject(ctx context.Context, objectKey string) (io.ReadCloser, int64, string, error) {
-	stat, err := s.client.StatObject(ctx, s.bucket, objectKey, minio.StatObjectOptions{})
-	if err != nil {
-		return nil, 0, "", fmt.Errorf("failed stat object: %w", err)
+	candidates := buildObjectKeyCandidates(objectKey)
+	var lastErr error
+
+	for _, candidate := range candidates {
+		stat, err := s.client.StatObject(ctx, s.bucket, candidate, minio.StatObjectOptions{})
+		if err != nil {
+			lastErr = err
+			continue
+		}
+
+		obj, err := s.client.GetObject(ctx, s.bucket, candidate, minio.GetObjectOptions{})
+		if err != nil {
+			lastErr = err
+			continue
+		}
+
+		contentType := stat.ContentType
+		if contentType == "" {
+			contentType = "application/octet-stream"
+		}
+
+		return obj, stat.Size, contentType, nil
 	}
 
-	obj, err := s.client.GetObject(ctx, s.bucket, objectKey, minio.GetObjectOptions{})
-	if err != nil {
-		return nil, 0, "", fmt.Errorf("failed get object: %w", err)
+	if lastErr != nil {
+		return nil, 0, "", fmt.Errorf("failed stat object: %w", lastErr)
 	}
 
-	contentType := stat.ContentType
-	if contentType == "" {
-		contentType = "application/octet-stream"
-	}
-
-	return obj, stat.Size, contentType, nil
+	return nil, 0, "", fmt.Errorf("failed stat object: object not found")
 }
 
 func (s *MinIOStorage) DeleteObject(ctx context.Context, objectKey string) error {
@@ -157,4 +172,77 @@ func NewObjectKey(kodeSoal string) string {
 		sanitizedKode = "unknown"
 	}
 	return fmt.Sprintf("soal/%s/%s.webp", sanitizedKode, uuid.NewString())
+}
+
+var storageUnsafePathCharPattern = regexp.MustCompile(`[^a-z0-9._-]+`)
+var uuidObjectKeyPattern = regexp.MustCompile(`^(soal/.+)/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.webp$`)
+
+func buildObjectKeyCandidates(objectKey string) []string {
+	primary := strings.TrimSpace(strings.TrimLeft(objectKey, "/"))
+	if primary == "" {
+		return nil
+	}
+
+	candidates := []string{primary}
+
+	if matches := uuidObjectKeyPattern.FindStringSubmatch(strings.ToLower(primary)); len(matches) == 2 {
+		legacyKey := strings.TrimSpace(matches[1]) + ".webp"
+		if legacyKey != "" && legacyKey != primary {
+			candidates = append(candidates, legacyKey)
+		}
+	}
+
+	return candidates
+}
+
+func sanitizeObjectKeySegment(raw string) string {
+	trimmed := strings.TrimSpace(strings.ToLower(raw))
+	if trimmed == "" {
+		return "unknown"
+	}
+
+	sanitized := storageUnsafePathCharPattern.ReplaceAllString(trimmed, "-")
+	sanitized = strings.Trim(sanitized, "-._")
+	if sanitized == "" {
+		return "unknown"
+	}
+
+	return sanitized
+}
+
+func NewObjectKeyFromBundlePath(bundlePath string) string {
+	normalized := strings.TrimSpace(strings.ReplaceAll(bundlePath, "\\", "/"))
+	normalized = strings.TrimPrefix(normalized, "./")
+	normalized = strings.TrimLeft(normalized, "/")
+	normalized = strings.ToLower(path.Clean(normalized))
+
+	if normalized == "" || normalized == "." || normalized == "/" {
+		return fmt.Sprintf("soal/image/%s.webp", uuid.NewString())
+	}
+
+	if strings.HasPrefix(normalized, "images/") {
+		normalized = strings.TrimPrefix(normalized, "images/")
+	}
+
+	segments := strings.Split(normalized, "/")
+	sanitizedSegments := make([]string, 0, len(segments))
+	for _, segment := range segments {
+		segment = strings.TrimSpace(segment)
+		if segment == "" || segment == "." {
+			continue
+		}
+
+		ext := path.Ext(segment)
+		if ext != "" {
+			segment = strings.TrimSuffix(segment, ext)
+		}
+
+		sanitizedSegments = append(sanitizedSegments, sanitizeObjectKeySegment(segment))
+	}
+
+	if len(sanitizedSegments) == 0 {
+		return fmt.Sprintf("soal/image/%s.webp", uuid.NewString())
+	}
+
+	return "soal/" + strings.Join(sanitizedSegments, "/") + ".webp"
 }

@@ -21,6 +21,7 @@ type SoalImportRow struct {
 
 type PilihanGandaImportRow struct {
 	KodeSoal  string
+	OptionOrder int
 	Pilihan   string
 	IsCorrect bool
 }
