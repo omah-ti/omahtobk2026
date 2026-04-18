@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowLeft, ArrowRight, Flag, LogOut, Menu, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, Flag, LogOut, Menu, X } from 'lucide-react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import {
@@ -2056,7 +2056,9 @@ const TryoutQuestionScreen = ({
                 className='flex cursor-pointer items-center gap-3 py-4 text-[13px] text-neutral-800 md:text-[15px]'
               >
                 <span
-                  className={`flex size-5 items-center justify-center rounded-full border-2 ${
+                  className={`flex size-5 items-center justify-center border-2 ${
+                    isMultiSelect ? 'rounded-[4px]' : 'rounded-full'
+                  } ${
                     checked
                       ? 'border-[#0D3388] bg-[#0D3388]'
                       : 'border-neutral-300 bg-white'
@@ -2068,6 +2070,7 @@ const TryoutQuestionScreen = ({
                     onChange={() => toggleOptionSelection(option.id)}
                     className='sr-only'
                   />
+                  {isMultiSelect && checked && <Check size={12} className='text-white' />}
                 </span>
                 <RichTextContent
                   content={option.label}
@@ -2286,9 +2289,12 @@ const TryoutQuestionScreen = ({
               Selesaikan dulu semua soal sebelum finish attempt.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Lanjut Kerjakan</AlertDialogCancel>
+          <AlertDialogFooter className='flex-row items-center justify-center gap-3'>
+            <AlertDialogCancel className='mt-0 border-primary-600 bg-primary-600 text-white hover:bg-primary-700 hover:text-white'>
+              Lanjut Kerjakan
+            </AlertDialogCancel>
             <AlertDialogAction
+              className='border border-neutral-300 bg-white text-neutral-900 hover:bg-neutral-100 hover:text-neutral-900'
               onClick={() => {
                 if (firstUnansweredQuestionNumber != null) {
                   void navigateToQuestion(firstUnansweredQuestionNumber)
