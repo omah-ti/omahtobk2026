@@ -1,6 +1,7 @@
 "use client";
 
-import { usePathname, useRouter } from "next/navigation";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import Image from "next/image";
 import { useState } from "react";
 import { LogOut, Menu, X } from "lucide-react";
@@ -14,30 +15,17 @@ const navItems = [
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
-
-  const handleNavigate = (href: string, onClose?: () => void) => {
-    if (onClose) {
-      onClose();
-    }
-
-    if (pathname === href) {
-      return;
-    }
-
-    router.push(href);
-  };
 
   const NavLinks = ({ onClose }: { onClose?: () => void }) => (
     <>
       {navItems.map((item) => {
         const isActive = pathname === item.href;
         return (
-          <button
+          <Link
             key={item.href}
-            type="button"
-            onClick={() => handleNavigate(item.href, onClose)}
+            href={item.href}
+            onClick={onClose}
             className={`flex items-center w-full gap-2 rounded-[8px] transition-all
               ${isActive
                 ? "px-[18px] py-[10px] bg-[#6E97F2] border border-[#6E97F2] shadow-[0_1px_2px_0_rgba(16,24,40,0.05)]"
@@ -54,7 +42,7 @@ export default function Sidebar() {
             <span className={`text-sm font-normal leading-[21px] ${isActive ? "text-white" : "text-[#333]"}`}>
               {item.label}
             </span>
-          </button>
+          </Link>
         );
       })}
     </>
