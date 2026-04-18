@@ -311,5 +311,20 @@ func writeTryoutError(c *gin.Context, err error, fallbackMessage string) {
 		message = "Subtest is not active yet"
 	}
 
-	c.JSON(status, gin.H{"message": message, "error": err.Error()})
+	response := gin.H{"message": message, "error": err.Error()}
+
+	var outOfOrderErr *services.SubtestOutOfOrderError
+	if errors.As(err, &outOfOrderErr) {
+		if outOfOrderErr.RequestedSubtest != "" {
+			response["requested_subtest"] = outOfOrderErr.RequestedSubtest
+		}
+		if outOfOrderErr.ActiveSubtest != "" {
+			response["active_subtest"] = outOfOrderErr.ActiveSubtest
+		}
+		if outOfOrderErr.AttemptID > 0 {
+			response["attempt_id"] = outOfOrderErr.AttemptID
+		}
+	}
+
+	c.JSON(status, response)
 }

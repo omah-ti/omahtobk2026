@@ -88,6 +88,14 @@ type RuntimeCachePayload = {
   updatedAt: number
 }
 
+type SubtestOutOfOrderPayload = {
+  requested_subtest?: string
+  active_subtest?: string
+  attempt_id?: number
+  message?: string
+  error?: string
+}
+
 type BackendSoal = {
   kode_soal: string
   text_soal: string
@@ -924,6 +932,39 @@ const isQuestionAnswered = (question: TryoutQuestion, rawAnswer: string) => {
   return answer.length > 0
 }
 
+const getSubtestOutOfOrderPayload = (
+  error: unknown
+): SubtestOutOfOrderPayload | null => {
+  if (!(error instanceof ApiFetchError) || error.status !== 409) {
+    return null
+  }
+
+  if (typeof error.payload !== 'object' || error.payload == null) {
+    return null
+  }
+
+  const payload = error.payload as SubtestOutOfOrderPayload
+  const message = `${payload.message || ''} ${payload.error || ''}`.toLowerCase()
+
+  if (payload.active_subtest || message.includes('subtest is not active yet')) {
+    return payload
+  }
+
+  return null
+}
+
+const isSubtestOutOfOrderError = (error: unknown) => {
+  if (getSubtestOutOfOrderPayload(error)) {
+    return true
+  }
+
+  if (!(error instanceof Error)) {
+    return false
+  }
+
+  return (error.message || '').toLowerCase().includes('subtest is not active yet')
+}
+
 const TryoutQuestionScreen = ({
   subtest,
   questionNumber,
@@ -996,6 +1037,34 @@ const TryoutQuestionScreen = ({
 
     return `tryout_answers_${attemptId}_${activeBackendSubtest}`
   }, [activeBackendSubtest, attemptId])
+
+  const redirectToActiveSubtest = useCallback(async (preferredBackendSubtest?: string | null) => {
+    try {
+      let activeBackend = preferredBackendSubtest || null
+
+      if (!activeBackend) {
+        const currentTryout = await getCurrentTryout('', true)
+        activeBackend =
+          (currentTryout?.data?.subtest_sekarang as string | undefined) || null
+      }
+
+      const activeCode = activeBackend ? BACKEND_TO_SUBTEST[activeBackend] : undefined
+
+      if (!activeCode || activeCode === subtest) {
+        return false
+      }
+
+      if (runtimeCacheKey) {
+        sessionStorage.removeItem(runtimeCacheKey)
+      }
+
+      router.replace(getQuestionPath(activeCode, 1))
+      return true
+    } catch (error) {
+      console.error('Failed to resolve active subtest for redirect:', error)
+      return false
+    }
+  }, [router, runtimeCacheKey, subtest])
 
   const persistAnswers = useCallback(
     (next: LocalAnswerMap) => {
@@ -1141,11 +1210,24 @@ const TryoutQuestionScreen = ({
         return true
       } catch (error) {
         console.error('Failed to sync tryout answers:', error)
+
+        if (isSubtestOutOfOrderError(error)) {
+          const payload = getSubtestOutOfOrderPayload(error)
+          setActionError('Subtest aktif berubah. Kamu akan diarahkan ke subtest yang benar.')
+          await redirectToActiveSubtest(payload?.active_subtest)
+        }
+
         setSyncStatus('error')
         return false
       }
     },
-    [activeBackendSubtest, answers, persistAnswers, toPayloadAnswerValue]
+    [
+      activeBackendSubtest,
+      answers,
+      persistAnswers,
+      redirectToActiveSubtest,
+      toPayloadAnswerValue,
+    ]
   )
 
   const navigateToQuestion = useCallback(
@@ -1206,6 +1288,14 @@ const TryoutQuestionScreen = ({
         return
       }
 
+      if (isSubtestOutOfOrderError(error)) {
+        const payload = getSubtestOutOfOrderPayload(error)
+        const redirected = await redirectToActiveSubtest(payload?.active_subtest)
+        if (redirected) {
+          return
+        }
+      }
+
       setActionError('Gagal mengirim jawaban akhir. Coba lagi.')
     } finally {
       setIsSubmitting(false)
@@ -1217,6 +1307,7 @@ const TryoutQuestionScreen = ({
     isSubmitting,
     localStorageKey,
     router,
+    redirectToActiveSubtest,
     runtimeCacheKey,
     timeLimit,
     toPayloadAnswerValue,
@@ -1271,49 +1362,6 @@ const TryoutQuestionScreen = ({
       setIsLoading(true)
       setFetchError(null)
 
-      if (runtimeCacheKey) {
-        const runtimeCache = decodeRuntimeCache(
-          sessionStorage.getItem(runtimeCacheKey)
-        )
-
-        const maxAge = 20 * 60 * 1000
-        const stillFresh =
-          runtimeCache != null && Date.now() - runtimeCache.updatedAt <= maxAge
-
-        if (
-          runtimeCache &&
-          stillFresh &&
-          runtimeCache.subtest === subtest &&
-          runtimeCache.questions.length > 0
-        ) {
-          const localStorageKeyAtLoad = `tryout_answers_${runtimeCache.attemptId}_${runtimeCache.activeBackendSubtest}`
-          const localAnswerMap = decodeStoredAnswers(
-            localStorage.getItem(localStorageKeyAtLoad)
-          )
-
-          const mergedAnswerMap: LocalAnswerMap = {
-            ...runtimeCache.answers,
-            ...localAnswerMap,
-          }
-
-          setAttemptId(runtimeCache.attemptId)
-          setActiveBackendSubtest(runtimeCache.activeBackendSubtest)
-          setTimeLimit(
-            runtimeCache.timeLimitISO ? new Date(runtimeCache.timeLimitISO) : null
-          )
-          setQuestions(runtimeCache.questions)
-          setAnswers(mergedAnswerMap)
-          setIsLoading(false)
-
-          localStorage.setItem(
-            localStorageKeyAtLoad,
-            JSON.stringify(mergedAnswerMap)
-          )
-
-          return
-        }
-      }
-
       try {
         const requestedBackendSubtest = SUBTEST_TO_BACKEND[subtest]
         const currentTryout = await getCurrentTryout('', true)
@@ -1338,8 +1386,59 @@ const TryoutQuestionScreen = ({
         }
 
         if (requestedBackendSubtest !== activeBackendSubtest) {
+          if (runtimeCacheKey) {
+            sessionStorage.removeItem(runtimeCacheKey)
+          }
+
           router.replace(getQuestionPath(activeSubtestCode, 1))
           return
+        }
+
+        if (runtimeCacheKey) {
+          const runtimeCache = decodeRuntimeCache(
+            sessionStorage.getItem(runtimeCacheKey)
+          )
+
+          const maxAge = 20 * 60 * 1000
+          const stillFresh =
+            runtimeCache != null && Date.now() - runtimeCache.updatedAt <= maxAge
+
+          const isRuntimeCacheEligible =
+            runtimeCache &&
+            stillFresh &&
+            runtimeCache.subtest === subtest &&
+            runtimeCache.attemptId === currentAttemptId &&
+            runtimeCache.activeBackendSubtest === activeBackendSubtest &&
+            runtimeCache.questions.length > 0
+
+          if (isRuntimeCacheEligible) {
+            const localStorageKeyAtLoad = `tryout_answers_${runtimeCache.attemptId}_${runtimeCache.activeBackendSubtest}`
+            const localAnswerMap = decodeStoredAnswers(
+              localStorage.getItem(localStorageKeyAtLoad)
+            )
+
+            const mergedAnswerMap: LocalAnswerMap = {
+              ...runtimeCache.answers,
+              ...localAnswerMap,
+            }
+
+            if (!active) {
+              return
+            }
+
+            setTimeLimit(
+              runtimeCache.timeLimitISO ? new Date(runtimeCache.timeLimitISO) : null
+            )
+            setQuestions(runtimeCache.questions)
+            setAnswers(mergedAnswerMap)
+
+            localStorage.setItem(
+              localStorageKeyAtLoad,
+              JSON.stringify(mergedAnswerMap)
+            )
+
+            return
+          }
         }
 
         const startData = await startSubtest(activeBackendSubtest, '', true)
@@ -1449,6 +1548,14 @@ const TryoutQuestionScreen = ({
         if (error instanceof ApiFetchError && error.status === 429) {
           setFetchError('Terlalu banyak permintaan. Tunggu sebentar lalu coba lagi.')
           return
+        }
+
+        if (isSubtestOutOfOrderError(error)) {
+          const payload = getSubtestOutOfOrderPayload(error)
+          const redirected = await redirectToActiveSubtest(payload?.active_subtest)
+          if (redirected) {
+            return
+          }
         }
 
         console.error('Failed to load backend questions:', error)

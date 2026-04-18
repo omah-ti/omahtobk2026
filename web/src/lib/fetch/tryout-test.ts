@@ -44,27 +44,39 @@ const mapTryoutSyncError = (
 
   const backendMessage = error.message || ''
 
+  let mappedMessage = backendMessage || fallbackMessage
+
   switch (error.status) {
     case 401:
-      return new Error('Sesi login kamu habis. Silahkan login ulang.')
+      mappedMessage = 'Sesi login kamu habis. Silahkan login ulang.'
+      break
     case 404:
-      return new Error(
+      mappedMessage =
         'Tidak ada tryout yang sedang berjalan. Silahkan mulai tryout lagi.'
-      )
+      break
     case 410:
-      return new Error(
+      mappedMessage =
         'Waktu subtest sudah habis. Silahkan mulai ulang dari dashboard tryout.'
-      )
+      break
     case 409:
-      return new Error(
+      mappedMessage =
         backendMessage ||
-          'Status tryout sudah berubah. Kembali ke dashboard untuk melanjutkan.'
-      )
+        'Status tryout sudah berubah. Kembali ke dashboard untuk melanjutkan.'
+      break
     case 400:
-      return new Error(backendMessage || 'Data jawaban tidak valid.')
+      mappedMessage = backendMessage || 'Data jawaban tidak valid.'
+      break
     default:
-      return new Error(backendMessage || fallbackMessage)
+      mappedMessage = backendMessage || fallbackMessage
+      break
   }
+
+  return new ApiFetchError(mappedMessage, {
+    status: error.status,
+    payload: error.payload,
+    url: error.url,
+    isTimeout: error.isTimeout,
+  })
 }
 
 const mapSoalFetchError = (error: unknown, fallbackMessage: string): Error => {

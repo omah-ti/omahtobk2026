@@ -14,3 +14,17 @@ var (
 	ErrInvalidAnswerPayload  = errors.New("invalid answer payload")
 	ErrScoringFailed         = errors.New("failed to calculate or store score")
 )
+
+type SubtestOutOfOrderError struct {
+	RequestedSubtest string
+	ActiveSubtest    string
+	AttemptID        int
+}
+
+func (e *SubtestOutOfOrderError) Error() string {
+	return ErrSubtestOutOfOrder.Error()
+}
+
+func (e *SubtestOutOfOrderError) Unwrap() error {
+	return ErrSubtestOutOfOrder
+}

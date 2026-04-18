@@ -190,7 +190,11 @@ func (s *tryoutService) syncSubtestAnswers(c context.Context, answers []models.A
 	}
 
 	if requestedSubtest != attempt.SubtestSekarang {
-		retErr = ErrSubtestOutOfOrder
+		retErr = &SubtestOutOfOrderError{
+			RequestedSubtest: requestedSubtest,
+			ActiveSubtest:    attempt.SubtestSekarang,
+			AttemptID:        attempt.TryoutAttemptID,
+		}
 		return nil, time.Time{}, retErr
 	}
 
@@ -332,7 +336,11 @@ func (s *tryoutService) submitAttempt(c context.Context, answers []models.Answer
 	}
 
 	if requestedSubtest != attempt.SubtestSekarang {
-		retErr = ErrSubtestOutOfOrder
+		retErr = &SubtestOutOfOrderError{
+			RequestedSubtest: requestedSubtest,
+			ActiveSubtest:    attempt.SubtestSekarang,
+			AttemptID:        attempt.TryoutAttemptID,
+		}
 		return "", retErr
 	}
 
