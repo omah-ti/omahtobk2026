@@ -1,4 +1,4 @@
-import { BarChart2 } from 'lucide-react'
+import { Trophy } from 'lucide-react'
 import { ProgressOverviewResponse } from '@/lib/types/types'
 
 type PeringkatNasionalProps = {
@@ -51,21 +51,21 @@ const PeringkatNasional = ({ overview, currentUsername }: PeringkatNasionalProps
     currentUsername || overview?.data.profile.name || 'Kamu'
 
   return (
-    <div className="flex flex-col gap-[14px] p-5 bg-neutral-100 border border-neutral-200 rounded-[8px] shadow-[0_2px_4px_0_rgba(0,0,0,0.05)] self-stretch">
+    <div className='bg-white w-full rounded-xl border border-neutral-100 p-3 flex flex-col gap-4 shadow-[0_2px_4px_0_rgba(0,0,0,0.08),0_3px_10px_0_rgba(0,0,0,0.10)]'>
 
       <div className="flex items-center gap-[12px]">
-        <BarChart2 size={16} strokeWidth={1.5} color="#000000" />
-        <span className="text-base font-bold leading-[24px] text-neutral-900">
+        <Trophy size={16} className='text-neutral-1000' />
+        <span className="text-base font-bold text-neutral-1000">
           Peringkat Nasional
         </span>
       </div>
 
       {isEmpty ? (
-        <div className="flex flex-col items-center justify-center bg-primary-50 rounded-xl py-10 gap-2">
-          <p className="text-sm font-semibold text-neutral-900 opacity-50">
+        <div className="flex flex-col items-center justify-center bg-[#E9EFFC] h-62">
+          <p className="text-base font-bold text-black">
             Belum ada Peserta
           </p>
-          <p className="text-xs text-neutral-900 opacity-40">jadilah yang pertama</p>
+          <p className="text-[10px] text-neutral-500">Jadilah yang pertama</p>
         </div>
       ) : (
         <>

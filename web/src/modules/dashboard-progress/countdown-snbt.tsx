@@ -27,9 +27,9 @@ function getCountdown(targetMs: number, nowMs: number) {
 
 function CountBox({ value, label }: { value: number; label: string }) {
   return (
-    <div className="flex flex-col items-center justify-center w-[88px] h-[88px] bg-[#2563EB] border border-neutral-200 rounded-[8px]">
+    <div className="flex flex-col items-center justify-center w-[88px] h-[88px] bg-[#2563EB] border border-neutral-200 rounded-[8px] overflow-hidden">
       <span className="text-2xl font-bold leading-[36px] text-[#FFD76E]">
-        {String(value).padStart(3, '0')}
+        {String(value).padStart(2, '0')}
       </span>
       <span className="text-base font-normal leading-[24px] text-white">
         {label}
@@ -60,13 +60,12 @@ const CountdownSNBT = ({ utbk }: { utbk?: ProgressOverviewUTBK }) => {
   }, [targetMs])
 
   return (
-    <div className="relative flex flex-col items-center gap-[24px] p-5 bg-neutral-100 border border-neutral-200 rounded-[8px] shadow-[0_2px_4px_0_rgba(0,0,0,0.05)] overflow-hidden">
-
-      <div className="flex flex-col items-center gap-[4px] self-stretch">
-        <h3 className="text-2xl font-bold leading-[36px] text-neutral-900 text-center">
+    <div className='relative overflow-hidden bg-white w-full rounded-xl border border-neutral-100 px-[22px] py-[30px] flex flex-col shadow-[0_2px_4px_0_rgba(0,0,0,0.08),0_3px_10px_0_rgba(0,0,0,0.10)] gap-6'>
+      <div className="flex flex-col items-center self-stretch z-10">
+        <h3 className="text-2xl font-bold leading-[36px] text-neutral-1000 text-center">
           Menuju SNBT 2026
         </h3>
-        <p className="text-base font-normal leading-[24px] text-neutral-900 text-center">
+        <p className="text-base font-normal leading-[24px] text-neutral-1000 text-center">
           Waktu terus berjalan, persiapkan dirimu dari sekarang!
         </p>
       </div>
@@ -77,9 +76,8 @@ const CountdownSNBT = ({ utbk }: { utbk?: ProgressOverviewUTBK }) => {
         <CountBox value={countdown.menit} label="Menit" />
       </div>
 
-      <div className="hidden md:block absolute bottom-0 right-0">
-        <Image src="/icons/stopwatch.svg" alt="stopwatch" width={100} height={110} />
-      </div>
+
+      <Image src="/icons/stopwatch.svg" alt="stopwatch" width={100} height={110} className='hidden xl:block absolute -bottom-4 right-0' />
 
     </div>
   )

@@ -1,4 +1,4 @@
-import { TrendingUp } from 'lucide-react'
+import { Activity } from 'lucide-react'
 import {
   ProgressOverviewResponse,
   SubtestsProgressRow,
@@ -26,31 +26,31 @@ const StatistikCard = ({ overview, subtestRows = [] }: StatistikCardProps) => {
       ? subtestRows.filter((row) => row.score_value !== null).length
       : (statistics?.completed_subtests ?? 0)
 
-  const progressText = `${completedSubtests} / ${totalSubtests} subtest`
+  const progressText = `${completedSubtests}/${totalSubtests} subtest`
 
   return (
-    <div className='bg-white rounded-2xl border border-neutral-100 p-5 flex flex-col gap-4'>
+    <div className='bg-white w-full rounded-xl border border-neutral-100 p-5 flex flex-col gap-4 shadow-[0_2px_4px_0_rgba(0,0,0,0.08),0_3px_10px_0_rgba(0,0,0,0.10)]'>
       <div className='flex items-center gap-2'>
-        <TrendingUp size={16} className='text-primary-400' />
-        <span className='text-sm font-semibold text-neutral-900'>Statistik</span>
+        <Activity size={16} className='text-primary-400' />
+        <span className='text-base font-bold text-neutral-1000'>Statistik</span>
       </div>
 
-      <div className='grid grid-cols-2 gap-3'>
-        <div className='bg-primary-50 rounded-xl p-3 flex flex-col gap-1'>
-          <p className='text-xs text-neutral-400'>Rata-Rata Nilai</p>
-          <p className='text-2xl font-bold text-neutral-900'>
+      <div className='flex flex-row gap-3 text-neutral-1000 w-full'>
+        <div className='rounded-xl w-fit md:w-full p-3 flex flex-col gap-1 bg-[#E9EFFC]'>
+          <p className='text-xs whitespace-nowrap'>Rata-Rata Nilai</p>
+          <p className='text-2xl font-bold '>
             {rataRata ?? '–'}
           </p>
         </div>
-        <div className='bg-primary-50 rounded-xl p-3 flex flex-col gap-1'>
-          <p className='text-xs text-neutral-400'>Progres Try Out</p>
-          <p className='text-2xl font-bold text-neutral-900'>
+        <div className='rounded-xl w-full p-3 flex flex-col gap-1 bg-[#E9EFFC]'>
+          <p className='text-xs'>Progres Try Out</p>
+          <p className='text-2xl font-bold '>
             {progressText}
           </p>
         </div>
       </div>
 
-      <p className='text-xs text-neutral-400'>
+      <p className='text-xs text-neutral-1000'>
         Tingkatkan terus nilaimu untuk mencapai kampus impian!
       </p>
     </div>

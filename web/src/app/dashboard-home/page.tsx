@@ -29,13 +29,14 @@ const DashboardHomePage = async () => {
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ type: 'tween', duration: 0.25 }}
-      className='flex flex-col gap-6 p-6 md:p-8'
+      className='flex flex-col gap-6 p-1 md:p-8 bg-neutral-100'
     >
       <DashboardHeader user={user} hasOngoingTryout={!!ongoing} />
 
-      <TryoutBanner status={tryoutStatus} />
-
-      <ActivitySection progress={subtestsProgress} />
+      <div className='md:p-6 p-[10px] bg-primary-100 rounded-[13px] gap-5 flex flex-col shadow-[0_1.66px_3.319px_0_rgba(0,0,0,0.08),0_2.489px_8.298px_0_rgba(0,0,0,0.10)]'>
+        <TryoutBanner status={tryoutStatus} />
+        <ActivitySection progress={subtestsProgress} />
+      </div>
     </motion.div>
   )
 }

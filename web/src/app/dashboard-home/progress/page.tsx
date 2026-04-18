@@ -29,7 +29,7 @@ const DashboardProgressPage = async () => {
       transition={{ type: 'tween', duration: 0.25 }}
       className='flex flex-col gap-6 p-6 md:p-8'
     >
-      <header className='flex items-center justify-between'>
+      <header className='flex items-center justify-between md:px-0 pt-5 px-4'>
         <div className='flex flex-col gap-[3px]'>
           <h1 className='text-2xl font-bold text-neutral-900'>
             Pantau progres dan performamu
@@ -41,8 +41,8 @@ const DashboardProgressPage = async () => {
 
         <LogOutDialog>
           <Button
-            variant='outline'
-            className='hidden md:flex h-auto gap-2 rounded-lg border border-red-300 px-4 py-2.5 text-sm font-medium text-error-600 shadow-xs hover:bg-red-50 hover:text-error-600'
+            variant="outline"
+            className="md:flex hidden items-center justify-center gap-2 py-[10px] px-10 rounded-[8px] border border-red-300 text-red-500 text-sm font-normal bg-transparent hover:bg-red-50 hover:text-red-500"
           >
             <LogOut className='h-4 w-4' />
             Log Out
@@ -50,9 +50,8 @@ const DashboardProgressPage = async () => {
         </LogOutDialog>
       </header>
 
-      <div className='flex flex-col md:flex-row md:justify-between md:items-start md:gap-14 gap-5 p-6 rounded-[13px] bg-primary-50 shadow-[0_1.66px_3.319px_0_rgba(0,0,0,0.03)]'>
-
-        <div className='flex flex-col gap-5 md:w-[422px] md:shrink-0'>
+      <div className='flex flex-col md:flex-row gap-5 md:p-6 p-[10px] bg-primary-100 rounded-[13px] shadow-[0_1.66px_3.319px_0_rgba(0,0,0,0.10)] max-h-screen h-full'>
+        <div className='md:w-[45%] flex flex-col gap-5 md:gap-0 md:justify-between'>
           <ProfileCard user={user} />
           <StatistikCard
             overview={overview}
@@ -64,7 +63,7 @@ const DashboardProgressPage = async () => {
           />
         </div>
 
-        <div className='flex flex-col gap-5 md:flex-1'>
+        <div className='flex md:w-[55%] flex-col md:flex-1 gap-5 w-full'>
           <PeringkatNasional overview={overview} currentUsername={user?.username} />
           <CountdownSNBT utbk={overview?.data.utbk} />
         </div>

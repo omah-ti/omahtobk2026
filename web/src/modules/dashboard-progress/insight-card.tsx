@@ -1,4 +1,4 @@
-import { Circle } from 'lucide-react'
+import { Circle, Target } from 'lucide-react'
 import {
   ProgressOverviewResponse,
   SubtestsProgressRow,
@@ -61,24 +61,24 @@ const InsightCard = ({ overview, subtestRows = [] }: InsightCardProps) => {
   const fokusScore = formatInsightScoreValue(fokus?.score, fokus?.score_text)
 
   return (
-    <div className='bg-white rounded-2xl border border-neutral-100 p-5 flex flex-col gap-4'>
+    <div className='bg-white w-full rounded-xl border border-neutral-100 p-5 flex flex-col gap-4 shadow-[0_2px_4px_0_rgba(0,0,0,0.08),0_3px_10px_0_rgba(0,0,0,0.10)]'>
       <div className='flex items-center gap-2'>
-        <Circle size={16} className='text-primary-400 fill-primary-400' />
-        <span className='text-sm font-semibold text-neutral-900'>Insight</span>
+        <Target size={16} className='text-primary-400' />
+        <span className='text-base font-bold text-neutral-1000'>Insight</span>
       </div>
 
-      <div className='flex flex-col gap-3'>
-        <div className='bg-primary-50 rounded-xl p-3 flex flex-col gap-1'>
-          <p className='text-xs text-neutral-400'>Subtest Terkuat</p>
-          <p className='text-sm font-semibold text-neutral-900'>
+      <div className='flex flex-col gap-3 text-neutral-1000'>
+        <div className='rounded-xl w-full p-3 flex flex-col bg-[#E9EFFC]'>
+          <p className='text-xs'>Subtest Terkuat</p>
+          <p className='text-sm font-bold'>
             {terkuat?.subtest_name
               ? `${terkuat.subtest_name}${terkuatScore !== null ? ` (${terkuatScore})` : ''}`
               : '–'}
           </p>
         </div>
-        <div className='bg-primary-50 rounded-xl p-3 flex flex-col gap-1'>
-          <p className='text-xs text-neutral-400'>Fokus Tingkatkan</p>
-          <p className='text-sm font-semibold text-neutral-900'>
+        <div className='rounded-xl w-full p-3 flex flex-col bg-[#E9EFFC]'>
+          <p className='text-xs'>Fokus Tingkatkan</p>
+          <p className='text-sm font-bold text-neutral-900'>
             {fokus?.subtest_name
               ? `${fokus.subtest_name}${fokusScore !== null ? ` (${fokusScore})` : ''}`
               : '–'}

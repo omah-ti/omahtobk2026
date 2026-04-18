@@ -10,7 +10,7 @@ type DashboardHeaderProps = {
 
 const DashboardHeader = ({ user, hasOngoingTryout = false }: DashboardHeaderProps) => {
   return (
-    <header className='flex items-center justify-between'>
+    <header className='flex items-center justify-between md:px-0 pt-5 px-4'>
       <div className='flex flex-col gap-[3px]'>
         <h1 className='text-2xl font-bold text-neutral-900'>
           Selamat datang, {user?.username ?? 'Peserta'}!
