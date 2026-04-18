@@ -10,6 +10,8 @@ import (
 	"tryout-service/internal/logger"
 	"tryout-service/internal/models"
 	"tryout-service/internal/repositories"
+
+	"github.com/jmoiron/sqlx"
 )
 
 type TryoutService interface {
@@ -30,6 +32,12 @@ type tryoutService struct {
 
 var orderedSubtests = []string{"subtest_pu", "subtest_ppu", "subtest_pbm", "subtest_pk", "subtest_lbi", "subtest_lbe", "subtest_pm"}
 var detachedScoreRefreshTimeout = 45 * time.Second
+
+type expiredAttemptAdvanceResult struct {
+	ExpiredSubtest string
+	NextSubtest    string
+	Finished       bool
+}
 
 func NewTryoutService(tryoutRepo repositories.TryoutRepo, scoreService ScoreService) TryoutService {
 	return &tryoutService{tryoutRepo: tryoutRepo, scoreService: scoreService}
@@ -210,24 +218,31 @@ func (s *tryoutService) syncSubtestAnswers(c context.Context, answers []models.A
 	}
 
 	if time.Now().After(timeLimit) {
-		if err = s.tryoutRepo.DeleteAttempt(c, tx, attemptID); err != nil {
-			retErr = err
-			logger.LogErrorCtx(c, err, "Failed to delete attempt", map[string]interface{}{
-				"attemptID": attemptID,
-			})
+		advanceResult, advanceErr := s.advanceExpiredAttemptTx(c, tx, attempt)
+		if advanceErr != nil {
+			retErr = advanceErr
 			return nil, time.Time{}, retErr
 		}
-
 		if err = tx.Commit(); err != nil {
 			retErr = err
-			logger.LogErrorCtx(c, err, "Failed to commit transaction after deleting attempt", map[string]interface{}{
+			logger.LogErrorCtx(c, err, "Failed to commit transaction after advancing expired subtest", map[string]interface{}{
 				"attemptID": attemptID,
 			})
 			return nil, time.Time{}, retErr
 		}
 
 		committed = true
-		retErr = ErrTimeLimitReached
+
+		if advanceResult.Finished {
+			retErr = ErrAttemptEnded
+			return nil, time.Time{}, retErr
+		}
+
+		retErr = &SubtestOutOfOrderError{
+			RequestedSubtest: requestedSubtest,
+			ActiveSubtest:    advanceResult.NextSubtest,
+			AttemptID:        attemptID,
+		}
 		return nil, time.Time{}, retErr
 	}
 
@@ -356,23 +371,40 @@ func (s *tryoutService) submitAttempt(c context.Context, answers []models.Answer
 	}
 
 	if time.Now().After(timeLimit) {
-		if err = s.tryoutRepo.DeleteAttempt(c, tx, attemptID); err != nil {
-			retErr = err
-			logger.LogErrorCtx(c, err, "Failed to delete attempt", map[string]interface{}{
-				"attemptID": attemptID,
-			})
+		advanceResult, advanceErr := s.advanceExpiredAttemptTx(c, tx, attempt)
+		if advanceErr != nil {
+			retErr = advanceErr
 			return "", retErr
 		}
 		if err = tx.Commit(); err != nil {
 			retErr = err
-			logger.LogErrorCtx(c, err, "Failed to commit transaction after deleting attempt", map[string]interface{}{
+			logger.LogErrorCtx(c, err, "Failed to commit transaction after advancing expired subtest", map[string]interface{}{
 				"attemptID": attemptID,
 			})
 			return "", retErr
 		}
 
 		committed = true
-		retErr = ErrTimeLimitReached
+
+		if err := s.scoreService.CalculateAndStoreScoresForSubtests(c, attemptID, userID, attempt.Paket, accessToken, []string{requestedSubtest}); err != nil {
+			logger.LogErrorCtx(c, err, "Failed to calculate score for expired submitted subtest; scheduling retry", map[string]interface{}{
+				"attemptID": attemptID,
+				"paket":     attempt.Paket,
+				"subtest":   requestedSubtest,
+			})
+			s.scheduleDetachedScoreRefresh(c, attemptID, userID, attempt.Paket, accessToken, []string{requestedSubtest})
+		}
+
+		if advanceResult.Finished {
+			retErr = ErrAttemptEnded
+			return "", retErr
+		}
+
+		retErr = &SubtestOutOfOrderError{
+			RequestedSubtest: requestedSubtest,
+			ActiveSubtest:    advanceResult.NextSubtest,
+			AttemptID:        attemptID,
+		}
 		return "", retErr
 	}
 
@@ -464,15 +496,7 @@ func (s *tryoutService) submitAttempt(c context.Context, answers []models.Answer
 }
 
 func (s *tryoutService) GetCurrentAttemptByUserID(c context.Context, userID int) (*models.TryoutAttempt, error) {
-	attempt, err := s.tryoutRepo.GetOngoingAttemptByUserID(c, userID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrAttemptNotFound
-		}
-		return nil, err
-	}
-
-	return attempt, nil
+	return s.getCurrentAttemptAfterTimeoutReconciliation(c, userID)
 }
 
 func (s *tryoutService) scheduleDetachedScoreRefresh(parent context.Context, attemptID, userID int, paket, accessToken string, subtests []string) {
@@ -509,6 +533,137 @@ func newDetachedScoreRefreshContext(parent context.Context) (context.Context, co
 	}
 
 	return context.WithTimeout(detached, detachedScoreRefreshTimeout)
+}
+
+func (s *tryoutService) getCurrentAttemptAfterTimeoutReconciliation(c context.Context, userID int) (*models.TryoutAttempt, error) {
+	for steps := 0; steps <= len(orderedSubtests); steps++ {
+		attempt, err := s.tryoutRepo.GetOngoingAttemptByUserID(c, userID)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, ErrAttemptNotFound
+			}
+			return nil, err
+		}
+
+		tx, err := s.tryoutRepo.BeginTransaction(c)
+		if err != nil {
+			return nil, err
+		}
+
+		lockedAttempt, err := s.tryoutRepo.GetTryoutAttemptTx(c, tx, attempt.TryoutAttemptID)
+		if err != nil {
+			rollbackReconciliationTx(c, tx, userID, attempt.TryoutAttemptID, "load current attempt reconciliation")
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, ErrAttemptNotFound
+			}
+			return nil, err
+		}
+
+		if lockedAttempt.EndTime != nil || lockedAttempt.Status != "ongoing" || lockedAttempt.SubtestSekarang == "" {
+			rollbackReconciliationTx(c, tx, userID, lockedAttempt.TryoutAttemptID, "finished attempt reconciliation")
+			return nil, ErrAttemptNotFound
+		}
+
+		timeLimit, err := s.tryoutRepo.GetSubtestTimeTx(c, tx, lockedAttempt.TryoutAttemptID, lockedAttempt.SubtestSekarang)
+		if err != nil {
+			rollbackReconciliationTx(c, tx, userID, lockedAttempt.TryoutAttemptID, "load current subtest time limit")
+			return nil, err
+		}
+
+		if !time.Now().After(timeLimit) {
+			rollbackReconciliationTx(c, tx, userID, lockedAttempt.TryoutAttemptID, "read-only attempt reconciliation")
+			return lockedAttempt, nil
+		}
+
+		advanceResult, err := s.advanceExpiredAttemptTx(c, tx, lockedAttempt)
+		if err != nil {
+			rollbackReconciliationTx(c, tx, userID, lockedAttempt.TryoutAttemptID, "advance expired attempt")
+			return nil, err
+		}
+
+		if err := tx.Commit(); err != nil {
+			logger.LogErrorCtx(c, err, "Failed to commit current attempt reconciliation transaction", map[string]interface{}{
+				"userID":    userID,
+				"attemptID": lockedAttempt.TryoutAttemptID,
+			})
+			return nil, err
+		}
+
+		if err := s.scoreService.CalculateAndStoreScoresForSubtests(c, lockedAttempt.TryoutAttemptID, userID, lockedAttempt.Paket, "", []string{advanceResult.ExpiredSubtest}); err != nil {
+			logger.LogErrorCtx(c, err, "Failed to calculate score while reconciling expired attempt; scheduling retry", map[string]interface{}{
+				"userID":    userID,
+				"attemptID": lockedAttempt.TryoutAttemptID,
+				"subtest":   advanceResult.ExpiredSubtest,
+			})
+			s.scheduleDetachedScoreRefresh(c, lockedAttempt.TryoutAttemptID, userID, lockedAttempt.Paket, "", []string{advanceResult.ExpiredSubtest})
+		}
+
+		if advanceResult.Finished {
+			return nil, ErrAttemptNotFound
+		}
+	}
+
+	return nil, ErrAttemptNotFound
+}
+
+func rollbackReconciliationTx(c context.Context, tx *sqlx.Tx, userID, attemptID int, operation string) {
+	if tx == nil {
+		return
+	}
+
+	if err := tx.Rollback(); err != nil && !errors.Is(err, sql.ErrTxDone) {
+		logger.LogErrorCtx(c, err, "Failed to rollback reconciliation transaction", map[string]interface{}{
+			"userID":    userID,
+			"attemptID": attemptID,
+			"operation": operation,
+		})
+	}
+}
+
+func (s *tryoutService) advanceExpiredAttemptTx(c context.Context, tx *sqlx.Tx, attempt *models.TryoutAttempt) (expiredAttemptAdvanceResult, error) {
+	currentSubtest := strings.TrimSpace(attempt.SubtestSekarang)
+	if attempt == nil || currentSubtest == "" {
+		return expiredAttemptAdvanceResult{}, ErrNoActiveSubtest
+	}
+
+	nextSubtest, err := resolveNextSubtest(currentSubtest)
+	if err != nil {
+		return expiredAttemptAdvanceResult{}, err
+	}
+
+	if nextSubtest == nil {
+		if err := s.tryoutRepo.EndTryOutTx(c, tx, attempt.TryoutAttemptID); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return expiredAttemptAdvanceResult{}, ErrAttemptNotOngoing
+			}
+			logger.LogErrorCtx(c, err, "Failed to finish expired tryout attempt", map[string]interface{}{
+				"attemptID": attempt.TryoutAttemptID,
+				"subtest":   currentSubtest,
+			})
+			return expiredAttemptAdvanceResult{}, err
+		}
+
+		return expiredAttemptAdvanceResult{
+			ExpiredSubtest: currentSubtest,
+			Finished:       true,
+		}, nil
+	}
+
+	updatedSubtest, err := s.tryoutRepo.ProgressTryoutTx(c, tx, attempt.TryoutAttemptID, *nextSubtest)
+	if err != nil {
+		logger.LogErrorCtx(c, err, "Failed to advance expired tryout attempt", map[string]interface{}{
+			"attemptID": attempt.TryoutAttemptID,
+			"subtest":   currentSubtest,
+			"next":      *nextSubtest,
+		})
+		return expiredAttemptAdvanceResult{}, err
+	}
+
+	return expiredAttemptAdvanceResult{
+		ExpiredSubtest: currentSubtest,
+		NextSubtest:    updatedSubtest,
+		Finished:       false,
+	}, nil
 }
 
 func buildUserAnswers(answers []models.AnswerPayload, attemptID int, subtest string) ([]models.UserAnswer, error) {

@@ -1015,6 +1015,30 @@ const isCommittedSubmitFallbackError = (error: unknown) => {
   )
 }
 
+const isTryoutTerminalStateError = (error: unknown) => {
+  if (!(error instanceof ApiFetchError)) {
+    return false
+  }
+
+  if (error.status === 404 || error.status === 410) {
+    return true
+  }
+
+  if (error.status !== 409) {
+    return false
+  }
+
+  const message = `${error.message || ''} ${extractApiMessage(error.payload) || ''}`
+    .toLowerCase()
+    .trim()
+
+  return (
+    message.includes('tryout attempt state is no longer valid') ||
+    message.includes('no ongoing attempt found') ||
+    message.includes('time limit has been reached')
+  )
+}
+
 const TryoutQuestionScreen = ({
   subtest,
   questionNumber,
@@ -1265,6 +1289,12 @@ const TryoutQuestionScreen = ({
           const payload = getSubtestOutOfOrderPayload(error)
           setActionError('Subtest aktif berubah. Kamu akan diarahkan ke subtest yang benar.')
           await redirectToActiveSubtest(payload?.active_subtest)
+          return false
+        }
+
+        if (isTryoutTerminalStateError(error)) {
+          router.replace('/dashboard-home')
+          return false
         }
 
         setSyncStatus('error')
@@ -1276,6 +1306,7 @@ const TryoutQuestionScreen = ({
       answers,
       persistAnswers,
       redirectToActiveSubtest,
+      router,
       toPayloadAnswerValue,
     ]
   )
@@ -1347,6 +1378,17 @@ const TryoutQuestionScreen = ({
         if (redirected) {
           return
         }
+      }
+
+      if (isTryoutTerminalStateError(error)) {
+        if (localStorageKey) {
+          localStorage.removeItem(localStorageKey)
+        }
+        if (runtimeCacheKey) {
+          sessionStorage.removeItem(runtimeCacheKey)
+        }
+        router.replace('/dashboard-home')
+        return
       }
 
       if (isCommittedSubmitFallbackError(error)) {
@@ -1432,7 +1474,7 @@ const TryoutQuestionScreen = ({
         const currentTryout = await getCurrentTryout('', true)
 
         if (!currentTryout?.data?.subtest_sekarang || !currentTryout?.data?.attempt_id) {
-          setFetchError('Sesi try out belum siap. Coba muat ulang halaman.')
+          router.replace('/dashboard-home')
           return
         }
 
@@ -1612,6 +1654,11 @@ const TryoutQuestionScreen = ({
 
         if (error instanceof ApiFetchError && error.status === 429) {
           setFetchError('Terlalu banyak permintaan. Tunggu sebentar lalu coba lagi.')
+          return
+        }
+
+        if (isTryoutTerminalStateError(error)) {
+          router.replace('/dashboard-home')
           return
         }
 
