@@ -106,6 +106,11 @@ func RedisRefreshRateLimiter(config RedisRateLimiterConfig) fiber.Handler {
 	return RedisRateLimiter(config)
 }
 
+func RedisMinatBakatRateLimiter(config RedisRateLimiterConfig) fiber.Handler {
+	config.KeyPrefix = "minat_bakat_public"
+	return RedisRateLimiter(config)
+}
+
 func RedisAPIRateLimiter(config RedisRateLimiterConfig) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		ctx := c.Context()

@@ -163,7 +163,13 @@ export async function middleware(request: NextRequest) {
   const refreshToken = request.cookies.get('refresh_token')?.value
 
   // // Define public paths that don't require authentication
-  const publicPaths = ['/', '/login', '/register', '/forgot-password']
+  const publicPaths = [
+    '/',
+    '/login',
+    '/register',
+    '/forgot-password',
+    '/career-match-up',
+  ]
 
   // Add paths under tryout/* (but not /tryout exactly)
   const currentPath = request.nextUrl.pathname
@@ -175,12 +181,17 @@ export async function middleware(request: NextRequest) {
     currentPath !== '/tryout/' &&
     !isTryoutPembahasan
 
+  // Career Match Up submit API must stay public for anonymous users.
+  const isCareerMatchUpApiPath =
+    currentPath === '/api/career-match-up/submit' ||
+    currentPath.startsWith('/api/career-match-up/')
+
   // Check if current path is public
   const isPublicPath =
     publicPaths.some(
       (path) =>
         currentPath === path || (path !== '/' && currentPath.startsWith(path))
-    ) || isTryoutSubpath
+    ) || isTryoutSubpath || isCareerMatchUpApiPath
 
   // Public routes should not trigger upstream auth checks.
   if (isPublicPath) {

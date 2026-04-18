@@ -1,9 +1,11 @@
 "use client"
 
 import Container from '@/components/container'
+import { Button } from '@/components/ui/button'
 import { isMobile } from '@/lib/utils'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { MoveRight } from 'lucide-react'
+import Link from 'next/link'
 import React from 'react'
 
 type CompsciItem = {
@@ -295,6 +297,12 @@ const CompsciDivisions = () => {
                   }`}
               />
             ))}
+          </div>
+
+          <div className='mt-6 flex items-center justify-center'>
+            <Link href='/career-match-up'>
+              <Button size='lg'>Cari Tech Personamu!</Button>
+            </Link>
           </div>
         </div>
       </section>

@@ -15,7 +15,6 @@ import Link from 'next/link'
 import Container from '../container'
 import { Button, buttonVariants } from '../ui/button'
 import Logo from './logo'
-import ProfileButton from './profile-button'
 import LogOutDialog from '../log-out-dialog'
 
 const NAV_ITEMS = [
@@ -81,17 +80,26 @@ const DesktopNavigation = ({
 
     <div className='flex justify-between gap-2'>
       {signedIn ? (
-        <ProfileButton />
+        <>
+          <Link href='/career-match-up'>
+            <Button variant='outline' className='px-8 hover:cursor-pointer'>
+              Tech Persona
+            </Button>
+          </Link>
+          <Link href='/dashboard'>
+            <Button className='px-8 hover:cursor-pointer'>Tryout</Button>
+          </Link>
+        </>
       ) : (
         <>
           <Link href={`/login`}>
             <Button variant="outline" className='px-8 hover:cursor-pointer'>
-              Login
+              Login Try Out
             </Button>
           </Link>
           <Link href={`/register`}>
             <Button className='px-8 hover:cursor-pointer'>
-              Sign Up
+              Daftar Try Out
             </Button>
           </Link>
         </>
@@ -148,7 +156,7 @@ const MobileNavigation = ({
                     <Link
                     href='/login'
                   >
-                    Login
+                    Login Try Out
                   </Link>
                   </Button>
                 </SheetClose>
@@ -157,7 +165,7 @@ const MobileNavigation = ({
                     <Link
                       href='/register'
                     >
-                      Sign Up
+                      Daftar Try Out
                     </Link>
                   </Button>
                 </SheetClose>

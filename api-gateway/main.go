@@ -29,6 +29,7 @@ func main() {
 	redisConfig := appconfig.LoadRedisConfig()
 	var authRateLimiter fiber.Handler
 	var refreshRateLimiter fiber.Handler
+	var minatBakatRateLimiter fiber.Handler
 
 	app := fiber.New(fiber.Config{
 		AppName:                 "OmahTO API Gateway",
@@ -45,7 +46,7 @@ func main() {
 	app.Use(requestIDMiddleware())
 	app.Use(cors.New(cors.Config{
 		AllowOrigins:     config.CORSURL,
-		AllowHeaders:     "Origin, Content-Type, Accept, Authorization, X-Request-ID",
+		AllowHeaders:     "Origin, Content-Type, Accept, Authorization, X-Request-ID, X-Guest-ID",
 		AllowMethods:     "GET, POST, PUT, PATCH, DELETE, OPTIONS",
 		AllowCredentials: true,
 	}))
@@ -67,10 +68,16 @@ func main() {
 			Expiration:  time.Minute,
 			RedisClient: redisClient,
 		}
+		minatBakatRateConfig := middleware.RedisRateLimiterConfig{
+			Max:         40,
+			Expiration:  time.Minute,
+			RedisClient: redisClient,
+		}
 
 		app.Use(middleware.RedisGlobalRateLimiter(globalRateConfig))
 		authRateLimiter = middleware.RedisAuthRateLimiter(authRateConfig)
 		refreshRateLimiter = middleware.RedisRefreshRateLimiter(refreshRateConfig)
+		minatBakatRateLimiter = middleware.RedisMinatBakatRateLimiter(minatBakatRateConfig)
 	}
 
 	authController := controller.NewAuthController(config.AuthServiceURL)
@@ -104,6 +111,15 @@ func main() {
 		authGroup.Get("/refresh", authController.Refresh)
 	}
 
+	// Auth middleware intentionally disabled for minat-bakat routes for now.
+	if minatBakatRateLimiter != nil {
+		app.All("/api/minat-bakat", minatBakatRateLimiter, proxyRequest(config.MinatBakatServiceURL, "/api"))
+		app.All("/api/minat-bakat/*", minatBakatRateLimiter, proxyRequest(config.MinatBakatServiceURL, "/api"))
+	} else {
+		app.All("/api/minat-bakat", proxyRequest(config.MinatBakatServiceURL, "/api"))
+		app.All("/api/minat-bakat/*", proxyRequest(config.MinatBakatServiceURL, "/api"))
+	}
+
 	protected := app.Group("/api", middleware.SessionAuthMiddleware(config.AuthServiceURL))
 	protected.Get("/me", authController.Me)
 	protected.All("/soal/answer-key", blockSensitiveSoalRoute())
@@ -112,8 +128,8 @@ func main() {
 	protected.All("/soal/*", proxyRequest(config.SoalServiceURL, "/api"))
 	protected.All("/tryout", proxyRequest(config.TryoutServiceURL, "/api"))
 	protected.All("/tryout/*", proxyRequest(config.TryoutServiceURL, "/api"))
-	protected.All("/minat-bakat", proxyRequest(config.MinatBakatServiceURL, "/api"))
-	protected.All("/minat-bakat/*", proxyRequest(config.MinatBakatServiceURL, "/api"))
+	// protected.All("/minat-bakat", proxyRequest(config.MinatBakatServiceURL, "/api"))
+	// protected.All("/minat-bakat/*", proxyRequest(config.MinatBakatServiceURL, "/api"))
 
 	app.Use(func(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{

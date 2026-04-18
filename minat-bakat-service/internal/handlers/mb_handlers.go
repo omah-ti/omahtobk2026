@@ -3,11 +3,13 @@ package handlers
 import (
 	"errors"
 	"fmt"
+	"hash/fnv"
 	"minat-bakat-service/internal/logger"
 	"minat-bakat-service/internal/models"
 	"minat-bakat-service/internal/services"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -63,7 +65,7 @@ func (h *MinatBakatHandler) GetQuestionsHandler(c *gin.Context) {
 func (h *MinatBakatHandler) ProcessMinatBakatHandler(c *gin.Context) {
 	userID, err := getUserIDFromContext(c)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid user context"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid participant context"})
 		return
 	}
 
@@ -86,7 +88,7 @@ func (h *MinatBakatHandler) ProcessMinatBakatHandler(c *gin.Context) {
 func (h *MinatBakatHandler) GetMinatBakatAttemptHandler(c *gin.Context) {
 	userID, err := getUserIDFromContext(c)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid user context"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid participant context"})
 		return
 	}
 
@@ -108,7 +110,7 @@ func (h *MinatBakatHandler) GetMinatBakatAttemptHandler(c *gin.Context) {
 func (h *MinatBakatHandler) GetLatestResultHandler(c *gin.Context) {
 	userID, err := getUserIDFromContext(c)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid user context"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid participant context"})
 		return
 	}
 
@@ -130,7 +132,7 @@ func (h *MinatBakatHandler) GetLatestResultHandler(c *gin.Context) {
 func (h *MinatBakatHandler) GetMinatBakatAttemptHistoryHandler(c *gin.Context) {
 	userID, err := getUserIDFromContext(c)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid user context"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid participant context"})
 		return
 	}
 
@@ -149,16 +151,38 @@ func (h *MinatBakatHandler) GetMinatBakatAttemptHistoryHandler(c *gin.Context) {
 
 func getUserIDFromContext(c *gin.Context) (int, error) {
 	rawUserID, exists := c.Get("user_id")
-	if !exists {
-		return 0, errors.New("user_id missing in context")
+	if exists {
+		userID, err := toPositiveInt(rawUserID)
+		if err == nil {
+			return userID, nil
+		}
 	}
 
-	userID, err := toPositiveInt(rawUserID)
-	if err != nil {
-		return 0, err
+	guestID := strings.TrimSpace(c.GetHeader("X-Guest-ID"))
+	if guestID == "" {
+		guestID = strings.TrimSpace(c.Query("guest_id"))
+	}
+	if guestID == "" {
+		return 0, errors.New("guest id missing")
 	}
 
-	return userID, nil
+	if len(guestID) > 128 {
+		return 0, errors.New("guest id too long")
+	}
+
+	return hashGuestIDToPositiveInt(guestID), nil
+}
+
+func hashGuestIDToPositiveInt(value string) int {
+	hasher := fnv.New32a()
+	_, _ = hasher.Write([]byte(strings.ToLower(strings.TrimSpace(value))))
+
+	hashed := int(hasher.Sum32() & 0x7fffffff)
+	if hashed == 0 {
+		return 1
+	}
+
+	return hashed
 }
 
 func toPositiveInt(v interface{}) (int, error) {

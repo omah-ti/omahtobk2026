@@ -41,14 +41,14 @@ const Hero = () => {
                   Roadmap Calon Mahasiswa IT Terbaik
                 </div>
               </div>
-              <h1 className='italic text-neutral-1000 md:leading-17'>
+              <h1 className='italic text-[34px] md:text-[48px] text-neutral-1000 md:leading-17'>
                 Ubah Keraguanmu <span className='not-italic font-bold text-primary-500'>Jadi Kepastian, Pilih Bidangmu</span>,
                 <span className='not-italic font-bold'> Amankan Kursimu.</span>
               </h1>
             </motion.div>
             <motion.p
               variants={childVariants}
-              className='mt-2 text-sm max-w-xl md:text-[20px] font-light text-center text-neutral-1000 md:mt-4'
+              className='max-w-xxl mx-auto mt-2 text-base text-[16px] md:text-[20px] font-medium leading-[24px] md:leading-[30px] text-center text-[#475569] md:mt-4'
             >
               Validasi potensi melalui Analisis Minat, dominasi seleksi dengan Tryout Adaptif. Langkah presisi mengunci kursi Ilmu Komputer 2026.
             </motion.p>
@@ -59,10 +59,10 @@ const Hero = () => {
             className='z-10 flex w-full max-w-none md:flex-row flex-col gap-2 self-center pt-4 md:max-w-4xl justify-center md:gap-6 md:py-0 md:pb-5'
           >
             <Button variant='outline' size='lg' className='w-full md:w-50'>
-              <Link href='/career-match-up'>Tech Persona</Link>
+              <Link href='/career-match-up'>Cari Tech Personamu!</Link>
             </Button>
             <Button variant='default' disabled size='lg' className='w-full md:w-50'>
-              <Link href='/tryout'>Try out</Link>
+              <Link href='/dashboard'>Ikuti Try Out Gratis</Link>
             </Button>
           </motion.div>
           <motion.div

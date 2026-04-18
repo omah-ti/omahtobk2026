@@ -32,7 +32,7 @@ const ReadyPath = async () => {
 
           <Link href='/register' className='mt-4 inline-block'>
             <Button size='lg'>
-              Daftar Sekarang
+              Daftar Try Out Sekarang
             </Button>
           </Link>
         </div>

@@ -2179,7 +2179,7 @@ const TryoutQuestionScreen = ({
                 className='flex cursor-pointer items-center gap-3 py-4 text-[13px] text-neutral-800 md:text-[15px]'
               >
                 <span
-                  className={`flex size-5 items-center justify-center border-2 ${
+                  className={`flex h-5 w-5 min-h-5 min-w-5 flex-none items-center justify-center border-2 ${
                     isMultiSelect ? 'rounded-[4px]' : 'rounded-full'
                   } ${
                     checked
@@ -2197,7 +2197,7 @@ const TryoutQuestionScreen = ({
                 </span>
                 <RichTextContent
                   content={option.label}
-                  className='text-[13px] text-neutral-800 md:text-[15px]'
+                  className='min-w-0 flex-1 text-[13px] text-neutral-800 md:text-[15px]'
                 />
               </label>
             )
@@ -2273,7 +2273,7 @@ const TryoutQuestionScreen = ({
                         name={`statement-${rowIndex}`}
                         checked={chosen === 'true'}
                         onChange={() => updateSelection('true')}
-                        className='size-4 accent-[#0D3388]'
+                        className='h-4 w-4 min-h-4 min-w-4 align-middle accent-[#0D3388]'
                       />
                     </td>
                     <td
@@ -2286,7 +2286,7 @@ const TryoutQuestionScreen = ({
                         name={`statement-${rowIndex}`}
                         checked={chosen === 'false'}
                         onChange={() => updateSelection('false')}
-                        className='size-4 accent-[#0D3388]'
+                        className='h-4 w-4 min-h-4 min-w-4 align-middle accent-[#0D3388]'
                       />
                     </td>
                   </tr>

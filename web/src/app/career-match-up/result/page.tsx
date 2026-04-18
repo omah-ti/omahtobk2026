@@ -9,6 +9,7 @@ import Image from 'next/image'
 import NavbarResolver from '@/components/home/navbar-resolver'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
+import { ChevronLeft } from 'lucide-react'
 import AlumniCarousel from './alumni-carousel'
 import Footer from '@/modules/home/footer'
 import { ALUMNI } from '@/lib/helpers/alumni'
@@ -18,9 +19,10 @@ export default async function CareerMatchUpResult() {
     const { attemptData, latestResult } = await (async () => {
       const cookieStore = await cookies()
       const accessToken = cookieStore.get('access_token')?.value
+      const guestId = cookieStore.get('mb_guest_id')?.value
       const [attempt, result] = await Promise.all([
-        getMbAttempt(accessToken, false),
-        getMbLatestResult(accessToken, false),
+        getMbAttempt(accessToken, false, undefined, guestId),
+        getMbLatestResult(accessToken, false, undefined, guestId),
       ])
 
       return {
@@ -76,6 +78,15 @@ export default async function CareerMatchUpResult() {
       <>
         <NavbarResolver />
         <Container className='bg-white gap-9 mb-14 px-0 md:px-20 lg:px-30'>
+          <div className='w-full flex justify-start'>
+            <Link href='/career-match-up'>
+              <Button variant='outline' size='lg' className='w-fit'>
+                <ChevronLeft />
+                Kembali
+              </Button>
+            </Link>
+          </div>
+
           <div className='flex p-4 md:p-10 md:bg-[#e9effd] rounded-[10px] flex-col items-center justify-center gap-8 '>
             <div className='flex flex-col-reverse md:flex-row justify-between items-start gap-8 w-full'>
               <div className='text-center lg:text-left w-full justify-between'>

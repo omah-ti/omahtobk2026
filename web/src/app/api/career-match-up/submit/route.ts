@@ -10,6 +10,16 @@ type SubmitPayload = {
   }>
 }
 
+const MB_GUEST_COOKIE_KEY = 'mb_guest_id'
+
+const generateGuestId = () => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+
+  return `guest-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+}
+
 export async function POST(req: NextRequest) {
   try {
     if (!process.env.API_GATEWAY_URL) {
@@ -29,6 +39,10 @@ export async function POST(req: NextRequest) {
 
     const cookieStore = await cookies()
     const accessToken = cookieStore.get('access_token')?.value
+    let guestId = (cookieStore.get(MB_GUEST_COOKIE_KEY)?.value || '').trim()
+    if (!guestId || guestId.length > 128) {
+      guestId = generateGuestId()
+    }
 
     const cookieParts: string[] = []
     if (accessToken) {
@@ -37,6 +51,7 @@ export async function POST(req: NextRequest) {
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
+      'X-Guest-ID': guestId,
     }
 
     if (cookieParts.length > 0) {
@@ -56,14 +71,42 @@ export async function POST(req: NextRequest) {
     const contentType = response.headers.get('content-type') || ''
     if (contentType.includes('application/json')) {
       const payload = await response.json()
-      return NextResponse.json(payload, { status: response.status })
+      const responsePayload =
+        payload && typeof payload === 'object'
+          ? { ...payload, guest_id: guestId }
+          : { data: payload, guest_id: guestId }
+
+      const clientResponse = NextResponse.json(responsePayload, {
+        status: response.status,
+      })
+      clientResponse.cookies.set({
+        name: MB_GUEST_COOKIE_KEY,
+        value: guestId,
+        path: '/',
+        maxAge: 60 * 60 * 24 * 365,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        httpOnly: false,
+      })
+      return clientResponse
     }
 
     const text = await response.text()
-    return NextResponse.json(
+    const clientResponse = NextResponse.json(
       { error: text || 'Gagal memproses jawaban Career Match Up.' },
       { status: response.status }
     )
+    clientResponse.cookies.set({
+      name: MB_GUEST_COOKIE_KEY,
+      value: guestId,
+      path: '/',
+      maxAge: 60 * 60 * 24 * 365,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      httpOnly: false,
+    })
+
+    return clientResponse
   } catch (error) {
     console.error('Error submitting CMU answers via API route:', error)
     return NextResponse.json(

@@ -1,18 +1,8 @@
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import Image from 'next/image'
-import { getMbAttempt } from '@/lib/fetch/mb-fetch'
-import { redirect } from 'next/navigation'
-import { cookies } from 'next/headers'
 
 async function careerMatchUpPage() {
-  const cookieStore = await cookies()
-  const accessToken = cookieStore.get('access_token')?.value
-  const attempt = await getMbAttempt(accessToken, false)
-  if (attempt) {
-    redirect('/career-match-up/result')
-  }
-
   return (
     <section className='h-screen flex flex-col !px-0 space-y-9 overflow-y-hidden items-center overflow-x-hidden justify-center bg-gradient-to-b relative from-primary-400/30 to-primary-100'>
       <div className='max-w-3xl space-y-2 flex flex-col items-center text-center'>
