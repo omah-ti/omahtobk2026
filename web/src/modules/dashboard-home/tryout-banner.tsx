@@ -1,12 +1,12 @@
-import { Button, buttonVariants } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
 import { Book, Clock, Layers, AlertCircle, PlayCircle } from 'lucide-react'
 import Link from 'next/link'
-import Image from "next/image";
+import Image from 'next/image'
 
 type TryoutBannerProps = {
   status: 'none' | 'ongoing' | 'finished'
   deadline?: string
+  nextRoute?: string
 }
 
 const STATS = [
@@ -15,7 +15,11 @@ const STATS = [
   { icon: Layers, label: '7 Subtest' },
 ]
 
-const TryoutBanner = ({ status, deadline = '19 April 2026' }: TryoutBannerProps) => {
+const TryoutBanner = ({
+  status,
+  deadline = '19 April 2026',
+  nextRoute = '/tryout/penalaran-umum',
+}: TryoutBannerProps) => {
   return (
     <section className='relative overflow-hidden rounded-lg border border-neutral-200 bg-gradient-to-br from-[#1a3fa8] via-[#2152c8] to-[#1a4fd4] text-white shadow-[0_2px_4px_0_rgba(0,0,0,0.08)]'>
       <div className='flex flex-col gap-10 md:gap-13 z-10 p-[14px] md:p-[30px]'>
@@ -50,15 +54,23 @@ const TryoutBanner = ({ status, deadline = '19 April 2026' }: TryoutBannerProps)
           </span>
         </div>
 
-        <Link href="/tryout">
-          <Button variant="white" className='px-6'>
-            <PlayCircle /> Mulai Sekarang
-          </Button>
-        </Link>
+        {status !== 'finished' && (
+          <Link href={nextRoute}>
+            <Button variant='white' className='px-6'>
+              <PlayCircle /> Mulai Sekarang
+            </Button>
+          </Link>
+        )}
 
       </div>
 
-      <Image src="/image.webp" alt="Student" width={475} height={317} className="absolute bottom-0 -right-5 md:right-0 md:h-full w-auto object-contain object-bottom" />
+      <Image
+        src='/image.webp'
+        alt='Student'
+        width={475}
+        height={317}
+        className='absolute bottom-0 -right-5 md:right-0 md:h-full w-auto object-contain object-bottom'
+      />
     </section>
   )
 }
