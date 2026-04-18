@@ -115,6 +115,7 @@ func (s *pageService) GetSubtestsProgress(c context.Context, userID int) (*model
 	currentSubtest := ""
 	targetAttemptID := 0
 	var userScores []models.UserScore
+	var expectedScoreSet map[string]struct{}
 
 	if ongoingAttempt != nil {
 		attemptStatus = "ongoing"
@@ -124,6 +125,7 @@ func (s *pageService) GetSubtestsProgress(c context.Context, userID int) (*model
 		if err != nil {
 			return nil, err
 		}
+		expectedScoreSet = scoreableSubtestSetForAttempt(ongoingAttempt)
 	} else if finishedAttempt != nil {
 		attemptStatus = "finished"
 		targetAttemptID = finishedAttempt.TryoutAttemptID
@@ -131,17 +133,24 @@ func (s *pageService) GetSubtestsProgress(c context.Context, userID int) (*model
 		if err != nil {
 			return nil, err
 		}
+		expectedScoreSet = scoreableSubtestSetForAttempt(finishedAttempt)
 	} else {
 		userScores, err = s.pageRepo.GetAllSubtestScoreForAUser(c, userID)
 		if err != nil {
 			return nil, err
 		}
+		expectedScoreSet = map[string]struct{}{}
 	}
 
 	scoreMap := make(map[string]float64, len(userScores))
 	for _, score := range userScores {
 		if targetAttemptID > 0 && score.TryoutAttemptID != targetAttemptID {
 			continue
+		}
+		if len(expectedScoreSet) > 0 {
+			if _, ok := expectedScoreSet[score.Subtest]; !ok {
+				continue
+			}
 		}
 		scoreMap[score.Subtest] = score.Score
 	}
@@ -238,11 +247,13 @@ func (s *pageService) GetProgressOverview(c context.Context, userID int, usernam
 
 	var scores []models.UserScore
 	var err error
+	expectedScoreSet := map[string]struct{}{}
 	if targetAttempt != nil {
 		scores, err = s.ensureAttemptScoresReady(c, userID, targetAttempt)
 		if err != nil {
 			return nil, err
 		}
+		expectedScoreSet = scoreableSubtestSetForAttempt(targetAttempt)
 	} else {
 		scores, err = s.pageRepo.GetAllSubtestScoreForAUser(c, userID)
 		if err != nil {
@@ -255,6 +266,11 @@ func (s *pageService) GetProgressOverview(c context.Context, userID int, usernam
 	for _, sc := range scores {
 		if targetAttempt != nil && sc.TryoutAttemptID != targetAttempt.TryoutAttemptID {
 			continue
+		}
+		if len(expectedScoreSet) > 0 {
+			if _, ok := expectedScoreSet[sc.Subtest]; !ok {
+				continue
+			}
 		}
 		scoreMap[sc.Subtest] = sc.Score
 		total += sc.Score
@@ -385,27 +401,35 @@ func (s *pageService) ensureAttemptScoresReady(c context.Context, userID int, at
 		return scores, nil
 	}
 
-	expectedCompletedScores := completedSubtestCountForAttempt(attempt)
-	if expectedCompletedScores <= 0 {
+	expectedSubtests := completedSubtestsForAttempt(attempt)
+	if len(expectedSubtests) == 0 {
 		return scores, nil
 	}
 
 	filteredCount := 0
+	expectedSet := make(map[string]struct{}, len(expectedSubtests))
+	for _, subtest := range expectedSubtests {
+		expectedSet[subtest] = struct{}{}
+	}
 	for _, score := range scores {
-		if score.TryoutAttemptID == attempt.TryoutAttemptID {
+		if score.TryoutAttemptID != attempt.TryoutAttemptID {
+			continue
+		}
+		if _, ok := expectedSet[score.Subtest]; ok {
 			filteredCount++
 		}
 	}
 
-	if filteredCount >= expectedCompletedScores {
+	if filteredCount >= len(expectedSubtests) {
 		return scores, nil
 	}
 
-	if err := s.scoreService.CalculateAndStoreScores(c, attempt.TryoutAttemptID, userID, attempt.Paket, ""); err != nil {
+	if err := s.scoreService.CalculateAndStoreScoresForSubtests(c, attempt.TryoutAttemptID, userID, attempt.Paket, "", expectedSubtests); err != nil {
 		logger.LogErrorCtx(c, err, "Failed to calculate and store scores while serving progress", map[string]interface{}{
 			"user_id":    userID,
 			"attempt_id": attempt.TryoutAttemptID,
 			"paket":      attempt.Paket,
+			"subtests":   expectedSubtests,
 		})
 		// Keep progress endpoints available even when score refresh cannot reach the
 		// answer-key service. Existing scores, if any, are still returned.
@@ -416,19 +440,40 @@ func (s *pageService) ensureAttemptScoresReady(c context.Context, userID int, at
 }
 
 func completedSubtestCountForAttempt(attempt *models.TryoutAttempt) int {
+	return len(completedSubtestsForAttempt(attempt))
+}
+
+func completedSubtestsForAttempt(attempt *models.TryoutAttempt) []string {
 	if attempt == nil {
-		return 0
+		return nil
 	}
 
 	if attempt.Status == "finished" {
-		return len(orderedProgressSubtests)
+		subtests := make([]string, 0, len(orderedProgressSubtests))
+		for _, sub := range orderedProgressSubtests {
+			subtests = append(subtests, sub.Key)
+		}
+		return subtests
 	}
 
 	for index, sub := range orderedProgressSubtests {
 		if sub.Key == attempt.SubtestSekarang {
-			return index
+			subtests := make([]string, 0, index)
+			for i := 0; i < index; i++ {
+				subtests = append(subtests, orderedProgressSubtests[i].Key)
+			}
+			return subtests
 		}
 	}
 
-	return 0
+	return nil
+}
+
+func scoreableSubtestSetForAttempt(attempt *models.TryoutAttempt) map[string]struct{} {
+	subtests := completedSubtestsForAttempt(attempt)
+	set := make(map[string]struct{}, len(subtests))
+	for _, subtest := range subtests {
+		set[subtest] = struct{}{}
+	}
+	return set
 }

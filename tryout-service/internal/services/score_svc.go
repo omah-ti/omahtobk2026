@@ -18,9 +18,12 @@ import (
 
 type ScoreService interface {
 	CalculateAndStoreScores(c context.Context, attemptID, userID int, paket, accessToken string) error
+	CalculateAndStoreScoresForSubtests(c context.Context, attemptID, userID int, paket, accessToken string, subtests []string) error
 	GetAnswerKeyBasedOnSubtestFromSoalService(c context.Context, paket, subtest, accessToken string) (*models.AnswerKeys, error)
 	CalculateScore(userAnswers []models.UserAnswer, answerKeys *models.AnswerKeys) (totalScore float64)
 }
+
+var orderedScoreSubtests = []string{"subtest_pu", "subtest_ppu", "subtest_pbm", "subtest_pk", "subtest_lbi", "subtest_lbe", "subtest_pm"}
 
 // scoreService is a struct that represents the service for score, has a dependency on score repo (injected), http client, and soal service url
 type scoreService struct {
@@ -42,7 +45,16 @@ func NewScoreService(scoreRepo repositories.ScoreRepo, soalServiceURL string) Sc
 
 // CalculateAndStoreScores calculates scores first, then writes them in a short transaction.
 func (s *scoreService) CalculateAndStoreScores(c context.Context, attemptID, userID int, paket, accessToken string) (retErr error) {
-	subtests := []string{"subtest_pu", "subtest_ppu", "subtest_pbm", "subtest_pk", "subtest_lbi", "subtest_lbe", "subtest_pm"}
+	return s.CalculateAndStoreScoresForSubtests(c, attemptID, userID, paket, accessToken, orderedScoreSubtests)
+}
+
+// CalculateAndStoreScoresForSubtests recalculates only the requested subtests.
+func (s *scoreService) CalculateAndStoreScoresForSubtests(c context.Context, attemptID, userID int, paket, accessToken string, subtests []string) (retErr error) {
+	subtests = normalizeRequestedScoreSubtests(subtests)
+	if len(subtests) == 0 {
+		return nil
+	}
+
 	scoreBySubtest := make(map[string]float64, len(subtests))
 
 	// Fetch answer keys and calculate scores before opening write transaction.
@@ -114,6 +126,32 @@ func (s *scoreService) CalculateAndStoreScores(c context.Context, attemptID, use
 	committed = true
 
 	return nil
+}
+
+func normalizeRequestedScoreSubtests(subtests []string) []string {
+	allowed := make(map[string]struct{}, len(orderedScoreSubtests))
+	for _, subtest := range orderedScoreSubtests {
+		allowed[subtest] = struct{}{}
+	}
+
+	seen := make(map[string]struct{}, len(subtests))
+	normalized := make([]string, 0, len(subtests))
+	for _, subtest := range subtests {
+		clean := strings.TrimSpace(subtest)
+		if clean == "" {
+			continue
+		}
+		if _, ok := allowed[clean]; !ok {
+			continue
+		}
+		if _, ok := seen[clean]; ok {
+			continue
+		}
+		seen[clean] = struct{}{}
+		normalized = append(normalized, clean)
+	}
+
+	return normalized
 }
 
 // GetAnswerKeyBasedOnSubtestFromSoalService retrieves answer keys through an internal-only endpoint.

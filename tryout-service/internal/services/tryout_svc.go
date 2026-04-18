@@ -442,10 +442,18 @@ func (s *tryoutService) submitAttempt(c context.Context, answers []models.Answer
 				"attemptID": attemptID,
 				"paket":     attempt.Paket,
 			})
-			s.scheduleDetachedScoreRefresh(c, attemptID, userID, attempt.Paket, accessToken)
+			s.scheduleDetachedScoreRefresh(c, attemptID, userID, attempt.Paket, accessToken, nil)
 		}
 	} else {
-		s.scheduleDetachedScoreRefresh(c, attemptID, userID, attempt.Paket, accessToken)
+		err = s.scoreService.CalculateAndStoreScoresForSubtests(c, attemptID, userID, attempt.Paket, accessToken, []string{requestedSubtest})
+		if err != nil {
+			logger.LogErrorCtx(c, err, "Failed to calculate and store score for submitted subtest; scheduling retry", map[string]interface{}{
+				"attemptID": attemptID,
+				"paket":     attempt.Paket,
+				"subtest":   requestedSubtest,
+			})
+			s.scheduleDetachedScoreRefresh(c, attemptID, userID, attempt.Paket, accessToken, []string{requestedSubtest})
+		}
 	}
 
 	if shouldFinish {
@@ -467,16 +475,24 @@ func (s *tryoutService) GetCurrentAttemptByUserID(c context.Context, userID int)
 	return attempt, nil
 }
 
-func (s *tryoutService) scheduleDetachedScoreRefresh(parent context.Context, attemptID, userID int, paket, accessToken string) {
+func (s *tryoutService) scheduleDetachedScoreRefresh(parent context.Context, attemptID, userID int, paket, accessToken string, subtests []string) {
 	bgCtx, cancel := newDetachedScoreRefreshContext(parent)
 
 	go func() {
 		defer cancel()
 
-		if err := s.scoreService.CalculateAndStoreScores(bgCtx, attemptID, userID, paket, accessToken); err != nil {
+		var err error
+		if len(subtests) == 0 {
+			err = s.scoreService.CalculateAndStoreScores(bgCtx, attemptID, userID, paket, accessToken)
+		} else {
+			err = s.scoreService.CalculateAndStoreScoresForSubtests(bgCtx, attemptID, userID, paket, accessToken, subtests)
+		}
+
+		if err != nil {
 			logger.LogErrorCtx(bgCtx, err, "Failed to calculate and store scores in detached retry", map[string]interface{}{
 				"attemptID": attemptID,
 				"paket":     paket,
+				"subtests":  subtests,
 			})
 		}
 	}()
