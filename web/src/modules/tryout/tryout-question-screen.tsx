@@ -1058,6 +1058,8 @@ const TryoutQuestionScreen = ({
   const [remainingSeconds, setRemainingSeconds] = useState(0)
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
   const [isIncompleteModalOpen, setIsIncompleteModalOpen] = useState(false)
+  const [isTimeUpModalOpen, setIsTimeUpModalOpen] = useState(false)
+  const [isReturningToDashboard, setIsReturningToDashboard] = useState(false)
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [isSmallScreen, setIsSmallScreen] = useState(false)
@@ -1341,12 +1343,26 @@ const TryoutQuestionScreen = ({
     [router, subtest]
   )
 
-  const submitCurrentSubtest = useCallback(async (options?: { forceSubmit?: boolean }) => {
+  const returnToDashboardAfterTimeUp = useCallback(() => {
+    if (isReturningToDashboard) {
+      return
+    }
+
+    setIsReturningToDashboard(true)
+    setIsTimeUpModalOpen(false)
+    router.replace('/dashboard-home')
+  }, [isReturningToDashboard, router])
+
+  const submitCurrentSubtest = useCallback(async (options?: {
+    forceSubmit?: boolean
+    triggeredByTimeUp?: boolean
+  }) => {
     if (!activeBackendSubtest || isSubmitting) {
       return
     }
 
     const forceSubmit = Boolean(options?.forceSubmit)
+    const triggeredByTimeUp = Boolean(options?.triggeredByTimeUp)
     const isTimeUp = timeLimit ? Date.now() >= timeLimit.getTime() : false
 
     if (!forceSubmit && !isTimeUp && unansweredQuestionNumbers.length > 0) {
@@ -1387,6 +1403,12 @@ const TryoutQuestionScreen = ({
         sessionStorage.removeItem(runtimeCacheKey)
       }
 
+      if (triggeredByTimeUp) {
+        setIsReturningToDashboard(false)
+        setIsTimeUpModalOpen(true)
+        return
+      }
+
       router.push('/dashboard-home')
     } catch (error) {
       console.error('Failed to submit subtest:', error)
@@ -1405,6 +1427,13 @@ const TryoutQuestionScreen = ({
           if (runtimeCacheKey) {
             sessionStorage.removeItem(runtimeCacheKey)
           }
+
+          if (triggeredByTimeUp) {
+            setIsReturningToDashboard(false)
+            setIsTimeUpModalOpen(true)
+            return
+          }
+
           router.replace('/dashboard-home')
           return
         }
@@ -1422,6 +1451,13 @@ const TryoutQuestionScreen = ({
         if (runtimeCacheKey) {
           sessionStorage.removeItem(runtimeCacheKey)
         }
+
+        if (triggeredByTimeUp) {
+          setIsReturningToDashboard(false)
+          setIsTimeUpModalOpen(true)
+          return
+        }
+
         router.replace('/dashboard-home')
         return
       }
@@ -1432,6 +1468,12 @@ const TryoutQuestionScreen = ({
         }
         if (runtimeCacheKey) {
           sessionStorage.removeItem(runtimeCacheKey)
+        }
+
+        if (triggeredByTimeUp) {
+          setIsReturningToDashboard(false)
+          setIsTimeUpModalOpen(true)
+          return
         }
 
         router.push('/dashboard-home')
@@ -1823,7 +1865,7 @@ const TryoutQuestionScreen = ({
 
     autoSubmitTriggeredRef.current = true
     setActionError('Waktu habis. Jawaban akan dikirim otomatis.')
-    void submitCurrentSubtest({ forceSubmit: true })
+    void submitCurrentSubtest({ forceSubmit: true, triggeredByTimeUp: true })
   }, [
     activeBackendSubtest,
     isSubmitting,
@@ -2290,11 +2332,11 @@ const TryoutQuestionScreen = ({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className='flex-row items-center justify-center gap-3'>
-            <AlertDialogCancel className='mt-0 border-primary-600 bg-primary-600 text-white hover:bg-primary-700 hover:text-white'>
+            <AlertDialogCancel className='mt-0 border border-neutral-300 bg-white text-neutral-900 hover:bg-neutral-100 hover:text-neutral-900'>
               Lanjut Kerjakan
             </AlertDialogCancel>
             <AlertDialogAction
-              className='border border-neutral-300 bg-white text-neutral-900 hover:bg-neutral-100 hover:text-neutral-900'
+              className='border-primary-600 bg-primary-600 text-white hover:bg-primary-700 hover:text-white'
               onClick={() => {
                 if (firstUnansweredQuestionNumber != null) {
                   void navigateToQuestion(firstUnansweredQuestionNumber)
@@ -2333,6 +2375,36 @@ const TryoutQuestionScreen = ({
               }}
             >
               {isLoggingOut ? 'Memproses...' : 'Submit & Logout'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={isTimeUpModalOpen}
+        onOpenChange={(open) => {
+          if (open) {
+            setIsTimeUpModalOpen(true)
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Waktu Subtest Sudah Habis</AlertDialogTitle>
+            <AlertDialogDescription>
+              Waktu pengerjaan telah berakhir dan jawaban kamu sudah dikirim.
+              Klik tombol di bawah untuk kembali ke dashboard.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className='flex-row justify-center'>
+            <AlertDialogAction
+              disabled={isReturningToDashboard}
+              className='border border-primary-600 bg-primary-600 text-white hover:bg-primary-700 hover:text-white'
+              onClick={returnToDashboardAfterTimeUp}
+            >
+              {isReturningToDashboard
+                ? 'Mengalihkan...'
+                : 'Kembali ke Dashboard'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
