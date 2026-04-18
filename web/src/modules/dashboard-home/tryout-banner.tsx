@@ -43,18 +43,6 @@ const TryoutBanner = ({ status, deadline = '19 April 2026' }: TryoutBannerProps)
             </p>
           </div>
 
-          <div>
-            {status === 'finished' ? (
-              <Link href='/tryout/pembahasan' className={cn(buttonVariants({ size: 'sm' }), 'h-auto gap-2 rounded-lg border border-primary-100 bg-primary-100 px-4 py-2.5 text-sm font-normal text-neutral-900 shadow-xs hover:bg-primary-200')}>
-                Lihat Pembahasan
-              </Link>
-            ) : (
-              <Link href='/tryout/penalaran-umum' className={cn(buttonVariants({ size: 'sm' }), 'h-auto gap-2 rounded-lg border border-primary-100 bg-primary-100 px-4 py-2.5 text-sm font-normal text-neutral-900 shadow-xs hover:bg-primary-200')}>
-                <PlayCircle className='h-5 w-5' />
-                {status === 'ongoing' ? 'Lanjutkan Tryout' : 'Mulai Sekarang'}
-              </Link>
-            )}
-          </div>
         </div>
 
         <div className="relative flex-1">
