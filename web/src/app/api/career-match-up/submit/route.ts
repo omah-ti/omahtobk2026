@@ -71,7 +71,14 @@ export async function POST(req: NextRequest) {
     const contentType = response.headers.get('content-type') || ''
     if (contentType.includes('application/json')) {
       const payload = await response.json()
-      const clientResponse = NextResponse.json(payload, { status: response.status })
+      const responsePayload =
+        payload && typeof payload === 'object'
+          ? { ...payload, guest_id: guestId }
+          : { data: payload, guest_id: guestId }
+
+      const clientResponse = NextResponse.json(responsePayload, {
+        status: response.status,
+      })
       clientResponse.cookies.set({
         name: MB_GUEST_COOKIE_KEY,
         value: guestId,

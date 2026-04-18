@@ -257,13 +257,21 @@ export const getMbAttempt = async (
         })
 
         if (!res.ok) {
-            return null
+            if (res.status === 404) {
+                return null
+            }
+
+            throw new Error(
+                await parseErrorMessage(res, 'Gagal mengambil data attempt Career Match Up.')
+            )
         }
 
         return res.json()
     } catch (error) {
         console.error('Error fetching MB attempt:', error)
-        return null
+        throw error instanceof Error
+            ? error
+            : new Error('Gagal mengambil data attempt Career Match Up.')
     }
 }
 
@@ -283,13 +291,21 @@ export const getMbLatestResult = async (
         })
 
         if (!res.ok) {
-            return null
+            if (res.status === 404) {
+                return null
+            }
+
+            throw new Error(
+                await parseErrorMessage(res, 'Gagal mengambil hasil Career Match Up terbaru.')
+            )
         }
 
         const payload = await res.json()
         return payload?.data ?? null
     } catch (error) {
         console.error('Error fetching MB latest result:', error)
-        return null
+        throw error instanceof Error
+            ? error
+            : new Error('Gagal mengambil hasil Career Match Up terbaru.')
     }
 }
