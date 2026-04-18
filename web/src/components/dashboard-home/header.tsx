@@ -24,9 +24,9 @@ const DashboardHeader = ({ user, hasOngoingTryout = false }: DashboardHeaderProp
 
       <LogOutDialog>
         <Button
-          variant='outline'
-          className='h-auto gap-2 rounded-lg border border-red-300 px-4 py-2.5 text-sm font-medium text-error-600 shadow-xs hover:bg-red-50 hover:text-error-600'
-        >
+            variant="outline"
+            className="md:flex hidden items-center justify-center gap-2 py-[10px] px-10 rounded-[8px] border border-red-300 text-red-500 text-sm font-normal bg-transparent hover:bg-red-50 hover:text-red-500"
+          >
           <LogOut className='h-4 w-4' />
           Log Out
         </Button>

@@ -1,7 +1,8 @@
-import { FileText } from 'lucide-react'
+import { Clipboard } from 'lucide-react'
 import Link from 'next/link'
 
 import { SubtestsProgressResponse, SubtestsProgressRow } from '@/lib/types/types'
+import { Button } from '@/components/ui/button'
 
 const SUBTEST_LABELS: Record<string, string> = {
   subtest_pu: 'Kemampuan Penalaran Umum',
@@ -40,7 +41,7 @@ const getStatusKey = (statusLabel: string) => {
 function StatusBadge({ statusLabel }: { statusLabel: string }) {
   const status = getStatusKey(statusLabel)
   const base =
-    'inline-flex items-center justify-center px-[14px] py-[9px] rounded-xl border border-neutral-300 text-sm whitespace-nowrap'
+    'inline-flex items-center justify-center px-2 py-1 md:px-[14px] md:py-[9px] rounded-xl border border-neutral-300 text-[10px] md:text-xs md:whitespace-nowrap'
 
   if (status === 'selesai') {
     return <span className={`${base} bg-[rgba(132,235,180,0.5)]`}>Selesai</span>
@@ -61,15 +62,14 @@ function MulaiButton({ row }: { row: SubtestsProgressRow }) {
 
   const label = row.action_label || 'Mulai Kerjakan'
   const isHighlight = status === 'belum' && !row.is_locked
-  const className = `block w-full py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all text-center ${
-    isHighlight ? 'bg-[#1A3FA8] text-white' : 'bg-neutral-200 text-[#333]'
-  }`
+  const className = `block w-full py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all text-center ${isHighlight ? 'bg-[#1A3FA8] text-white' : 'bg-neutral-200 text-[#333]'
+    }`
 
   if (row.is_locked) {
     return (
-      <button className={className} disabled>
+      <Button className={className} disabled>
         {label}
-      </button>
+      </Button>
     )
   }
 
@@ -96,29 +96,37 @@ export default function ActivitySection({
 
   return (
     <div className='bg-white rounded-2xl overflow-hidden border border-neutral-100'>
-      <div className='flex items-center gap-2 px-6 h-16 bg-neutral-200'>
-        <FileText size={16} className='text-[#6E97F2]' />
-        <span className='font-semibold text-[#333] text-base'>Aktivitas</span>
+      <div className='flex items-center gap-2 px-6 py-[14px]'>
+        <Clipboard size={16} className='text-primary-400' />
+        <span className='font-semibold text-neutral-1000 text-sm md:text-base'>Aktivitas</span>
       </div>
 
-      <div className='grid grid-cols-[1fr_120px_200px_200px] gap-4 px-6 py-3 border-b border-neutral-100 text-sm text-[#333] font-medium'>
-        <span>Subtest</span>
-        <span>Skor</span>
-        <span>Status</span>
-        <span>Aksi</span>
+      <div className='overflow-x-hidden'>
+        <table className='w-full text-sm text-neutral-900'>
+          <thead>
+            <tr className='bg-neutral-200 text-sm font-medium'>
+              <th className='md:px-6 px-4 py-3 text-left'>Subtest</th>
+              <th className='md:px-6 py-3 text-left '>Skor</th>
+              <th className='md:px-6 px-4 py-3 text-left  '>Status</th>
+              <th className='md:px-6 pr-4 py-3 text-left  '>Aksi</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.subtest_key} className='border-b border-neutral-100 last:border-0'>
+                <td className='md:px-6 px-4 py-4 text-xs md:text-sm text-[#333] '>{getSubtestLabel(row)}</td>
+                <td className='md:px-6 py-4 text-xs md:text-sm text-[#333] '>{row.score_text || '-'}</td>
+                <td className='md:px-6 px-4 py-4 '>
+                  <StatusBadge statusLabel={row.status_label} />
+                </td>
+                <td className='md:px-6 pr-4 py-4'>
+                  <MulaiButton row={row} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
-
-      {rows.map((row) => (
-        <div
-          key={row.subtest_key}
-          className='grid grid-cols-[1fr_120px_200px_200px] gap-4 items-center px-6 py-4 border-b border-neutral-100 last:border-0'
-        >
-          <span className='text-sm text-[#333]'>{getSubtestLabel(row)}</span>
-          <span className='text-sm text-[#333]'>{row.score_text || '-'}</span>
-          <StatusBadge statusLabel={row.status_label} />
-          <MulaiButton row={row} />
-        </div>
-      ))}
     </div>
   )
 }
