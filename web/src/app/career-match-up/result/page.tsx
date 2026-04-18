@@ -18,9 +18,10 @@ export default async function CareerMatchUpResult() {
     const { attemptData, latestResult } = await (async () => {
       const cookieStore = await cookies()
       const accessToken = cookieStore.get('access_token')?.value
+      const guestId = cookieStore.get('mb_guest_id')?.value
       const [attempt, result] = await Promise.all([
-        getMbAttempt(accessToken, false),
-        getMbLatestResult(accessToken, false),
+        getMbAttempt(accessToken, false, undefined, guestId),
+        getMbLatestResult(accessToken, false, undefined, guestId),
       ])
 
       return {

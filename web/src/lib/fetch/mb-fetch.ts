@@ -46,7 +46,65 @@ export type MbAttempt = {
     created_at: string
 }
 
-const cookieHeaders = (accessToken?: string, refreshToken?: string) => {
+const MB_GUEST_COOKIE_KEY = 'mb_guest_id'
+
+const readCookieValue = (key: string): string | undefined => {
+    if (typeof document === 'undefined') {
+        return undefined
+    }
+
+    const encodedKey = `${encodeURIComponent(key)}=`
+    const parts = document.cookie.split(';')
+    for (const part of parts) {
+        const trimmed = part.trim()
+        if (!trimmed.startsWith(encodedKey)) {
+            continue
+        }
+
+        const value = trimmed.slice(encodedKey.length)
+        return value ? decodeURIComponent(value) : undefined
+    }
+
+    return undefined
+}
+
+const generateGuestId = () => {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+        return crypto.randomUUID()
+    }
+
+    return `guest-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+}
+
+const ensureBrowserGuestId = (): string | undefined => {
+    if (typeof document === 'undefined') {
+        return undefined
+    }
+
+    const existing = readCookieValue(MB_GUEST_COOKIE_KEY)
+    if (existing) {
+        return existing
+    }
+
+    const generated = generateGuestId()
+    document.cookie = `${MB_GUEST_COOKIE_KEY}=${encodeURIComponent(generated)}; Path=/; Max-Age=31536000; SameSite=Lax`
+    return generated
+}
+
+const resolveGuestId = (guestId?: string) => {
+    const explicit = (guestId || '').trim()
+    if (explicit) {
+        return explicit
+    }
+
+    return ensureBrowserGuestId()
+}
+
+const cookieHeaders = (
+    accessToken?: string,
+    refreshToken?: string,
+    guestId?: string
+) => {
     const headers: Record<string, string> = {
         'Content-Type': 'application/json',
     }
@@ -61,6 +119,11 @@ const cookieHeaders = (accessToken?: string, refreshToken?: string) => {
 
     if (cookieParts.length > 0) {
         headers.Cookie = cookieParts.join('; ')
+    }
+
+    const resolvedGuestId = resolveGuestId(guestId)
+    if (resolvedGuestId) {
+        headers['X-Guest-ID'] = resolvedGuestId
     }
 
     return headers
@@ -96,7 +159,8 @@ export const getMbQuestions = async (
     paging?: {
         limit?: number
         offset?: number
-    }
+    },
+    guestId?: string
 ): Promise<MbQuestion[]> => {
     try {
         const mbUrl = getMbUrl(isPublic)
@@ -114,7 +178,7 @@ export const getMbQuestions = async (
 
         const res = await fetch(requestUrl, {
             method: 'GET',
-            headers: cookieHeaders(accessToken, refreshToken),
+            headers: cookieHeaders(accessToken, refreshToken, guestId),
             credentials: 'include',
             cache: 'force-cache',
             next: { revalidate: 1800 },
@@ -149,13 +213,14 @@ export const submitMbAnswers = async (
     payload: MbSubmitPayload,
     isPublic?: boolean,
     accessToken?: string,
-    refreshToken?: string
+    refreshToken?: string,
+    guestId?: string
 ) => {
     try {
         const mbUrl = getMbUrl(isPublic)
         const res = await fetch(`${mbUrl}/process`, {
             method: 'POST',
-            headers: cookieHeaders(accessToken, refreshToken),
+            headers: cookieHeaders(accessToken, refreshToken, guestId),
             credentials: 'include',
             cache: 'no-store',
             body: JSON.stringify(payload),
@@ -179,13 +244,14 @@ export const submitMbAnswers = async (
 export const getMbAttempt = async (
     accessToken?: string,
     isPublic?: boolean,
-    refreshToken?: string
+    refreshToken?: string,
+    guestId?: string
 ): Promise<MbAttempt | null> => {
     try {
         const mbUrl = getMbUrl(isPublic)
         const res = await fetch(`${mbUrl}/attempt`, {
             method: 'GET',
-            headers: cookieHeaders(accessToken, refreshToken),
+            headers: cookieHeaders(accessToken, refreshToken, guestId),
             credentials: 'include',
             cache: 'no-store',
         })
@@ -204,13 +270,14 @@ export const getMbAttempt = async (
 export const getMbLatestResult = async (
     accessToken?: string,
     isPublic?: boolean,
-    refreshToken?: string
+    refreshToken?: string,
+    guestId?: string
 ): Promise<MbResult | null> => {
     try {
         const mbUrl = getMbUrl(isPublic)
         const res = await fetch(`${mbUrl}/result/latest`, {
             method: 'GET',
-            headers: cookieHeaders(accessToken, refreshToken),
+            headers: cookieHeaders(accessToken, refreshToken, guestId),
             credentials: 'include',
             cache: 'no-store',
         })

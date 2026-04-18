@@ -1,7 +1,6 @@
 import CareerMatchUpTest from '@/modules/career-match-up/career-test'
 import { cookies } from 'next/headers'
-import { getMbAttempt, getMbQuestions } from '@/lib/fetch/mb-fetch'
-import { redirect } from 'next/navigation'
+import { getMbQuestions } from '@/lib/fetch/mb-fetch'
 import NavbarResolver from '@/components/home/navbar-resolver'
 import Footer from '@/modules/home/footer'
 
@@ -42,10 +41,6 @@ async function Page() {
 
   const cookieStore = await cookies()
   const accessToken = cookieStore.get('access_token')?.value
-  const attempt = await getMbAttempt(accessToken, false)
-  if (attempt) {
-    redirect('/career-match-up/result')
-  }
 
   try {
     const questionsData = await getMbQuestions(accessToken)
