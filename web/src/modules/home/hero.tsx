@@ -59,10 +59,10 @@ const Hero = () => {
             className='z-10 flex w-full max-w-none md:flex-row flex-col gap-2 self-center pt-4 md:max-w-4xl justify-center md:gap-6 md:py-0 md:pb-5'
           >
             <Button variant='outline' size='lg' className='w-full md:w-50'>
-              <Link href='/career-match-up'>Tech Persona</Link>
+              <Link href='/career-match-up'>Cari Tech Personamu!</Link>
             </Button>
             <Button variant='default' disabled size='lg' className='w-full md:w-50'>
-              <Link href='/tryout'>Try out</Link>
+              <Link href='/dashboard'>Ikuti Try Out Gratis</Link>
             </Button>
           </motion.div>
           <motion.div
