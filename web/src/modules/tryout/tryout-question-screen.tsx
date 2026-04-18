@@ -13,7 +13,7 @@ import {
 } from 'react'
 import katex from 'katex'
 import 'katex/dist/katex.min.css'
-import { fetchJson } from '@/lib/fetch/http'
+import { ApiFetchError, extractApiMessage, fetchJson } from '@/lib/fetch/http'
 import { API_GATEWAY_URL } from '@/lib/types/url'
 import {
   getCurrentTryout,
@@ -22,7 +22,6 @@ import {
   startSubtest,
   submitSubtest,
 } from '@/lib/fetch/tryout-test'
-import { ApiFetchError } from '@/lib/fetch/http'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -965,6 +964,21 @@ const isSubtestOutOfOrderError = (error: unknown) => {
   return (error.message || '').toLowerCase().includes('subtest is not active yet')
 }
 
+const isCommittedSubmitFallbackError = (error: unknown) => {
+  if (!(error instanceof ApiFetchError) || error.status !== 503) {
+    return false
+  }
+
+  const message = `${error.message || ''} ${extractApiMessage(error.payload) || ''}`
+    .toLowerCase()
+    .trim()
+
+  return (
+    message.includes('tryout finalized but scoring is not available yet') ||
+    message.includes('scoring is not available yet')
+  )
+}
+
 const TryoutQuestionScreen = ({
   subtest,
   questionNumber,
@@ -1256,7 +1270,10 @@ const TryoutQuestionScreen = ({
     setActionError(null)
 
     try {
-      await flushDirtyAnswers(true)
+      const flushSucceeded = await flushDirtyAnswers(true)
+      if (!flushSucceeded) {
+        return
+      }
 
       const payloadAnswers: TryoutAnswer[] = Object.values(answers)
         .map((entry) => ({
@@ -1294,6 +1311,18 @@ const TryoutQuestionScreen = ({
         if (redirected) {
           return
         }
+      }
+
+      if (isCommittedSubmitFallbackError(error)) {
+        if (localStorageKey) {
+          localStorage.removeItem(localStorageKey)
+        }
+        if (runtimeCacheKey) {
+          sessionStorage.removeItem(runtimeCacheKey)
+        }
+
+        router.push('/dashboard-home')
+        return
       }
 
       setActionError('Gagal mengirim jawaban akhir. Coba lagi.')

@@ -29,6 +29,7 @@ type tryoutService struct {
 }
 
 var orderedSubtests = []string{"subtest_pu", "subtest_ppu", "subtest_pbm", "subtest_pk", "subtest_lbi", "subtest_lbe", "subtest_pm"}
+var detachedScoreRefreshTimeout = 45 * time.Second
 
 func NewTryoutService(tryoutRepo repositories.TryoutRepo, scoreService ScoreService) TryoutService {
 	return &tryoutService{tryoutRepo: tryoutRepo, scoreService: scoreService}
@@ -434,14 +435,17 @@ func (s *tryoutService) submitAttempt(c context.Context, answers []models.Answer
 	committed = true
 	tx = nil
 
-	err = s.scoreService.CalculateAndStoreScores(c, attemptID, userID, attempt.Paket, accessToken)
-	if err != nil {
-		logger.LogErrorCtx(c, err, "Failed to calculate and store scores", map[string]interface{}{
-			"attemptID": attemptID,
-			"paket":     attempt.Paket,
-		})
-		retErr = ErrScoringFailed
-		return "", retErr
+	if shouldFinish {
+		err = s.scoreService.CalculateAndStoreScores(c, attemptID, userID, attempt.Paket, accessToken)
+		if err != nil {
+			logger.LogErrorCtx(c, err, "Failed to calculate and store scores synchronously after finishing tryout; scheduling retry", map[string]interface{}{
+				"attemptID": attemptID,
+				"paket":     attempt.Paket,
+			})
+			s.scheduleDetachedScoreRefresh(c, attemptID, userID, attempt.Paket, accessToken)
+		}
+	} else {
+		s.scheduleDetachedScoreRefresh(c, attemptID, userID, attempt.Paket, accessToken)
 	}
 
 	if shouldFinish {
@@ -461,6 +465,34 @@ func (s *tryoutService) GetCurrentAttemptByUserID(c context.Context, userID int)
 	}
 
 	return attempt, nil
+}
+
+func (s *tryoutService) scheduleDetachedScoreRefresh(parent context.Context, attemptID, userID int, paket, accessToken string) {
+	bgCtx, cancel := newDetachedScoreRefreshContext(parent)
+
+	go func() {
+		defer cancel()
+
+		if err := s.scoreService.CalculateAndStoreScores(bgCtx, attemptID, userID, paket, accessToken); err != nil {
+			logger.LogErrorCtx(bgCtx, err, "Failed to calculate and store scores in detached retry", map[string]interface{}{
+				"attemptID": attemptID,
+				"paket":     paket,
+			})
+		}
+	}()
+}
+
+func newDetachedScoreRefreshContext(parent context.Context) (context.Context, context.CancelFunc) {
+	detached := context.Background()
+
+	if requestID, ok := parent.Value("request_id").(string); ok {
+		requestID = strings.TrimSpace(requestID)
+		if requestID != "" {
+			detached = context.WithValue(detached, "request_id", requestID)
+		}
+	}
+
+	return context.WithTimeout(detached, detachedScoreRefreshTimeout)
 }
 
 func buildUserAnswers(answers []models.AnswerPayload, attemptID int, subtest string) ([]models.UserAnswer, error) {
