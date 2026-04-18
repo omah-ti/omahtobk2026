@@ -21,8 +21,9 @@ type TryoutRepo interface {
 	GetTryoutAttemptTx(c context.Context, tx *sqlx.Tx, attemptID int) (*models.TryoutAttempt, error)                                    // Get a tryout attempt by its ID, including the user's answers based on the current subtest also (for transactinos)
 	GetAnswerFromCurrentAttemptAndSubtestTx(c context.Context, tx *sqlx.Tx, attemptID int, subtest string) ([]models.UserAnswer, error) // Get user's answers for the current subtest (for transactions)
 	GetSubtestTimeTx(c context.Context, tx *sqlx.Tx, attemptID int, subtest string) (time.Time, error)                                  // Get the remaining time for a subtest (for transactions)
-	SaveAnswersTx(c context.Context, tx *sqlx.Tx, answers []models.UserAnswer) error                                                    // Save user's answers to the database
-	ProgressTryoutTx(c context.Context, tx *sqlx.Tx, attemptID int, subtest string) (string, error)                                     // End a subtest attempt, marking the end time
+	CreateSubtestTimeTx(c context.Context, tx *sqlx.Tx, attemptID int, subtest string, timeLimit time.Time) error
+	SaveAnswersTx(c context.Context, tx *sqlx.Tx, answers []models.UserAnswer) error                // Save user's answers to the database
+	ProgressTryoutTx(c context.Context, tx *sqlx.Tx, attemptID int, subtest string) (string, error) // End a subtest attempt, marking the end time
 	EndTryOutTx(c context.Context, tx *sqlx.Tx, attemptID int) error
 	GetTryoutAttempt(c context.Context, attemptID int) (*models.TryoutAttempt, error) // End a tryout attempt, marking the end time
 	DeleteAttempt(c context.Context, tx *sqlx.Tx, attemptID int) error
@@ -57,41 +58,33 @@ func (r *tryoutRepo) CreateTryoutAttemptTx(c context.Context, tx *sqlx.Tx, attem
 		return err
 	}
 
-	// Define subtests and their time limits
-	subtests := []struct {
-		Subtest   string
-		TimeLimit time.Duration // Time in minutes
-	}{
-		{"subtest_pu", 31 * time.Minute},
-		{"subtest_ppu", 16 * time.Minute},
-		{"subtest_pbm", 26 * time.Minute},
-		{"subtest_pk", 21 * time.Minute},
-		{"subtest_lbi", 46 * time.Minute},
-		{"subtest_lbe", 31 * time.Minute},
-		{"subtest_pm", 31 * time.Minute},
-	}
+	logger.LogDebugCtx(c, "Tryout attempt created successfully", map[string]interface{}{"attempt_id": attempt.TryoutAttemptID})
 
-	// Construct the query for batch insertion
-	var values []string
-	var args []interface{}
-	currentTime := startTime
-	for i, sub := range subtests {
-		startTime := currentTime
-		endTime := startTime.Add(sub.TimeLimit) // Calculate end time
+	return nil
+}
 
-		values = append(values, fmt.Sprintf("($%d, $%d, $%d)", i*3+1, i*3+2, i*3+3))
-		args = append(args, attempt.TryoutAttemptID, sub.Subtest, endTime)
-		currentTime = endTime
-	}
+func (r *tryoutRepo) CreateSubtestTimeTx(c context.Context, tx *sqlx.Tx, attemptID int, subtest string, timeLimit time.Time) error {
+	query := `
+		INSERT INTO time_limit (attempt_id, subtest, time_limit)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (attempt_id, subtest) DO NOTHING
+	`
 
-	timeQuery := fmt.Sprintf(`INSERT INTO time_limit (attempt_id, subtest, time_limit) VALUES %s`, strings.Join(values, ", "))
-	_, err = tx.Exec(timeQuery, args...)
+	_, err := tx.Exec(query, attemptID, subtest, timeLimit)
 	if err != nil {
-		logger.LogErrorCtx(c, err, "Failed to insert time limits for tryout attempt", map[string]interface{}{"attempt_id": attempt.TryoutAttemptID})
+		logger.LogErrorCtx(c, err, "Failed to create subtest time limit", map[string]interface{}{
+			"attempt_id": attemptID,
+			"subtest":    subtest,
+			"time_limit": timeLimit,
+		})
 		return err
 	}
 
-	logger.LogDebugCtx(c, "Tryout attempt created successfully", map[string]interface{}{"attempt_id": attempt.TryoutAttemptID})
+	logger.LogDebugCtx(c, "Subtest time limit ensured", map[string]interface{}{
+		"attempt_id": attemptID,
+		"subtest":    subtest,
+		"time_limit": timeLimit,
+	})
 
 	return nil
 }

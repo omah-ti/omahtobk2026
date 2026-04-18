@@ -36,3 +36,6 @@ CREATE TABLE IF NOT EXISTS time_limit (
     time_limit TIMESTAMP NOT NULL,
     FOREIGN KEY (attempt_id) REFERENCES tryout_attempt(attempt_id) ON DELETE CASCADE
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS ux_time_limit_attempt_subtest
+    ON time_limit (attempt_id, subtest);

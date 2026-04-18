@@ -31,6 +31,15 @@ type tryoutService struct {
 }
 
 var orderedSubtests = []string{"subtest_pu", "subtest_ppu", "subtest_pbm", "subtest_pk", "subtest_lbi", "subtest_lbe", "subtest_pm"}
+var subtestDurations = map[string]time.Duration{
+	"subtest_pu":  30 * time.Minute,
+	"subtest_ppu": 16 * time.Minute,
+	"subtest_pbm": 26 * time.Minute,
+	"subtest_pk":  21 * time.Minute,
+	"subtest_lbi": 46 * time.Minute,
+	"subtest_lbe": 31 * time.Minute,
+	"subtest_pm":  31 * time.Minute,
+}
 var detachedScoreRefreshTimeout = 45 * time.Second
 
 type expiredAttemptAdvanceResult struct {
@@ -207,7 +216,7 @@ func (s *tryoutService) syncSubtestAnswers(c context.Context, answers []models.A
 		return nil, time.Time{}, retErr
 	}
 
-	timeLimit, err = s.tryoutRepo.GetSubtestTimeTx(c, tx, attemptID, requestedSubtest)
+	timeLimit, err = s.ensureSubtestTimeLimitTx(c, tx, attempt, requestedSubtest)
 	if err != nil {
 		retErr = err
 		logger.LogErrorCtx(c, err, "Failed to get time limit for subtest", map[string]interface{}{
@@ -360,7 +369,7 @@ func (s *tryoutService) submitAttempt(c context.Context, answers []models.Answer
 		return "", retErr
 	}
 
-	timeLimit, err := s.tryoutRepo.GetSubtestTimeTx(c, tx, attemptID, requestedSubtest)
+	timeLimit, err := s.ensureSubtestTimeLimitTx(c, tx, attempt, requestedSubtest)
 	if err != nil {
 		retErr = err
 		logger.LogErrorCtx(c, err, "Failed to get time limit", map[string]interface{}{
@@ -565,6 +574,10 @@ func (s *tryoutService) getCurrentAttemptAfterTimeoutReconciliation(c context.Co
 		}
 
 		timeLimit, err := s.tryoutRepo.GetSubtestTimeTx(c, tx, lockedAttempt.TryoutAttemptID, lockedAttempt.SubtestSekarang)
+		if errors.Is(err, sql.ErrNoRows) {
+			rollbackReconciliationTx(c, tx, userID, lockedAttempt.TryoutAttemptID, "no active subtest time limit yet")
+			return lockedAttempt, nil
+		}
 		if err != nil {
 			rollbackReconciliationTx(c, tx, userID, lockedAttempt.TryoutAttemptID, "load current subtest time limit")
 			return nil, err
@@ -666,6 +679,60 @@ func (s *tryoutService) advanceExpiredAttemptTx(c context.Context, tx *sqlx.Tx, 
 	}, nil
 }
 
+func (s *tryoutService) ensureSubtestTimeLimitTx(c context.Context, tx *sqlx.Tx, attempt *models.TryoutAttempt, subtest string) (time.Time, error) {
+	if attempt == nil {
+		return time.Time{}, ErrAttemptNotFound
+	}
+
+	subtest = strings.TrimSpace(subtest)
+	if subtest == "" {
+		return time.Time{}, ErrNoActiveSubtest
+	}
+
+	existing, err := s.tryoutRepo.GetSubtestTimeTx(c, tx, attempt.TryoutAttemptID, subtest)
+	if err == nil {
+		return existing, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return time.Time{}, err
+	}
+
+	duration, ok := subtestDurations[subtest]
+	if !ok {
+		return time.Time{}, ErrNoActiveSubtest
+	}
+
+	base := time.Now()
+
+	previousSubtest, err := resolvePreviousSubtest(subtest)
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	if previousSubtest != nil {
+		previousLimit, prevErr := s.tryoutRepo.GetSubtestTimeTx(c, tx, attempt.TryoutAttemptID, *previousSubtest)
+		if prevErr != nil && !errors.Is(prevErr, sql.ErrNoRows) {
+			return time.Time{}, prevErr
+		}
+
+		if prevErr == nil && previousLimit.After(base) {
+			base = previousLimit
+		}
+	}
+
+	calculatedLimit := base.Add(duration)
+	if err := s.tryoutRepo.CreateSubtestTimeTx(c, tx, attempt.TryoutAttemptID, subtest, calculatedLimit); err != nil {
+		return time.Time{}, err
+	}
+
+	resolvedLimit, err := s.tryoutRepo.GetSubtestTimeTx(c, tx, attempt.TryoutAttemptID, subtest)
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	return resolvedLimit, nil
+}
+
 func buildUserAnswers(answers []models.AnswerPayload, attemptID int, subtest string) ([]models.UserAnswer, error) {
 	userAnswers := make([]models.UserAnswer, 0, len(answers))
 	for _, answer := range answers {
@@ -740,6 +807,22 @@ func resolveNextSubtest(currentSubtest string) (*string, error) {
 
 		next := orderedSubtests[i+1]
 		return &next, nil
+	}
+
+	return nil, ErrNoActiveSubtest
+}
+
+func resolvePreviousSubtest(currentSubtest string) (*string, error) {
+	for i, sub := range orderedSubtests {
+		if sub != currentSubtest {
+			continue
+		}
+		if i == 0 {
+			return nil, nil
+		}
+
+		previous := orderedSubtests[i-1]
+		return &previous, nil
 	}
 
 	return nil, ErrNoActiveSubtest
