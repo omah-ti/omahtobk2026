@@ -47,7 +47,7 @@ const LoginForm = () => {
     try {
       await loginAuth(values)
 
-      router.push('/')
+      router.push('/dashboard')
       router.refresh()
     } catch (error: unknown) {
       toast.error('Login gagal.', {

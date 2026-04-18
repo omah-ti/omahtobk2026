@@ -148,6 +148,8 @@ const SUBTEST_META: Record<
 }
 
 const orderedSubtests = Object.keys(SUBTEST_META) as SubtestCode[]
+const LAST_SUBTEST_CODE: SubtestCode = orderedSubtests.at(-1) ?? 'pm'
+const LAST_BACKEND_SUBTEST = SUBTEST_TO_BACKEND[LAST_SUBTEST_CODE]
 
 const isSubtestCode = (value: string): value is SubtestCode =>
   orderedSubtests.includes(value as SubtestCode)
@@ -1403,10 +1405,15 @@ const TryoutQuestionScreen = ({
       return
     }
 
+    const destination =
+      activeBackendSubtest === LAST_BACKEND_SUBTEST
+        ? '/dashboard-home/progress'
+        : '/dashboard-home'
+
     setIsReturningToDashboard(true)
     setIsTimeUpModalOpen(false)
-    router.replace('/dashboard-home')
-  }, [isReturningToDashboard, router])
+    router.replace(destination)
+  }, [activeBackendSubtest, isReturningToDashboard, router])
 
   const submitCurrentSubtest = useCallback(async (options?: {
     forceSubmit?: boolean
@@ -1419,6 +1426,10 @@ const TryoutQuestionScreen = ({
     const forceSubmit = Boolean(options?.forceSubmit)
     const triggeredByTimeUp = Boolean(options?.triggeredByTimeUp)
     const isTimeUp = timeLimit ? Date.now() >= timeLimit.getTime() : false
+    const postSubmitDestination =
+      activeBackendSubtest === LAST_BACKEND_SUBTEST
+        ? '/dashboard-home/progress'
+        : '/dashboard-home'
 
     if (!forceSubmit && !isTimeUp && unansweredQuestionNumbers.length > 0) {
       setIsIncompleteModalOpen(true)
@@ -1464,7 +1475,7 @@ const TryoutQuestionScreen = ({
         return
       }
 
-      router.push('/dashboard-home')
+      router.push(postSubmitDestination)
     } catch (error) {
       console.error('Failed to submit subtest:', error)
 
@@ -1489,7 +1500,7 @@ const TryoutQuestionScreen = ({
             return
           }
 
-          router.replace('/dashboard-home')
+          router.replace(postSubmitDestination)
           return
         }
 
@@ -1513,7 +1524,7 @@ const TryoutQuestionScreen = ({
           return
         }
 
-        router.replace('/dashboard-home')
+        router.replace(postSubmitDestination)
         return
       }
 
@@ -1531,7 +1542,7 @@ const TryoutQuestionScreen = ({
           return
         }
 
-        router.push('/dashboard-home')
+        router.push(postSubmitDestination)
         return
       }
 
