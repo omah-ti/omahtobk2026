@@ -14,6 +14,7 @@ import {
 import katex from 'katex'
 import 'katex/dist/katex.min.css'
 import { ApiFetchError, extractApiMessage, fetchJson } from '@/lib/fetch/http'
+import { getAuthErrorMessage, logoutAuth } from '@/lib/fetch/auth'
 import { API_GATEWAY_URL } from '@/lib/types/url'
 import {
   getCurrentTryout,
@@ -1057,6 +1058,8 @@ const TryoutQuestionScreen = ({
   const [remainingSeconds, setRemainingSeconds] = useState(0)
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
   const [isIncompleteModalOpen, setIsIncompleteModalOpen] = useState(false)
+  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [isSmallScreen, setIsSmallScreen] = useState(false)
   const [timeLimit, setTimeLimit] = useState<Date | null>(null)
   const [attemptId, setAttemptId] = useState<number | null>(null)
@@ -1222,7 +1225,12 @@ const TryoutQuestionScreen = ({
   )
 
   const flushDirtyAnswers = useCallback(
-    async (force: boolean) => {
+    async (
+      force: boolean,
+      options?: {
+        onOutOfOrder?: 'active-subtest' | 'dashboard'
+      }
+    ) => {
       if (!activeBackendSubtest) {
         return true
       }
@@ -1287,6 +1295,17 @@ const TryoutQuestionScreen = ({
 
         if (isSubtestOutOfOrderError(error)) {
           const payload = getSubtestOutOfOrderPayload(error)
+          if (options?.onOutOfOrder === 'dashboard') {
+            if (localStorageKey) {
+              localStorage.removeItem(localStorageKey)
+            }
+            if (runtimeCacheKey) {
+              sessionStorage.removeItem(runtimeCacheKey)
+            }
+            router.replace('/dashboard-home')
+            return false
+          }
+
           setActionError('Subtest aktif berubah. Kamu akan diarahkan ke subtest yang benar.')
           await redirectToActiveSubtest(payload?.active_subtest)
           return false
@@ -1304,9 +1323,11 @@ const TryoutQuestionScreen = ({
     [
       activeBackendSubtest,
       answers,
+      localStorageKey,
       persistAnswers,
       redirectToActiveSubtest,
       router,
+      runtimeCacheKey,
       toPayloadAnswerValue,
     ]
   )
@@ -1337,7 +1358,10 @@ const TryoutQuestionScreen = ({
     setActionError(null)
 
     try {
-      const flushSucceeded = await flushDirtyAnswers(true)
+      const shouldReturnToDashboard = forceSubmit || isTimeUp
+      const flushSucceeded = await flushDirtyAnswers(true, {
+        onOutOfOrder: shouldReturnToDashboard ? 'dashboard' : 'active-subtest',
+      })
       if (!flushSucceeded) {
         return
       }
@@ -1374,6 +1398,17 @@ const TryoutQuestionScreen = ({
 
       if (isSubtestOutOfOrderError(error)) {
         const payload = getSubtestOutOfOrderPayload(error)
+        if (forceSubmit || isTimeUp) {
+          if (localStorageKey) {
+            localStorage.removeItem(localStorageKey)
+          }
+          if (runtimeCacheKey) {
+            sessionStorage.removeItem(runtimeCacheKey)
+          }
+          router.replace('/dashboard-home')
+          return
+        }
+
         const redirected = await redirectToActiveSubtest(payload?.active_subtest)
         if (redirected) {
           return
@@ -1419,6 +1454,71 @@ const TryoutQuestionScreen = ({
     timeLimit,
     toPayloadAnswerValue,
     unansweredQuestionNumbers.length,
+  ])
+
+  const submitAnswersAndLogout = useCallback(async () => {
+    if (isLoggingOut) {
+      return
+    }
+
+    setIsLoggingOut(true)
+    setActionError(null)
+
+    try {
+      if (activeBackendSubtest) {
+        const payloadAnswers: TryoutAnswer[] = Object.values(answers)
+          .map((entry) => ({
+            kode_soal: entry.kode_soal,
+            jawaban: toPayloadAnswerValue(entry),
+          }))
+          .filter((entry) => entry.jawaban.trim().length > 0)
+
+        await submitSubtest(
+          activeBackendSubtest,
+          { answers: payloadAnswers },
+          '',
+          true
+        )
+      }
+
+      if (localStorageKey) {
+        localStorage.removeItem(localStorageKey)
+      }
+      if (runtimeCacheKey) {
+        sessionStorage.removeItem(runtimeCacheKey)
+      }
+    } catch (error) {
+      console.error('Failed to auto-submit before logout:', error)
+
+      const canContinueLogout =
+        isSubtestOutOfOrderError(error) ||
+        isTryoutTerminalStateError(error) ||
+        isCommittedSubmitFallbackError(error)
+
+      if (!canContinueLogout) {
+        setActionError(
+          'Submit otomatis gagal. Logout tetap dilanjutkan, cek jawaban setelah login kembali.'
+        )
+      }
+    }
+
+    try {
+      await logoutAuth()
+      window.location.replace('/login')
+    } catch (error) {
+      setActionError(
+        getAuthErrorMessage(error, 'Gagal logout. Silakan coba lagi.')
+      )
+      setIsLoggingOut(false)
+      setIsLogoutModalOpen(true)
+    }
+  }, [
+    activeBackendSubtest,
+    answers,
+    isLoggingOut,
+    localStorageKey,
+    runtimeCacheKey,
+    toPayloadAnswerValue,
   ])
 
   useEffect(() => {
@@ -1867,6 +1967,8 @@ const TryoutQuestionScreen = ({
 
       <button
         type='button'
+        disabled={isLoggingOut}
+        onClick={() => setIsLogoutModalOpen(true)}
         className='mt-auto flex w-full items-center justify-center gap-2 rounded-lg border border-[#FB3748] bg-white py-[10px] text-[16px] font-bold text-[#FB3748] transition-colors hover:bg-[#FB3748]/10'
       >
         <LogOut size={18} />
@@ -2199,6 +2301,36 @@ const TryoutQuestionScreen = ({
         </AlertDialogContent>
       </AlertDialog>
 
+      <AlertDialog
+        open={isLogoutModalOpen}
+        onOpenChange={(open) => {
+          if (!isLoggingOut) {
+            setIsLogoutModalOpen(open)
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Keluar dari akun?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Jawaban pada subtest ini akan otomatis disubmit. Setelah itu kamu
+              akan logout dan diarahkan ke halaman login.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isLoggingOut}>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isLoggingOut}
+              onClick={() => {
+                void submitAnswersAndLogout()
+              }}
+            >
+              {isLoggingOut ? 'Memproses...' : 'Submit & Logout'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <div className='h-screen bg-white lg:flex'>
       {isMobileSidebarOpen && (
         <div className='fixed inset-0 z-40 flex items-center justify-center bg-black/40 px-2 lg:hidden'>
@@ -2295,6 +2427,8 @@ const TryoutQuestionScreen = ({
               {/* Logout button */}
               <button
                 type='button'
+                disabled={isLoggingOut}
+                onClick={() => setIsLogoutModalOpen(true)}
                 className='flex w-full items-center justify-center gap-2 rounded-lg border border-[#FB3748] bg-white py-[10px] text-[16px] font-bold text-[#FB3748] transition-colors hover:bg-[#FB3748]/10'
               >
                 <LogOut size={18} />
