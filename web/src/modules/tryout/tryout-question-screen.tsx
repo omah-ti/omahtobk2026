@@ -1040,6 +1040,21 @@ const isTryoutTerminalStateError = (error: unknown) => {
   )
 }
 
+const hasExpiredTimeLimit = (value: Date | string | null | undefined) => {
+  if (!value) {
+    return false
+  }
+
+  const timestamp =
+    value instanceof Date ? value.getTime() : new Date(value).getTime()
+
+  if (!Number.isFinite(timestamp)) {
+    return false
+  }
+
+  return Date.now() >= timestamp
+}
+
 const TryoutQuestionScreen = ({
   subtest,
   questionNumber,
@@ -1116,6 +1131,29 @@ const TryoutQuestionScreen = ({
 
     return `tryout_answers_${attemptId}_${activeBackendSubtest}`
   }, [activeBackendSubtest, attemptId])
+
+  const showTimeUpModalFallback = useCallback(
+    (options?: {
+      overrideLocalStorageKey?: string | null
+      overrideRuntimeCacheKey?: string | null
+    }) => {
+      const localKeyToClear = options?.overrideLocalStorageKey ?? localStorageKey
+      const runtimeKeyToClear = options?.overrideRuntimeCacheKey ?? runtimeCacheKey
+
+      if (localKeyToClear) {
+        localStorage.removeItem(localKeyToClear)
+      }
+      if (runtimeKeyToClear) {
+        sessionStorage.removeItem(runtimeKeyToClear)
+      }
+
+      autoSubmitTriggeredRef.current = true
+      setIsReturningToDashboard(false)
+      setActionError('Waktu habis. Jawaban subtest sudah ditutup.')
+      setIsTimeUpModalOpen(true)
+    },
+    [localStorageKey, runtimeCacheKey]
+  )
 
   const redirectToActiveSubtest = useCallback(async (preferredBackendSubtest?: string | null) => {
     try {
@@ -1298,13 +1336,12 @@ const TryoutQuestionScreen = ({
         if (isSubtestOutOfOrderError(error)) {
           const payload = getSubtestOutOfOrderPayload(error)
           if (options?.onOutOfOrder === 'dashboard') {
-            if (localStorageKey) {
-              localStorage.removeItem(localStorageKey)
-            }
-            if (runtimeCacheKey) {
-              sessionStorage.removeItem(runtimeCacheKey)
-            }
-            router.replace('/dashboard-home')
+            showTimeUpModalFallback()
+            return false
+          }
+
+          if (hasExpiredTimeLimit(timeLimit)) {
+            showTimeUpModalFallback()
             return false
           }
 
@@ -1330,6 +1367,8 @@ const TryoutQuestionScreen = ({
       redirectToActiveSubtest,
       router,
       runtimeCacheKey,
+      showTimeUpModalFallback,
+      timeLimit,
       toPayloadAnswerValue,
     ]
   )
@@ -1623,6 +1662,9 @@ const TryoutQuestionScreen = ({
         const currentAttemptId = Number(currentTryout.data.attempt_id)
         const activeBackendSubtest = currentTryout.data.subtest_sekarang as string
         const activeSubtestCode = BACKEND_TO_SUBTEST[activeBackendSubtest]
+        const runtimeCache = runtimeCacheKey
+          ? decodeRuntimeCache(sessionStorage.getItem(runtimeCacheKey))
+          : null
 
         if (!activeSubtestCode) {
           setFetchError('Subtest aktif tidak valid. Coba muat ulang halaman.')
@@ -1635,6 +1677,28 @@ const TryoutQuestionScreen = ({
         }
 
         if (requestedBackendSubtest !== activeBackendSubtest) {
+          const runtimeCacheLooksCurrent =
+            runtimeCache != null &&
+            runtimeCache.subtest === subtest &&
+            runtimeCache.attemptId === currentAttemptId &&
+            runtimeCache.activeBackendSubtest === requestedBackendSubtest
+
+          if (
+            runtimeCacheLooksCurrent &&
+            hasExpiredTimeLimit(runtimeCache.timeLimitISO)
+          ) {
+            const requestedAnswerStorageKey =
+              Number.isFinite(currentAttemptId)
+                ? `tryout_answers_${currentAttemptId}_${requestedBackendSubtest}`
+                : null
+
+            showTimeUpModalFallback({
+              overrideLocalStorageKey: requestedAnswerStorageKey,
+              overrideRuntimeCacheKey: runtimeCacheKey,
+            })
+            return
+          }
+
           if (runtimeCacheKey) {
             sessionStorage.removeItem(runtimeCacheKey)
           }
@@ -1644,10 +1708,6 @@ const TryoutQuestionScreen = ({
         }
 
         if (runtimeCacheKey) {
-          const runtimeCache = decodeRuntimeCache(
-            sessionStorage.getItem(runtimeCacheKey)
-          )
-
           const maxAge = 20 * 60 * 1000
           const stillFresh =
             runtimeCache != null && Date.now() - runtimeCache.updatedAt <= maxAge
@@ -1810,6 +1870,11 @@ const TryoutQuestionScreen = ({
           if (redirected) {
             return
           }
+
+          if (hasExpiredTimeLimit(timeLimit)) {
+            showTimeUpModalFallback()
+            return
+          }
         }
 
         console.error('Failed to load backend questions:', error)
@@ -1826,7 +1891,7 @@ const TryoutQuestionScreen = ({
     return () => {
       active = false
     }
-  }, [router, runtimeCacheKey, subtest, subtestValid])
+  }, [router, runtimeCacheKey, showTimeUpModalFallback, subtest, subtestValid, timeLimit])
 
   useEffect(() => {
     if (!timeLimit) {
