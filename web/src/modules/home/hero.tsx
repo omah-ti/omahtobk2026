@@ -48,7 +48,7 @@ const Hero = () => {
             </motion.div>
             <motion.p
               variants={childVariants}
-              className='max-w-xxl mx-auto mt-2 text-base text-[16px] md:text-[20px] font-medium leading-[24px] md:leading-[30px] text-center text-[#475569] md:mt-4'
+              className='max-w-2xl mx-auto mt-2 text-base text-[16px] md:text-[20px] font-medium leading-[24px] md:leading-[30px] text-center text-[#475569] md:mt-4'
             >
               Validasi potensi melalui Analisis Minat, dominasi seleksi dengan Tryout Adaptif. Langkah presisi mengunci kursi Ilmu Komputer 2026.
             </motion.p>
@@ -61,7 +61,7 @@ const Hero = () => {
             <Button variant='outline' size='lg' className='w-full md:w-50'>
               <Link href='/career-match-up'>Cari Tech Personamu!</Link>
             </Button>
-            <Button variant='default' disabled size='lg' className='w-full md:w-50'>
+            <Button variant='default' size='lg' className='w-full md:w-50'>
               <Link href='/dashboard'>Ikuti Try Out Gratis</Link>
             </Button>
           </motion.div>
