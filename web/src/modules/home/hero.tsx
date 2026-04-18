@@ -41,14 +41,14 @@ const Hero = () => {
                   Roadmap Calon Mahasiswa IT Terbaik
                 </div>
               </div>
-              <h1 className='italic text-neutral-1000 md:leading-17'>
+              <h1 className='italic text-[34px] md:text-[48px] text-neutral-1000 md:leading-17'>
                 Ubah Keraguanmu <span className='not-italic font-bold text-primary-500'>Jadi Kepastian, Pilih Bidangmu</span>,
                 <span className='not-italic font-bold'> Amankan Kursimu.</span>
               </h1>
             </motion.div>
             <motion.p
               variants={childVariants}
-              className='max-w-xxl mx-auto mt-2 text-base md:text-[20px] font-medium leading-[24px] md:leading-[30px] text-center text-[#475569] md:mt-4'
+              className='max-w-xxl mx-auto mt-2 text-base text-[16px] md:text-[20px] font-medium leading-[24px] md:leading-[30px] text-center text-[#475569] md:mt-4'
             >
               Validasi potensi melalui Analisis Minat, dominasi seleksi dengan Tryout Adaptif. Langkah presisi mengunci kursi Ilmu Komputer 2026.
             </motion.p>
