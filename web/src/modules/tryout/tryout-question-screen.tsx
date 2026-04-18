@@ -2317,10 +2317,11 @@ const TryoutQuestionScreen = ({
               akan logout dan diarahkan ke halaman login.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
+          <AlertDialogFooter className='flex-row justify-center'>
             <AlertDialogCancel disabled={isLoggingOut}>Batal</AlertDialogCancel>
             <AlertDialogAction
               disabled={isLoggingOut}
+              className='border border-red-300 bg-white text-red-600 hover:bg-red-50 hover:text-red-600'
               onClick={() => {
                 void submitAnswersAndLogout()
               }}
