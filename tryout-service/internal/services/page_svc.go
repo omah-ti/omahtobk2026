@@ -26,6 +26,19 @@ type pageService struct {
 	tryoutRepo   repositories.TryoutRepo
 }
 
+var orderedProgressSubtests = []struct {
+	Key  string
+	Name string
+}{
+	{Key: "subtest_pu", Name: "Kemampuan Penalaran Umum"},
+	{Key: "subtest_ppu", Name: "Pengetahuan dan Pemahaman Umum"},
+	{Key: "subtest_pbm", Name: "Kemampuan Memahami Bacaan dan Menulis"},
+	{Key: "subtest_pk", Name: "Pengetahuan Kuantitatif"},
+	{Key: "subtest_lbi", Name: "Literasi dalam Bahasa Indonesia"},
+	{Key: "subtest_lbe", Name: "Literasi dalam Bahasa Inggris"},
+	{Key: "subtest_pm", Name: "Penalaran Matematika"},
+}
+
 func clampSubtestScore(score float64) float64 {
 	if score < 0 {
 		return 0
@@ -64,23 +77,20 @@ func (s *pageService) GetLeaderboard(c context.Context) ([]models.TryoutAttempt,
 }
 
 func (s *pageService) GetUserSubtestNilai(c context.Context, userId int) ([]models.UserScore, error) {
+	ongoingAttempt, err := s.pageRepo.GetOngoingAttemptByUserID(c, userId)
+	if err == nil && ongoingAttempt != nil {
+		if _, err := s.ensureAttemptScoresReady(c, userId, ongoingAttempt); err != nil {
+			logger.LogErrorCtx(c, err, "Failed to refresh subtest scores for ongoing attempt", map[string]interface{}{
+				"user_id":    userId,
+				"attempt_id": ongoingAttempt.TryoutAttemptID,
+			})
+		}
+	}
+
 	return s.pageRepo.GetAllSubtestScoreForAUser(c, userId)
 }
 
 func (s *pageService) GetSubtestsProgress(c context.Context, userID int) (*models.SubtestsProgressResponse, error) {
-	orderedSubtests := []struct {
-		Key  string
-		Name string
-	}{
-		{Key: "subtest_pu", Name: "Kemampuan Penalaran Umum"},
-		{Key: "subtest_ppu", Name: "Pengetahuan dan Pemahaman Umum"},
-		{Key: "subtest_pbm", Name: "Kemampuan Memahami Bacaan dan Menulis"},
-		{Key: "subtest_pk", Name: "Pengetahuan Kuantitatif"},
-		{Key: "subtest_lbi", Name: "Literasi dalam Bahasa Indonesia"},
-		{Key: "subtest_lbe", Name: "Literasi dalam Bahasa Inggris"},
-		{Key: "subtest_pm", Name: "Penalaran Matematika"},
-	}
-
 	actionRoutes := map[string]string{
 		"subtest_pu":  "/tryout/penalaran-umum",
 		"subtest_ppu": "/tryout/pengetahuan-dan-pemahaman-umum",
@@ -104,19 +114,28 @@ func (s *pageService) GetSubtestsProgress(c context.Context, userID int) (*model
 	attemptStatus := "not_started"
 	currentSubtest := ""
 	targetAttemptID := 0
+	var userScores []models.UserScore
 
 	if ongoingAttempt != nil {
 		attemptStatus = "ongoing"
 		currentSubtest = ongoingAttempt.SubtestSekarang
 		targetAttemptID = ongoingAttempt.TryoutAttemptID
+		userScores, err = s.ensureAttemptScoresReady(c, userID, ongoingAttempt)
+		if err != nil {
+			return nil, err
+		}
 	} else if finishedAttempt != nil {
 		attemptStatus = "finished"
 		targetAttemptID = finishedAttempt.TryoutAttemptID
-	}
-
-	userScores, err := s.pageRepo.GetAllSubtestScoreForAUser(c, userID)
-	if err != nil {
-		return nil, err
+		userScores, err = s.ensureAttemptScoresReady(c, userID, finishedAttempt)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		userScores, err = s.pageRepo.GetAllSubtestScoreForAUser(c, userID)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	scoreMap := make(map[string]float64, len(userScores))
@@ -127,17 +146,17 @@ func (s *pageService) GetSubtestsProgress(c context.Context, userID int) (*model
 		scoreMap[score.Subtest] = score.Score
 	}
 
-	rows := make([]models.SubtestProgressRow, 0, len(orderedSubtests))
+	rows := make([]models.SubtestProgressRow, 0, len(orderedProgressSubtests))
 	completed := 0
 	currentIndex := -1
-	for idx, sub := range orderedSubtests {
+	for idx, sub := range orderedProgressSubtests {
 		if sub.Key == currentSubtest {
 			currentIndex = idx
 			break
 		}
 	}
 
-	for i, sub := range orderedSubtests {
+	for i, sub := range orderedProgressSubtests {
 		scoreValue, hasScore := scoreMap[sub.Key]
 		row := models.SubtestProgressRow{
 			Order:       i + 1,
@@ -200,7 +219,7 @@ func (s *pageService) GetSubtestsProgress(c context.Context, userID int) (*model
 
 	return &models.SubtestsProgressResponse{
 		Summary: models.SubtestsProgressSummary{
-			TotalSubtests:     len(orderedSubtests),
+			TotalSubtests:     len(orderedProgressSubtests),
 			CompletedSubtests: completed,
 			CurrentSubtest:    currentSubtest,
 			AttemptStatus:     attemptStatus,
@@ -210,27 +229,33 @@ func (s *pageService) GetSubtestsProgress(c context.Context, userID int) (*model
 }
 
 func (s *pageService) GetProgressOverview(c context.Context, userID int, username, school string) (*models.ProgressOverviewResponse, error) {
-	orderedSubtests := []struct {
-		Key  string
-		Name string
-	}{
-		{Key: "subtest_pu", Name: "Kemampuan Penalaran Umum"},
-		{Key: "subtest_ppu", Name: "Pengetahuan dan Pemahaman Umum"},
-		{Key: "subtest_pbm", Name: "Kemampuan Memahami Bacaan dan Menulis"},
-		{Key: "subtest_pk", Name: "Pengetahuan Kuantitatif"},
-		{Key: "subtest_lbi", Name: "Literasi dalam Bahasa Indonesia"},
-		{Key: "subtest_lbe", Name: "Literasi dalam Bahasa Inggris"},
-		{Key: "subtest_pm", Name: "Penalaran Matematika"},
+	var targetAttempt *models.TryoutAttempt
+	if ongoing, err := s.pageRepo.GetOngoingAttemptByUserID(c, userID); err == nil && ongoing != nil {
+		targetAttempt = ongoing
+	} else if finished, err := s.pageRepo.GetFinishedAttemptByUserID(c, userID); err == nil && finished != nil {
+		targetAttempt = finished
 	}
 
-	scores, err := s.pageRepo.GetAllSubtestScoreForAUser(c, userID)
-	if err != nil {
-		return nil, err
+	var scores []models.UserScore
+	var err error
+	if targetAttempt != nil {
+		scores, err = s.ensureAttemptScoresReady(c, userID, targetAttempt)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		scores, err = s.pageRepo.GetAllSubtestScoreForAUser(c, userID)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	scoreMap := make(map[string]float64, len(scores))
 	var total float64
 	for _, sc := range scores {
+		if targetAttempt != nil && sc.TryoutAttemptID != targetAttempt.TryoutAttemptID {
+			continue
+		}
 		scoreMap[sc.Subtest] = sc.Score
 		total += sc.Score
 	}
@@ -242,7 +267,7 @@ func (s *pageService) GetProgressOverview(c context.Context, userID int, usernam
 	}
 
 	strongest := models.ProgressOverviewInsightItem{ScoreText: "-"}
-	for _, sub := range orderedSubtests {
+	for _, sub := range orderedProgressSubtests {
 		if val, ok := scoreMap[sub.Key]; ok {
 			if strongest.Score == nil || val > *strongest.Score {
 				v := val
@@ -257,7 +282,7 @@ func (s *pageService) GetProgressOverview(c context.Context, userID int, usernam
 	}
 
 	focus := models.ProgressOverviewInsightItem{ScoreText: "-"}
-	for _, sub := range orderedSubtests {
+	for _, sub := range orderedProgressSubtests {
 		if _, ok := scoreMap[sub.Key]; !ok {
 			focus = models.ProgressOverviewInsightItem{
 				SubtestKey:  sub.Key,
@@ -287,13 +312,8 @@ func (s *pageService) GetProgressOverview(c context.Context, userID int, usernam
 	}
 
 	var paket string
-	if ongoing, err := s.pageRepo.GetOngoingAttemptByUserID(c, userID); err == nil && ongoing != nil {
-		paket = ongoing.Paket
-	}
-	if paket == "" {
-		if finished, err := s.pageRepo.GetFinishedAttemptByUserID(c, userID); err == nil && finished != nil {
-			paket = finished.Paket
-		}
+	if targetAttempt != nil {
+		paket = targetAttempt.Paket
 	}
 	if paket == "" {
 		paket = "paket1"
@@ -322,8 +342,8 @@ func (s *pageService) GetProgressOverview(c context.Context, userID int, usernam
 		Statistics: models.ProgressOverviewStatistics{
 			AverageScore:      avg,
 			CompletedSubtests: completed,
-			TotalSubtests:     len(orderedSubtests),
-			ProgressText:      fmt.Sprintf("%d / %d subtest", completed, len(orderedSubtests)),
+			TotalSubtests:     len(orderedProgressSubtests),
+			ProgressText:      fmt.Sprintf("%d / %d subtest", completed, len(orderedProgressSubtests)),
 		},
 		Insight: models.ProgressOverviewInsight{
 			StrongestSubtest: strongest,
@@ -353,4 +373,60 @@ func (s *pageService) GetOngoingAttempt(c context.Context, userID int) (*models.
 
 func (s *pageService) GetFinishedAttempt(c context.Context, userID int) (*models.TryoutAttempt, error) {
 	return s.pageRepo.GetFinishedAttemptByUserID(c, userID)
+}
+
+func (s *pageService) ensureAttemptScoresReady(c context.Context, userID int, attempt *models.TryoutAttempt) ([]models.UserScore, error) {
+	scores, err := s.pageRepo.GetAllSubtestScoreForAUser(c, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	if attempt == nil {
+		return scores, nil
+	}
+
+	expectedCompletedScores := completedSubtestCountForAttempt(attempt)
+	if expectedCompletedScores <= 0 {
+		return scores, nil
+	}
+
+	filteredCount := 0
+	for _, score := range scores {
+		if score.TryoutAttemptID == attempt.TryoutAttemptID {
+			filteredCount++
+		}
+	}
+
+	if filteredCount >= expectedCompletedScores {
+		return scores, nil
+	}
+
+	if err := s.scoreService.CalculateAndStoreScores(c, attempt.TryoutAttemptID, userID, attempt.Paket, ""); err != nil {
+		logger.LogErrorCtx(c, err, "Failed to calculate and store scores while serving progress", map[string]interface{}{
+			"user_id":    userID,
+			"attempt_id": attempt.TryoutAttemptID,
+			"paket":      attempt.Paket,
+		})
+		return nil, err
+	}
+
+	return s.pageRepo.GetAllSubtestScoreForAUser(c, userID)
+}
+
+func completedSubtestCountForAttempt(attempt *models.TryoutAttempt) int {
+	if attempt == nil {
+		return 0
+	}
+
+	if attempt.Status == "finished" {
+		return len(orderedProgressSubtests)
+	}
+
+	for index, sub := range orderedProgressSubtests {
+		if sub.Key == attempt.SubtestSekarang {
+			return index
+		}
+	}
+
+	return 0
 }

@@ -900,18 +900,33 @@ const getRequiredMultipleChoiceSelections = (
   return MULTIPLE_CHOICE_REQUIRED_SELECTIONS[normalizeKodeSoalKey(question.id)] ?? 1
 }
 
-const isQuestionAnswered = (question: TryoutQuestion, rawAnswer: string) => {
+type QuestionAnswerState = 'empty' | 'partial' | 'complete'
+
+const getQuestionAnswerState = (
+  question: TryoutQuestion,
+  rawAnswer: string
+): QuestionAnswerState => {
   const answer = rawAnswer.trim()
 
   if (question.type === 'multiple_choice') {
     const requiredSelections = getRequiredMultipleChoiceSelections(question)
-    return parseAnswerTokenSet(answer).size >= requiredSelections
+    const selectedCount = parseAnswerTokenSet(answer).size
+
+    if (selectedCount === 0) {
+      return 'empty'
+    }
+
+    if (selectedCount < requiredSelections) {
+      return 'partial'
+    }
+
+    return 'complete'
   }
 
   if (question.type === 'multiple_true_false') {
     const statements = question.statements || []
     if (statements.length === 0) {
-      return false
+      return 'empty'
     }
 
     const selection = parseTrueFalseSelection(answer)
@@ -919,16 +934,37 @@ const isQuestionAnswered = (question: TryoutQuestion, rawAnswer: string) => {
     if (statements.length === 1) {
       const statementId = statements[0].id
       const selected = selection[statementId] || parseLooseBooleanValue(answer)
-      return selected === 'true' || selected === 'false'
+      if (selected === 'true' || selected === 'false') {
+        return 'complete'
+      }
+
+      return 'empty'
     }
 
-    return statements.every((statement) => {
+    let answeredCount = 0
+    statements.forEach((statement) => {
       const selected = selection[statement.id]
-      return selected === 'true' || selected === 'false'
+      if (selected === 'true' || selected === 'false') {
+        answeredCount += 1
+      }
     })
+
+    if (answeredCount === 0) {
+      return 'empty'
+    }
+
+    if (answeredCount < statements.length) {
+      return 'partial'
+    }
+
+    return 'complete'
   }
 
-  return answer.length > 0
+  return answer.length > 0 ? 'complete' : 'empty'
+}
+
+const isQuestionAnswered = (question: TryoutQuestion, rawAnswer: string) => {
+  return getQuestionAnswerState(question, rawAnswer) === 'complete'
 }
 
 const getSubtestOutOfOrderPayload = (
@@ -1753,9 +1789,12 @@ const TryoutQuestionScreen = ({
             const number = index + 1
             const isActive = number === questionNumber
             const targetQuestion = questions[number - 1]
-            const hasAnswer = Boolean(
-              targetQuestion && answers[targetQuestion.id]?.jawaban?.trim()
-            )
+            const answerState = targetQuestion
+              ? getQuestionAnswerState(
+                  targetQuestion,
+                  answers[targetQuestion.id]?.jawaban || ''
+                )
+              : 'empty'
 
             return (
               <button
@@ -1765,8 +1804,10 @@ const TryoutQuestionScreen = ({
                 className={`${numberButtonBase} ${
                   isActive
                     ? 'border-[#0D3388] bg-[#0D3388] text-white'
-                    : hasAnswer
+                    : answerState === 'complete'
                       ? 'border-primary-300 bg-primary-300 text-neutral-900 hover:bg-primary-300'
+                      : answerState === 'partial'
+                        ? 'border-yellow-200 bg-yellow-100 text-neutral-900 hover:bg-yellow-100'
                     : 'border-neutral-300 bg-white text-neutral-800 hover:bg-neutral-100'
                 }`}
               >
@@ -2175,9 +2216,12 @@ const TryoutQuestionScreen = ({
                     const number = index + 1
                     const isActive = number === questionNumber
                     const targetQuestion = questions[number - 1]
-                    const hasAnswer = Boolean(
-                      targetQuestion && answers[targetQuestion.id]?.jawaban?.trim()
-                    )
+                    const answerState = targetQuestion
+                      ? getQuestionAnswerState(
+                          targetQuestion,
+                          answers[targetQuestion.id]?.jawaban || ''
+                        )
+                      : 'empty'
 
                     return (
                       <button
@@ -2187,8 +2231,10 @@ const TryoutQuestionScreen = ({
                         className={`${numberButtonBase} ${
                           isActive
                             ? 'border-[#0D3388] bg-[#0D3388] text-white'
-                            : hasAnswer
+                            : answerState === 'complete'
                               ? 'border-primary-300 bg-primary-300 text-neutral-900 hover:bg-primary-300'
+                              : answerState === 'partial'
+                                ? 'border-yellow-200 bg-yellow-100 text-neutral-900 hover:bg-yellow-100'
                             : 'border-neutral-300 bg-white text-neutral-800 hover:bg-neutral-100'
                         }`}
                       >
