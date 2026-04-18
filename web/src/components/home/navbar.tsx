@@ -86,7 +86,7 @@ const DesktopNavigation = ({
               Tech Persona
             </Button>
           </Link>
-          <Link href='/tryout'>
+          <Link href='/dashboard'>
             <Button className='px-8 hover:cursor-pointer'>Tryout</Button>
           </Link>
         </>
