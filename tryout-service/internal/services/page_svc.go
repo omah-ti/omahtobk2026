@@ -407,7 +407,9 @@ func (s *pageService) ensureAttemptScoresReady(c context.Context, userID int, at
 			"attempt_id": attempt.TryoutAttemptID,
 			"paket":      attempt.Paket,
 		})
-		return nil, err
+		// Keep progress endpoints available even when score refresh cannot reach the
+		// answer-key service. Existing scores, if any, are still returned.
+		return scores, nil
 	}
 
 	return s.pageRepo.GetAllSubtestScoreForAUser(c, userID)
