@@ -48,7 +48,7 @@ const Hero = () => {
             </motion.div>
             <motion.p
               variants={childVariants}
-              className='mt-2 text-sm max-w-xl md:text-[20px] font-light text-center text-neutral-1000 md:mt-4'
+              className='max-w-xxl mx-auto mt-2 text-base md:text-[20px] font-medium leading-[24px] md:leading-[30px] text-center text-[#475569] md:mt-4'
             >
               Validasi potensi melalui Analisis Minat, dominasi seleksi dengan Tryout Adaptif. Langkah presisi mengunci kursi Ilmu Komputer 2026.
             </motion.p>
