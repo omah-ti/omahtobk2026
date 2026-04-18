@@ -24,7 +24,7 @@ const buttonVariants = cva(
         ghost: 'hover:bg-neutral-100 hover:text-neutral-900',
         link: 'text-black hover:text-primary-700 transition-all  hover:cursor-pointer',
         card: 'bg-white text-black border-neutral-200 border hover:bg-neutral-100',
-        white: 'bg-white text-black hover:bg-neutral-100',
+        white: 'bg-white px-6 text-black hover:bg-neutral-100',
         blur: 'bg-[#D9D9D9] drop-shadow-xl backdrop-blur-xl',
         pembahasan: 'bg-[#0479CE] font-lato text-white text-medium',
       },
