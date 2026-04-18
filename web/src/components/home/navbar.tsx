@@ -86,12 +86,12 @@ const DesktopNavigation = ({
         <>
           <Link href={`/login`}>
             <Button variant="outline" className='px-8 hover:cursor-pointer'>
-              Login
+              Login Try Out
             </Button>
           </Link>
           <Link href={`/register`}>
             <Button className='px-8 hover:cursor-pointer'>
-              Sign Up
+              Daftar Try Out
             </Button>
           </Link>
         </>
@@ -148,7 +148,7 @@ const MobileNavigation = ({
                     <Link
                     href='/login'
                   >
-                    Login
+                    Login Try Out
                   </Link>
                   </Button>
                 </SheetClose>
@@ -157,7 +157,7 @@ const MobileNavigation = ({
                     <Link
                       href='/register'
                     >
-                      Sign Up
+                      Daftar Try Out
                     </Link>
                   </Button>
                 </SheetClose>
