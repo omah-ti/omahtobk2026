@@ -1,4 +1,4 @@
-import DashboardHeader from '@/components/dashboard-home/header'
+import DashboardHeader from '@/components/dashboard/header'
 import ActivitySection from '@/modules/dashboard-home/activity-section'
 import TryoutBanner from '@/modules/dashboard-home/tryout-banner'
 import { fetchUser } from '@/app/fetch_user'

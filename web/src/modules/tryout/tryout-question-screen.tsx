@@ -1370,7 +1370,7 @@ const TryoutQuestionScreen = ({
         }
 
         if (isTryoutTerminalStateError(error)) {
-          router.replace('/dashboard-home')
+          router.replace('/dashboard')
           return false
         }
 
@@ -1407,8 +1407,8 @@ const TryoutQuestionScreen = ({
 
     const destination =
       activeBackendSubtest === LAST_BACKEND_SUBTEST
-        ? '/dashboard-home/progress'
-        : '/dashboard-home'
+        ? '/dashboard/progress'
+        : '/dashboard'
 
     setIsReturningToDashboard(true)
     setIsTimeUpModalOpen(false)
@@ -1428,8 +1428,8 @@ const TryoutQuestionScreen = ({
     const isTimeUp = timeLimit ? Date.now() >= timeLimit.getTime() : false
     const postSubmitDestination =
       activeBackendSubtest === LAST_BACKEND_SUBTEST
-        ? '/dashboard-home/progress'
-        : '/dashboard-home'
+        ? '/dashboard/progress'
+        : '/dashboard'
 
     if (!forceSubmit && !isTimeUp && unansweredQuestionNumbers.length > 0) {
       setIsIncompleteModalOpen(true)
@@ -1682,7 +1682,7 @@ const TryoutQuestionScreen = ({
         const currentTryout = await getCurrentTryout('', true)
 
         if (!currentTryout?.data?.subtest_sekarang || !currentTryout?.data?.attempt_id) {
-          router.replace('/dashboard-home')
+          router.replace('/dashboard')
           return
         }
 
@@ -1887,7 +1887,7 @@ const TryoutQuestionScreen = ({
         }
 
         if (isTryoutTerminalStateError(error)) {
-          router.replace('/dashboard-home')
+          router.replace('/dashboard')
           return
         }
 

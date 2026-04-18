@@ -14,7 +14,7 @@ const TryoutLayout = async ({ children }: { children: React.ReactNode }) => {
   const accessToken = await getRequestAccessToken()
   const finishedAttempt = await getFinishedAttempt(accessToken)
   if (finishedAttempt) {
-    redirect('/dashboard-home')
+    redirect('/dashboard')
   }
   const currentSubtest = await getCurrentTryout(accessToken)
   if (currentSubtest == null) {
@@ -26,7 +26,7 @@ const TryoutLayout = async ({ children }: { children: React.ReactNode }) => {
     subtestData = await startSubtest(subtestSekarang, accessToken)
   } catch (error) {
     console.error('Failed to start subtest in layout:', error)
-    redirect('/dashboard-home?error=start-subtest-failed')
+    redirect('/dashboard?error=start-subtest-failed')
   }
   const timeLimit = subtestData.data.time_limit
   const initialAnswers = subtestData.data.answers || []
@@ -37,7 +37,7 @@ const TryoutLayout = async ({ children }: { children: React.ReactNode }) => {
     soal = await getSoal(currentSubtest.data.subtest_sekarang, accessToken)
   } catch (error) {
     console.error('Failed to fetch soal in layout:', error)
-    redirect('/dashboard-home?error=soal-fetch-failed')
+    redirect('/dashboard?error=soal-fetch-failed')
   }
 
   const user = await fetchUser()

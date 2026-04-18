@@ -123,7 +123,7 @@ const AnswerCard = ({
       localStorage.removeItem(localStorageKey)
       setHasSubmitted(true)
       if (timerRef.current) clearInterval(timerRef.current)
-      router.push('/dashboard-home')
+      router.push('/dashboard')
       toast.success('Jawaban berhasil dikumpulkan!', {
         position: 'bottom-left',
       })
@@ -137,7 +137,7 @@ const AnswerCard = ({
           position: 'bottom-left',
         }
       )
-      router.push('/dashboard-home')
+      router.push('/dashboard')
     } finally {
       setSubmitting(false)
       setSyncStatus('idle')

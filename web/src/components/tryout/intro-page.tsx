@@ -26,12 +26,12 @@ const IntroPage = async () => {
       currentTryout = await getCurrentTryout(accessToken)
     } catch (error) {
       console.error('Error starting attempt:', error)
-      redirect('/dashboard-home?error=start-attempt-failed')
+      redirect('/dashboard?error=start-attempt-failed')
     }
   }
 
   if (!currentTryout?.data?.subtest_sekarang) {
-    redirect('/dashboard-home?error=current-attempt-failed')
+    redirect('/dashboard?error=current-attempt-failed')
   }
 
   let timeLimit
@@ -43,7 +43,7 @@ const IntroPage = async () => {
     timeLimit = subtestStart.data.time_limit
   } catch (error) {
     console.error('Error:', error)
-    redirect('/dashboard-home?error=start-subtest-failed')
+    redirect('/dashboard?error=start-subtest-failed')
   }
 
   const grace = 30_000

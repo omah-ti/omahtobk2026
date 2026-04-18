@@ -9,8 +9,8 @@ import LogOutDialog from "@/components/log-out-dialog";
 import { Button } from "@/components/ui/button";
 
 const navItems = [
-  { label: "Home", href: "/dashboard-home", icon: "/icons/home.svg" },
-  { label: "Progress", href: "/dashboard-home/progress", icon: "/icons/trending-up.svg" },
+  { label: "Home", href: "/dashboard", icon: "/icons/home.svg" },
+  { label: "Progress", href: "/dashboard/progress", icon: "/icons/trending-up.svg" },
 ];
 
 export default function Sidebar() {
