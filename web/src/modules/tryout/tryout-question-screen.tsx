@@ -1062,6 +1062,9 @@ const TryoutQuestionScreen = ({
   const router = useRouter()
   const lastSyncAtRef = useRef(0)
   const autoSubmitTriggeredRef = useRef(false)
+  const timeLimitRef = useRef<Date | null>(null)
+  const localStorageKeyRef = useRef<string | null>(null)
+  const runtimeCacheKeyRef = useRef<string | null>(null)
   const [username, setUsername] = useState('Pengguna')
   const [questions, setQuestions] = useState<TryoutQuestion[]>([])
   const [answers, setAnswers] = useState<LocalAnswerMap>({})
@@ -1132,13 +1135,27 @@ const TryoutQuestionScreen = ({
     return `tryout_answers_${attemptId}_${activeBackendSubtest}`
   }, [activeBackendSubtest, attemptId])
 
+  useEffect(() => {
+    timeLimitRef.current = timeLimit
+  }, [timeLimit])
+
+  useEffect(() => {
+    localStorageKeyRef.current = localStorageKey
+  }, [localStorageKey])
+
+  useEffect(() => {
+    runtimeCacheKeyRef.current = runtimeCacheKey
+  }, [runtimeCacheKey])
+
   const showTimeUpModalFallback = useCallback(
     (options?: {
       overrideLocalStorageKey?: string | null
       overrideRuntimeCacheKey?: string | null
     }) => {
-      const localKeyToClear = options?.overrideLocalStorageKey ?? localStorageKey
-      const runtimeKeyToClear = options?.overrideRuntimeCacheKey ?? runtimeCacheKey
+      const localKeyToClear =
+        options?.overrideLocalStorageKey ?? localStorageKeyRef.current
+      const runtimeKeyToClear =
+        options?.overrideRuntimeCacheKey ?? runtimeCacheKeyRef.current
 
       if (localKeyToClear) {
         localStorage.removeItem(localKeyToClear)
@@ -1152,7 +1169,7 @@ const TryoutQuestionScreen = ({
       setActionError('Waktu habis. Jawaban subtest sudah ditutup.')
       setIsTimeUpModalOpen(true)
     },
-    [localStorageKey, runtimeCacheKey]
+    []
   )
 
   const redirectToActiveSubtest = useCallback(async (preferredBackendSubtest?: string | null) => {
@@ -1340,7 +1357,7 @@ const TryoutQuestionScreen = ({
             return false
           }
 
-          if (hasExpiredTimeLimit(timeLimit)) {
+          if (hasExpiredTimeLimit(timeLimitRef.current)) {
             showTimeUpModalFallback()
             return false
           }
@@ -1368,7 +1385,6 @@ const TryoutQuestionScreen = ({
       router,
       runtimeCacheKey,
       showTimeUpModalFallback,
-      timeLimit,
       toPayloadAnswerValue,
     ]
   )
@@ -1871,7 +1887,7 @@ const TryoutQuestionScreen = ({
             return
           }
 
-          if (hasExpiredTimeLimit(timeLimit)) {
+          if (hasExpiredTimeLimit(timeLimitRef.current)) {
             showTimeUpModalFallback()
             return
           }
@@ -1891,7 +1907,7 @@ const TryoutQuestionScreen = ({
     return () => {
       active = false
     }
-  }, [router, runtimeCacheKey, showTimeUpModalFallback, subtest, subtestValid, timeLimit])
+  }, [router, runtimeCacheKey, showTimeUpModalFallback, subtest, subtestValid])
 
   useEffect(() => {
     if (!timeLimit) {
