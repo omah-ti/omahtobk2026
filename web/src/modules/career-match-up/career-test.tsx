@@ -233,6 +233,15 @@ const CareerMatchUpTest = ({
 
   return (
     <div className='mx-auto flex w-full max-w-3xl flex-col items-center gap-9 px-4 pt-28 pb-8 md:max-w-5xl md:pt-34'>
+      <div className='w-full flex justify-start'>
+        <Link href='/career-match-up'>
+          <Button variant='outline' size='lg' className='w-fit'>
+            <ChevronLeft />
+            Kembali
+          </Button>
+        </Link>
+      </div>
+
       <ProgressBar current={answeredCount} total={totalQuestions} />
       <p className='text-sm font-medium text-gray-700'>
         Halaman {currentPage + 1} dari {totalPages}
@@ -254,13 +263,6 @@ const CareerMatchUpTest = ({
       )}
 
       <div className='flex w-full flex-row justify-center gap-3'>
-        <Link href='/career-match-up'>
-          <Button variant="outline" size="lg" className='w-full'>
-            <ChevronLeft />
-            Kembali
-          </Button>
-        </Link>
-
         <Button
           variant='outline'
           size='lg'
