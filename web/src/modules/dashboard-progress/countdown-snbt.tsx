@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
 import { ProgressOverviewUTBK } from '@/lib/types/types'
 
@@ -39,21 +39,25 @@ function CountBox({ value, label }: { value: number; label: string }) {
 }
 
 const CountdownSNBT = ({ utbk }: { utbk?: ProgressOverviewUTBK }) => {
-  const targetDate = parseDate(utbk?.end_at) || FALLBACK_TARGET_DATE
+  const targetDate = useMemo(
+    () => parseDate(utbk?.end_at) || FALLBACK_TARGET_DATE,
+    [utbk?.end_at]
+  )
+  const targetMs = targetDate.getTime()
 
   const [countdown, setCountdown] = useState(() => {
-    return getCountdown(targetDate.getTime(), Date.now())
+    return getCountdown(targetMs, Date.now())
   })
 
   useEffect(() => {
-    setCountdown(getCountdown(targetDate.getTime(), Date.now()))
+    setCountdown(getCountdown(targetMs, Date.now()))
 
     const id = setInterval(() => {
-      setCountdown(getCountdown(targetDate.getTime(), Date.now()))
+      setCountdown(getCountdown(targetMs, Date.now()))
     }, 60000)
 
     return () => clearInterval(id)
-  }, [targetDate])
+  }, [targetMs])
 
   return (
     <div className="relative flex flex-col items-center gap-[24px] p-5 bg-neutral-100 border border-neutral-200 rounded-[8px] shadow-[0_2px_4px_0_rgba(0,0,0,0.05)] overflow-hidden">
